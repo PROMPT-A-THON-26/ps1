@@ -41,6 +41,14 @@ class RepairResult:
     healthy_replica_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class RepairPlan:
+    version_id: UUID
+    failed_node_id: str
+    source_node_id: str
+    target_node_id: str
+
+
 class DistributedWriteCoordinator:
     """Quorum write/read/repair orchestration across storage nodes."""
 
@@ -195,10 +203,52 @@ class DistributedWriteCoordinator:
 
         raise InsufficientReplicas(self.read_quorum, successful)
 
+    async def plan_repair(
+        self,
+        version_id: UUID,
+        failed_node_id: str,
+    ) -> RepairPlan:
+        """Select a healthy source and a currently healthy replacement target."""
+        version = self.session.scalar(
+            select(Version).where(Version.version_id == version_id)
+        )
+        if version is None:
+            raise ObjectNotFound(str(version_id))
+        if version.state is not VersionState.COMMITTED:
+            raise InvalidState(f"Version {version_id} is not committed.")
+
+        replicas = list(
+            self.session.scalars(
+                select(Replica).where(Replica.version_id == version_id)
+            )
+        )
+        healthy = [
+            replica for replica in replicas if replica.status is ReplicaState.HEALTHY
+        ]
+        if not healthy:
+            raise InsufficientReplicas(1, 0)
+
+        candidates = await self._healthy_candidates(
+            version.size_bytes,
+            exclude={replica.node_id for replica in replicas},
+        )
+        if not candidates:
+            raise InsufficientReplicas(self.replication_factor, len(healthy))
+
+        return RepairPlan(
+            version_id=version_id,
+            failed_node_id=failed_node_id,
+            source_node_id=healthy[0].node_id,
+            target_node_id=candidates[0],
+        )
+
     async def repair_version(
         self,
         version_id: UUID,
         failed_node_id: str,
+        *,
+        source_node_id: str | None = None,
+        target_node_id: str | None = None,
     ) -> RepairResult:
         version = self.session.scalar(
             select(Version).where(Version.version_id == version_id)
@@ -239,11 +289,25 @@ class DistributedWriteCoordinator:
             raise InsufficientReplicas(self.replication_factor, len(healthy))
 
         source = healthy[0]
-        target_node_id = candidates[0]
-        source_client = self.nodes[source.node_id]
-        target_client = self.nodes[target_node_id]
+        if source_node_id is not None:
+            source = next(
+                (replica for replica in healthy if replica.node_id == source_node_id),
+                None,
+            )
+            if source is None:
+                raise InsufficientReplicas(1, 0)
 
-        replica = self.manager.create_replica(version_id, target_node_id)
+        if target_node_id is None:
+            selected_target_node_id = candidates[0]
+        else:
+            if target_node_id not in candidates:
+                raise InsufficientReplicas(self.replication_factor, len(healthy))
+            selected_target_node_id = target_node_id
+
+        source_client = self.nodes[source.node_id]
+        target_client = self.nodes[selected_target_node_id]
+
+        replica = self.manager.create_replica(version_id, selected_target_node_id)
         self.manager.set_replica_state(replica.replica_id, ReplicaState.COPYING)
 
         try:
@@ -278,7 +342,7 @@ class DistributedWriteCoordinator:
         except StorageNodeUnavailableError:
             self.manager.set_replica_state(replica.replica_id, ReplicaState.FAILED)
             self.manager.update_node_heartbeat(
-                target_node_id, status=NodeState.UNAVAILABLE
+                selected_target_node_id, status=NodeState.UNAVAILABLE
             )
             raise
         except StorageNodeClientError:
@@ -301,7 +365,7 @@ class DistributedWriteCoordinator:
         return RepairResult(
             version_id=version_id,
             source_node_id=source.node_id,
-            target_node_id=target_node_id,
+            target_node_id=selected_target_node_id,
             healthy_replica_count=healthy_count,
         )
 
