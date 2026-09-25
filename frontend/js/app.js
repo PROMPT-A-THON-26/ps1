@@ -239,16 +239,19 @@
   }
   async function runAction(name){
     try{
-      if(name==="integrity")showView("integrity");
-      if(name==="repair")showView("repairs");
-      if(name==="rebalance")showView("rebalance");
       const selected=DATA.objects.find(o=>o.id===state.selectedObject),versionId=selected?.currentVersionId;
       if(CONFIG.mode==="api"){
-        if((name==="repair"||name==="rebalance")&&!versionId)throw new Error("Select an object with a current version before starting this operation.");
+        if((name==="repair"||name==="rebalance")&&!versionId){
+          showView("objects");
+          throw new Error("Open Objects, inspect an object with a current version, then start this operation.");
+        }
+        if(name==="integrity")showView("integrity");
+        if(name==="repair")showView("repairs");
+        if(name==="rebalance")showView("rebalance");
         let payload={};
         if(name==="repair")payload={version_id:versionId,reason:"admin-request"};
         if(name==="integrity"&&versionId)payload={version_id:versionId};
-        if(name==="rebalance"){const source=DATA.nodes.find(n=>n.status==="attention")||DATA.nodes[0],target=DATA.nodes.find(n=>n.id!==source?.id&&n.percent<60);if(!source||!target)throw new Error("No safe source/target node pair is available.");payload={version_id:versionId,source_node_id:source.id,target_node_id:target.id};}
+        if(name==="rebalance"){const source=DATA.nodes.find(n=>n.percent>=80)||DATA.nodes.find(n=>n.status==="attention"),target=DATA.nodes.find(n=>n.id!==source?.id&&n.percent<60);if(!source||!target)throw new Error("No safe high-pressure source and low-pressure target node pair is available.");payload={version_id:versionId,source_node_id:source.id,target_node_id:target.id};}
         const result=await API.action(name,payload),id=jobIdFromResponse(name,result);
         toast(name.charAt(0).toUpperCase()+name.slice(1)+" accepted",id?"Tracking "+id:"Part B accepted the request.");if(id)pollJob(name,id);return;
       }
