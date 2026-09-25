@@ -23,6 +23,6 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Compile
-        run: python -m compileall -q common metadata replication health placement gateway repair tests
+        run: python -m compileall -q common metadata replication health placement gateway repair integrity tests
       - name: Test
         run: pytest -q
