@@ -18,6 +18,7 @@ from common.constants import (
     VersionState,
 )
 from common.errors import VaultError
+from common.settings import settings
 from metadata.manager import MetadataManager
 from metadata.models import Replica, StorageNode, Version
 from repair import RepairManager
@@ -40,12 +41,15 @@ class FailureDetector:
         self,
         session,
         *,
-        suspect_after_seconds: float = DEFAULT_SUSPECT_AFTER_SECONDS,
-        unavailable_after_seconds: float = DEFAULT_UNAVAILABLE_AFTER_SECONDS,
+        suspect_after_seconds: float | None = None,
+        unavailable_after_seconds: float | None = None,
         clock: Optional[Callable[[], datetime]] = None,
         repair_manager_factory=RepairManager,
-        replication_factor: int = DEFAULT_REPLICATION_FACTOR,
+        replication_factor: int | None = None,
     ) -> None:
+        suspect_after_seconds = settings.suspect_after_seconds if suspect_after_seconds is None else suspect_after_seconds
+        unavailable_after_seconds = settings.unavailable_after_seconds if unavailable_after_seconds is None else unavailable_after_seconds
+        replication_factor = settings.replication_factor if replication_factor is None else replication_factor
         if suspect_after_seconds <= 0:
             raise ValueError("suspect_after_seconds must be greater than zero")
         if unavailable_after_seconds <= suspect_after_seconds:
