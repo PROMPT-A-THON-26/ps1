@@ -43,11 +43,15 @@ class FakeClient:
         from replication.node_client import StorageNodeUnavailableError
         if self.node_id in self.fail_nodes:
             raise StorageNodeUnavailableError("unavailable")
-        yield type(
-            "Response",
-            (),
-            {"aiter_bytes": lambda self: _aiter(self.body)}
-        )(self.storage[(self.node_id, object_id, version_id)])
+
+        class Response:
+            def __init__(self, body: bytes) -> None:
+                self.body = body
+
+            def aiter_bytes(self):
+                return _aiter(self.body)
+
+        yield Response(self.storage[(self.node_id, object_id, version_id)])
 
     async def put_object(self, object_id: str, version_id: str, data, **kwargs):
         if self.node_id in self.fail_nodes:
