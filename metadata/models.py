@@ -227,6 +227,9 @@ class RepairJob(Base):
     version_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("versions.version_id"), nullable=False
     )
+    failed_node_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("storage_nodes.node_id"), nullable=False
+    )
     source_node_id: Mapped[str] = mapped_column(
         String(128), ForeignKey("storage_nodes.node_id"), nullable=False
     )
