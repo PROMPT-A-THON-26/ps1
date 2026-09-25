@@ -288,3 +288,30 @@ async def test_existing_object_write_creates_next_version(db_session, tmp_path):
         )
         assert [version.version_number for version in versions] == [1, 2]
         assert all(version.state is VersionState.COMMITTED for version in versions)
+
+
+@pytest.mark.asyncio
+async def test_streaming_read_does_not_change_payload_contract(db_session, tmp_path):
+    async with AsyncExitStack() as stack:
+        nodes, _transports = await build_nodes(tmp_path, stack)
+        manager = MetadataManager(db_session)
+        for node_id in nodes:
+            manager.register_node(
+                node_id=node_id,
+                address=f"http://{node_id}:9001",
+                capacity_bytes=10_000_000,
+            )
+
+        coordinator = DistributedWriteCoordinator(
+            db_session,
+            nodes,
+            replication_factor=3,
+            write_quorum=2,
+            read_quorum=1,
+        )
+        payload = b"stream-" * 4096
+        await coordinator.write_object("stream.bin", payload)
+
+        chunks = [chunk async for chunk in coordinator.stream_object("stream.bin")]
+        assert len(chunks) > 1
+        assert b"".join(chunks) == payload
