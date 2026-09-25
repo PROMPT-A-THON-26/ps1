@@ -201,7 +201,9 @@ async def test_missing_replica_after_partition_is_repaired_to_new_node(
 
         final = await reconciler.reconcile_version(result.version_id)
         assert final.healthy == 3
-        assert final.unavailable == 0
+        # The original missing replica remains unavailable; node-4 is the
+        # verified replacement. Reconciliation must not invent bytes on node-1.
+        assert final.unavailable == 1
         assert await coordinator.read_object("missing.bin") == b"missing-data"
 
 
