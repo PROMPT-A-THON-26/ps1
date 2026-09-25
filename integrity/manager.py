@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from common.constants import JobStatus, NodeState, ReplicaState, VersionState
+from common.settings import settings
 from common.errors import ObjectNotFound, VaultError
 from metadata.manager import MetadataManager
 from metadata.models import IntegrityJob, Replica, StorageNode, Version
@@ -48,8 +49,8 @@ class IntegrityManager:
         *,
         client_factory=StorageNodeClient,
         repair_manager_factory=RepairManager,
-        replication_factor: int = 3,
-        max_attempts: int = 5,
+        replication_factor: int | None = None,
+        max_attempts: int | None = None,
     ) -> None:
         if (
             not isinstance(replication_factor, int)
@@ -61,7 +62,8 @@ class IntegrityManager:
         self.metadata = MetadataManager(session)
         self.client_factory = client_factory
         self.repair_manager_factory = repair_manager_factory
-        self.replication_factor = replication_factor
+        self.replication_factor = settings.replication_factor if replication_factor is None else replication_factor
+        max_attempts = settings.max_attempts if max_attempts is None else max_attempts
         if max_attempts < 1:
             raise ValueError("max_attempts must be positive")
         self.max_attempts = max_attempts
