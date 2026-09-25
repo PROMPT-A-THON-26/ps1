@@ -95,16 +95,23 @@ def test_verify_endpoint_detects_corruption(tmp_path):
         assert client.put("/internal/v1/objects/obj-1/ver-1", content=payload).status_code == 201
         version_dir = tmp_path / "objects" / "obj-1" / "ver-1"
         (version_dir / "chunk-000001").write_bytes(b"XXXX")
-        response = client.get("/internal/v1/objects/obj-1/ver-1/verify")
+        response = client.get(
+            "/internal/v1/objects/obj-1/ver-1/verify",
+            headers={"X-Request-ID": "req-verify"},
+        )
         assert response.status_code == 200
         body = response.json()
+        assert body["verified"] is True
         assert body["valid"] is False
+        assert body["size_bytes"] == len(payload)
         assert 1 in body["corrupt_chunks"]
+        assert response.headers["X-Request-ID"] == "req-verify"
 
 def test_verify_endpoint_missing_object(tmp_path):
     with client_for(tmp_path) as client:
         response = client.get("/internal/v1/objects/missing/ver-1/verify")
         assert response.status_code == 404
+
 
 
 def test_verify_endpoint_reports_corrupt_metadata(tmp_path):
