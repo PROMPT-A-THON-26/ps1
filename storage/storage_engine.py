@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import os
@@ -70,7 +69,6 @@ class StorageEngine:
         self.capacity_bytes = capacity_bytes
         self.chunk_size_bytes = chunk_size_bytes
         self._lock = threading.RLock()
-        self._stream_lock = asyncio.Lock()
         self._reserved_bytes = 0
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -106,8 +104,7 @@ class StorageEngine:
         chunks: AsyncIterable[bytes],
     ) -> int:
         """Consume an async request stream without buffering the full object."""
-        async with self._stream_lock:
-            self._validate_ids(object_id, version_id)
+        self._validate_ids(object_id, version_id)
             with self._lock:
                 self._ensure_new_object(object_id, version_id)
                 staging_dir = self._create_staging_dir(object_id, version_id)
