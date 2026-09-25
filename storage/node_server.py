@@ -64,6 +64,7 @@ class VerifyResponse(BaseModel):
     version_id: str
     valid: bool
     checksum: str | None
+    size_bytes: int
     chunk_count: int
     corrupt_chunks: list[int]
     errors: list[str]
@@ -187,6 +188,7 @@ def verify_object(object_id: str, version_id: str) -> VerifyResponse:
         version_id=result.version_id,
         valid=result.valid,
         checksum=result.checksum,
+        size_bytes=result.size_bytes,
         chunk_count=result.chunk_count,
         corrupt_chunks=list(result.corrupt_chunks),
         errors=list(result.errors),
