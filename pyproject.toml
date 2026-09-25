@@ -15,4 +15,4 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.setuptools]
-packages = ["common", "metadata", "replication", "health", "placement", "gateway", "repair"]
+packages = ["common", "metadata", "replication", "health", "placement", "gateway", "repair", "integrity"]
