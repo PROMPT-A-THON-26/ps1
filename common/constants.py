@@ -35,6 +35,13 @@ class NodeState(StrEnum):
     DRAINING = "DRAINING"
     REMOVED = "REMOVED"
 
+# Canonical object lifecycle transitions. Same-state writes are treated as no-ops.
+OBJECT_STATE_TRANSITIONS = {
+    ObjectState.ACTIVE: frozenset({ObjectState.DELETING}),
+    ObjectState.DELETING: frozenset({ObjectState.DELETED}),
+    ObjectState.DELETED: frozenset(),
+}
+
 # Canonical node lifecycle transitions. Same-state writes are treated as no-ops.
 NODE_STATE_TRANSITIONS = {
     NodeState.JOINING: frozenset({NodeState.HEALTHY}),
