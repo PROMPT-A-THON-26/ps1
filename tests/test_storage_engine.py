@@ -298,3 +298,74 @@ def test_concurrent_async_duplicate_writes_have_one_winner(tmp_path):
     assert results.count("created") == 1
     assert results.count("duplicate") == 7
     assert engine.read_bytes("obj-1", "ver-1") == b"abcd"
+
+
+def test_verify_detects_invalid_chunk_checksum_metadata(tmp_path):
+    import json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"abcdefgh")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["chunk_checksums"][0] = "bad"
+    metadata_path.write_text(json.dumps(metadata))
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert any("invalid checksum metadata for chunk 0" in e for e in result.errors)
+
+def test_verify_detects_chunk_checksum_list_length_mismatch(tmp_path):
+    import json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"abcdefgh")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["chunk_checksums"].pop()
+    metadata_path.write_text(json.dumps(metadata))
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert "chunk_checksums length does not match chunk_count" in result.errors
+
+def test_verify_detects_object_metadata_identity_mismatch(tmp_path):
+    import json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"data")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["object_id"] = "other-object"
+    metadata_path.write_text(json.dumps(metadata))
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert "metadata object_id mismatch" in result.errors
+
+def test_verify_detects_non_integer_layout_metadata(tmp_path):
+    import json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"data")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["chunk_count"] = "1"
+    metadata_path.write_text(json.dumps(metadata))
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert "invalid chunk_count" in result.errors
+
+def test_verify_rejects_excessive_chunk_count_without_scanning_billions(tmp_path):
+    import json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"data")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["chunk_count"] = StorageEngine.MAX_VERIFY_CHUNKS + 1
+    metadata["chunk_checksums"] = []
+    metadata_path.write_text(json.dumps(metadata))
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert "chunk_count exceeds verification limit" in result.errors
+
+def test_verify_works_after_node_chunk_size_configuration_changes(tmp_path):
+    writer = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    writer.write_bytes("obj-1", "ver-1", b"abcdefghij")
+
+    reader = StorageEngine(tmp_path, 1024, chunk_size_bytes=8)
+
+    assert reader.read_bytes("obj-1", "ver-1") == b"abcdefghij"
+    assert reader.verify("obj-1", "ver-1").valid is True
