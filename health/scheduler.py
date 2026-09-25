@@ -5,13 +5,16 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
+from common.settings import settings
+
 from .failure_detector import FailureDetector, NodeTransition
 
 
 class HealthScheduler:
     """Run failure-detection scans at a bounded periodic interval."""
 
-    def __init__(self, detector: FailureDetector, *, interval_seconds: float = 5.0) -> None:
+    def __init__(self, detector: FailureDetector, *, interval_seconds: float | None = None) -> None:
+        interval_seconds = settings.heartbeat_interval_seconds if interval_seconds is None else interval_seconds
         if interval_seconds <= 0:
             raise ValueError("interval_seconds must be greater than zero")
         self.detector = detector
