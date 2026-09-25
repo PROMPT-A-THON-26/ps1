@@ -237,3 +237,47 @@ async def test_quorum_failure_aborts_version(db_session, tmp_path):
             select(Version).where(Version.state == VersionState.FAILED)
         )
         assert failed is not None
+
+@pytest.mark.asyncio
+async def test_existing_object_write_creates_next_version(db_session, tmp_path):
+    async with AsyncExitStack() as stack:
+        nodes, _transports = await build_nodes(tmp_path, stack)
+        manager = MetadataManager(db_session)
+
+        for node_id in nodes:
+            manager.register_node(
+                node_id=node_id,
+                address=f"http://{node_id}:9001",
+                capacity_bytes=10_000_000,
+            )
+
+        coordinator = DistributedWriteCoordinator(
+            db_session,
+            nodes,
+            replication_factor=3,
+            write_quorum=2,
+            read_quorum=1,
+        )
+
+        first = await coordinator.write_object("versioned.bin", b"first")
+        second = await coordinator.write_object(
+            "versioned.bin",
+            b"second",
+            expected_current_version=first.version_number,
+        )
+
+        assert second.version_number == first.version_number + 1
+        assert second.version_id != first.version_id
+        assert second.healthy_nodes
+        assert await coordinator.read_object("versioned.bin") == b"second"
+
+        versions = list(
+            db_session.scalars(
+                select(Version)
+                .where(Version.object_id == first.object_id)
+                .order_by(Version.version_number)
+            )
+        )
+        assert [version.version_number for version in versions] == [1, 2]
+        assert all(version.state is VersionState.COMMITTED for version in versions)
+\n
