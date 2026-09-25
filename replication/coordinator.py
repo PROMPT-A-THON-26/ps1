@@ -195,8 +195,8 @@ class DistributedWriteCoordinator:
                 self.manager.set_replica_state(replica.replica_id, ReplicaState.CORRUPTED)
             except StorageNodeUnavailableError:
                 self.manager.set_replica_state(replica.replica_id, ReplicaState.UNAVAILABLE)
-                self.manager.update_node_heartbeat(
-                    replica.node_id, status=NodeState.UNAVAILABLE
+                self.manager.set_node_status(
+                    replica.node_id, NodeState.UNAVAILABLE
                 )
             except StorageNodeClientError:
                 self.manager.set_replica_state(replica.replica_id, ReplicaState.STALE)
@@ -270,9 +270,7 @@ class DistributedWriteCoordinator:
             self.manager.set_replica_state(
                 failed_replica.replica_id, ReplicaState.UNAVAILABLE
             )
-        self.manager.update_node_heartbeat(
-            failed_node_id, status=NodeState.UNAVAILABLE
-        )
+        self.manager.set_node_status(failed_node_id, NodeState.UNAVAILABLE)
 
         replicas = list(
             self.session.scalars(select(Replica).where(Replica.version_id == version_id))
@@ -341,8 +339,8 @@ class DistributedWriteCoordinator:
             )
         except StorageNodeUnavailableError:
             self.manager.set_replica_state(replica.replica_id, ReplicaState.FAILED)
-            self.manager.update_node_heartbeat(
-                selected_target_node_id, status=NodeState.UNAVAILABLE
+            self.manager.set_node_status(
+                selected_target_node_id, NodeState.UNAVAILABLE
             )
             raise
         except StorageNodeClientError:
@@ -488,8 +486,8 @@ class DistributedWriteCoordinator:
                 return node_id, stats.free_bytes
             except StorageNodeUnavailableError:
                 try:
-                    self.manager.update_node_heartbeat(
-                        node_id, status=NodeState.UNAVAILABLE
+                    self.manager.set_node_status(
+                        node_id, NodeState.UNAVAILABLE
                     )
                 except ObjectNotFound:
                     pass
