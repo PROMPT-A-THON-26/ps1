@@ -1,4 +1,4 @@
-"""Background integrity scanner for committed replicas.""
+"""Background integrity scanner for committed replicas."""
 from __future__ import annotations
 
 from dataclasses import dataclass
