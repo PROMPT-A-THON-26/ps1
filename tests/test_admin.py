@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from hashlib import sha256
 from types import SimpleNamespace
+from uuid import UUID
 
 import httpx
 import pytest
@@ -80,8 +81,8 @@ async def test_admin_job_endpoints_create_and_read(db_session, monkeypatch):
 
     repair_id = repair.json()["repair_id"]
     integrity_id = integrity.json()["integrity_id"]
-    assert db_session.get(RepairJob, repair_id) is not None
-    assert db_session.get(IntegrityJob, integrity_id) is not None
+    assert db_session.get(RepairJob, UUID(repair_id)) is not None
+    assert db_session.get(IntegrityJob, UUID(integrity_id)) is not None
 
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"
