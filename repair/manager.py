@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from common.config import get_settings
 from common.constants import ErrorCode, JobStatus, NodeState, ReplicaState
 from common.errors import ObjectNotFound, VaultError
 from common.ids import new_uuid
@@ -43,7 +44,8 @@ class RepairManager:
         session: Session,
         *,
         client_factory=StorageNodeClient,
-        max_attempts: int = 5,
+        max_attempts: int | None = None,
+        replication_factor: int | None = None,
     ) -> None:
         settings = get_settings()
         resolved_attempts = settings.max_attempts if max_attempts is None else max_attempts
