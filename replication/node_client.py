@@ -504,19 +504,10 @@ class StorageNodeClient:
 
             payload = self._json_object(response)
 
-            verified = payload.get("verified", True)
-            if type(verified) is not bool or not verified:
-                raise StorageNodeProtocolError(
-                    "Storage node VERIFY response must explicitly report verified=true.",
-                    status_code=response.status_code,
-                    detail=payload,
-                    request_id=response.headers.get("X-Request-ID", rid),
-                )
-
-            valid = payload.get("valid", True)
+            valid = payload.get("valid")
             if type(valid) is not bool:
                 raise StorageNodeProtocolError(
-                    "Storage node VERIFY response has an invalid 'valid' field.",
+                    "Storage node VERIFY response must contain a boolean 'valid' field.",
                     status_code=response.status_code,
                     detail=payload,
                     request_id=response.headers.get("X-Request-ID", rid),
