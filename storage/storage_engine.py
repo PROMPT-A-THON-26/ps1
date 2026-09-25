@@ -73,6 +73,9 @@ class StorageEngine:
         self._inflight_objects: set[tuple[str, str]] = set()
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        objects_dir = self.data_dir / "objects"
+        if objects_dir.exists() and objects_dir.is_symlink():
+            raise StorageError("Objects directory must not be a symlink")
         self._cleanup_staging_directories()
 
     def object_path(self, object_id: str, version_id: str) -> Path:
@@ -541,6 +544,10 @@ class StorageEngine:
 
     def _create_staging_dir(self, object_id: str, version_id: str) -> Path:
         parent = self.object_path(object_id, version_id).parent
+        if parent.exists() and parent.is_symlink():
+            raise StorageError(
+                f"Object directory must not be a symlink: {object_id}"
+            )
         parent.mkdir(parents=True, exist_ok=True)
         staging_dir = parent / f".{version_id}.{uuid.uuid4().hex}.upload"
         staging_dir.mkdir()
@@ -657,6 +664,8 @@ class StorageEngine:
 
     def _cleanup_staging_directories(self) -> None:
         objects_dir = self.data_dir / "objects"
+        if objects_dir.is_symlink():
+            raise StorageError("Objects directory must not be a symlink")
         if not objects_dir.is_dir():
             return
 
