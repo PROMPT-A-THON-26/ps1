@@ -1,19 +1,16 @@
-"""SQLAlchemy database foundation for Vault metadata.
-
-The control plane keeps metadata transactionally consistent. The first
-implementation uses synchronous SQLAlchemy sessions so the same repository can
-run with the built-in SQLite test database; PostgreSQL is the production
-configuration.
-"""
+"""Database configuration and schema helpers for Vault metadata."""
 
 from __future__ import annotations
 
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Callable, TypeVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+T = TypeVar("T")
 
 
 class Base(DeclarativeBase):
@@ -21,7 +18,7 @@ class Base(DeclarativeBase):
 
 
 def normalize_database_url(url: str) -> str:
-    """Normalize common database URLs to SQLAlchemy-compatible driver URLs."""
+    """Normalize common PostgreSQL URLs to the psycopg SQLAlchemy dialect."""
     if url.startswith("postgresql+asyncpg://"):
         return url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
     if url.startswith("postgresql://"):
@@ -30,8 +27,12 @@ def normalize_database_url(url: str) -> str:
 
 
 def build_engine(database_url: str, *, echo: bool = False):
-    """Create a SQLAlchemy engine for the supplied database URL."""
-    return create_engine(normalize_database_url(database_url), echo=echo, pool_pre_ping=True)
+    """Create a SQLAlchemy engine with connection liveness checks."""
+    return create_engine(
+        normalize_database_url(database_url),
+        echo=echo,
+        pool_pre_ping=True,
+    )
 
 
 DATABASE_URL = normalize_database_url(
@@ -42,8 +43,10 @@ SessionLocal = sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
 
 
 @contextmanager
-def session_scope(session_factory: sessionmaker[Session] = SessionLocal) -> Iterator[Session]:
-    """Yield a session and roll back automatically on exceptions."""
+def session_scope(
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> Iterator[Session]:
+    """Yield a session and guarantee rollback on exceptions."""
     with session_factory() as session:
         try:
             yield session
@@ -53,14 +56,14 @@ def session_scope(session_factory: sessionmaker[Session] = SessionLocal) -> Iter
 
 
 def create_schema(db_engine=engine) -> None:
-    """Create all metadata tables for local development/tests."""
+    """Create all metadata tables for local development and tests."""
     from . import models  # noqa: F401
 
     Base.metadata.create_all(db_engine)
 
 
 def drop_schema(db_engine=engine) -> None:
-    """Drop all metadata tables for local tests."""
+    """Drop all metadata tables for isolated local tests."""
     from . import models  # noqa: F401
 
     Base.metadata.drop_all(db_engine)
