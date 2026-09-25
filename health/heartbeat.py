@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from common.config import get_settings
 from common.constants import NodeState
 from common.errors import InvalidState
 from metadata.manager import MetadataManager
@@ -72,12 +73,12 @@ class HeartbeatService:
         session: Session,
         *,
         recovery_manager_factory=PartitionRecoveryManager,
-        replication_factor: int = 3,
+        replication_factor: int | None = None,
     ) -> None:
         self.session = session
         self.manager = MetadataManager(session)
         self.recovery_manager_factory = recovery_manager_factory
-        self.replication_factor = replication_factor
+        self.replication_factor = get_settings().replication_factor if replication_factor is None else replication_factor
 
     def _result(self, node) -> HeartbeatResult:
         return HeartbeatResult(
