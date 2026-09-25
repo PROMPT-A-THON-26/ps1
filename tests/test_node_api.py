@@ -174,6 +174,27 @@ def test_verify_endpoint_detects_corruption(tmp_path):
         assert 1 in body["corrupt_chunks"]
 
 
+def test_verify_endpoint_exposes_verified_object_size(tmp_path):
+    with client_for(tmp_path) as client:
+        payload = b"verified-data"
+        assert (
+            client.put(
+                "/internal/v1/objects/verified/ver-1",
+                content=payload,
+            ).status_code
+            == 201
+        )
+
+        response = client.get(
+            "/internal/v1/objects/verified/ver-1/verify"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["valid"] is True
+        assert response.json()["checksum"]
+        assert response.json()["size_bytes"] == len(payload)
+
+
 def test_verify_endpoint_missing_object(tmp_path):
     with client_for(tmp_path) as client:
         response = client.get("/internal/v1/objects/missing/ver-1/verify")
