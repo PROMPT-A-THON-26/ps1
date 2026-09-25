@@ -245,6 +245,44 @@ class RepairJob(Base):
     )
 
 
+class IntegrityJob(Base):
+    __tablename__ = "integrity_jobs"
+    __table_args__ = (
+        Index("ix_integrity_jobs_status", "status"),
+        Index("ix_integrity_jobs_node_id", "node_id"),
+        Index("ix_integrity_jobs_version_id", "version_id"),
+    )
+
+    integrity_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=new_uuid
+    )
+    node_id: Mapped[Optional[str]] = mapped_column(
+        String(128),
+        ForeignKey("storage_nodes.node_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    version_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("versions.version_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(JobStatus, native_enum=False, length=16),
+        default=JobStatus.PENDING,
+        nullable=False,
+    )
+    attempts: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    checked_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    corrupted_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
 class RebalanceJob(Base):
     __tablename__ = "rebalance_jobs"
     __table_args__ = (
