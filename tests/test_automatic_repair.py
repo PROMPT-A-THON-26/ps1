@@ -45,6 +45,14 @@ def test_node_failure_marks_replicas_unavailable_and_creates_repair_jobs(db_sess
             size_bytes=len(DATA),
         )
     metadata.commit_version(version.version_id)
+    HeartbeatService(db_session).ingest(
+        HeartbeatPayload(
+            node_id="node-a",
+            capacity_bytes=1000,
+            used_bytes=100,
+            timestamp=BASE,
+        )
+    )
     db_session.commit()
 
     detector = FailureDetector(
@@ -53,7 +61,10 @@ def test_node_failure_marks_replicas_unavailable_and_creates_repair_jobs(db_sess
         unavailable_after_seconds=30,
         replication_factor=3,
     )
-    assert detector.scan(now=BASE + timedelta(seconds=30))
+    first = detector.scan(now=BASE + timedelta(seconds=15))
+    assert first and first[0].current is NodeState.SUSPECT
+    transitions = detector.scan(now=BASE + timedelta(seconds=30))
+    assert transitions
     db_session.expire_all()
 
     failed = db_session.query(Replica).filter_by(
