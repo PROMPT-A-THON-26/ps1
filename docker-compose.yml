@@ -56,8 +56,104 @@ services:
       - vault_node_01_state:/var/lib/vault
     restart: unless-stopped
 
+  vault-node-02:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      VAULT_NODE_ID: node-02
+      VAULT_NODE_HOST: 0.0.0.0
+      VAULT_NODE_PORT: 9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      VAULT_NODE_CHUNK_SIZE_BYTES: 16777216
+      VAULT_NODE_DATA_DIR: /data/vault
+      VAULT_NODE_SQLITE_PATH: /var/lib/vault/node_state.sqlite3
+    ports:
+      - "9002:9001"
+    volumes:
+      - vault_node_02_data:/data/vault
+      - vault_node_02_state:/var/lib/vault
+    restart: unless-stopped
+
+  vault-node-03:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      VAULT_NODE_ID: node-03
+      VAULT_NODE_HOST: 0.0.0.0
+      VAULT_NODE_PORT: 9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      VAULT_NODE_CHUNK_SIZE_BYTES: 16777216
+      VAULT_NODE_DATA_DIR: /data/vault
+      VAULT_NODE_SQLITE_PATH: /var/lib/vault/node_state.sqlite3
+    ports:
+      - "9003:9001"
+    volumes:
+      - vault_node_03_data:/data/vault
+      - vault_node_03_state:/var/lib/vault
+    restart: unless-stopped
+
+  vault-node-04:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      VAULT_NODE_ID: node-04
+      VAULT_NODE_HOST: 0.0.0.0
+      VAULT_NODE_PORT: 9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      VAULT_NODE_CHUNK_SIZE_BYTES: 16777216
+      VAULT_NODE_DATA_DIR: /data/vault
+      VAULT_NODE_SQLITE_PATH: /var/lib/vault/node_state.sqlite3
+    ports:
+      - "9004:9001"
+    volumes:
+      - vault_node_04_data:/data/vault
+      - vault_node_04_state:/var/lib/vault
+    restart: unless-stopped
+
+  vault-worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://vault:${POSTGRES_PASSWORD:-vault-dev-password}@postgres:5432/${POSTGRES_DB:-vault}
+      VAULT_STORAGE_NODES: node-01=http://vault-node-01:9001,node-02=http://vault-node-02:9001,node-03=http://vault-node-03:9001,node-04=http://vault-node-04:9001
+      REPLICATION_FACTOR: ${REPLICATION_FACTOR:-3}
+      WRITE_QUORUM: ${WRITE_QUORUM:-2}
+      READ_QUORUM: ${READ_QUORUM:-1}
+      RELIABILITY_INTERVAL_SECONDS: ${RELIABILITY_INTERVAL_SECONDS:-5}
+      SUSPECT_AFTER_SECONDS: ${SUSPECT_AFTER_SECONDS:-15}
+      UNAVAILABLE_AFTER_SECONDS: ${UNAVAILABLE_AFTER_SECONDS:-30}
+      REPAIR_BATCH_SIZE: ${REPAIR_BATCH_SIZE:-16}
+      INTEGRITY_BATCH_SIZE: ${INTEGRITY_BATCH_SIZE:-}
+      REBALANCE_HIGH_WATERMARK: ${REBALANCE_HIGH_WATERMARK:-0.80}
+      REBALANCE_LOW_WATERMARK: ${REBALANCE_LOW_WATERMARK:-0.60}
+      REBALANCE_MAX_MOVES_PER_SCAN: ${REBALANCE_MAX_MOVES_PER_SCAN:-8}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      vault-node-01:
+        condition: service_started
+      vault-node-02:
+        condition: service_started
+      vault-node-03:
+        condition: service_started
+      vault-node-04:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   vault_node_01_data:
   vault_node_01_state:
+  vault_node_02_data:
+  vault_node_02_state:
+  vault_node_03_data:
+  vault_node_03_state:
+  vault_node_04_data:
+  vault_node_04_state:
   vault_postgres_data:
   vault_mongodb_data:
