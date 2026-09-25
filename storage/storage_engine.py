@@ -40,6 +40,7 @@ class StorageStats:
 class VerificationResult:
     object_id: str
     version_id: str
+    size_bytes: int
     valid: bool
     checksum: str | None
     chunk_count: int
@@ -246,13 +247,14 @@ class StorageEngine:
             raise
         except StorageError as exc:
             return VerificationResult(
-                object_id,
-                version_id,
-                False,
-                None,
-                0,
-                (),
-                (str(exc),),
+                object_id=object_id,
+                version_id=version_id,
+                size_bytes=0,
+                valid=False,
+                checksum=None,
+                chunk_count=0,
+                corrupt_chunks=(),
+                errors=(str(exc),),
             )
 
         version_dir = self.object_path(object_id, version_id)
@@ -310,13 +312,14 @@ class StorageEngine:
         except OSError as exc:
             errors.append(f"cannot inspect object directory: {exc}")
             return VerificationResult(
-                object_id,
-                version_id,
-                False,
-                None,
-                chunk_count or 0,
-                tuple(),
-                tuple(errors),
+                object_id=object_id,
+                version_id=version_id,
+                size_bytes=0,
+                valid=False,
+                checksum=None,
+                chunk_count=chunk_count or 0,
+                corrupt_chunks=(),
+                errors=tuple(errors),
             )
 
         actual_chunk_names = {
@@ -415,13 +418,14 @@ class StorageEngine:
 
         valid = not errors and not corrupt
         return VerificationResult(
-            object_id,
-            version_id,
-            valid,
-            actual_checksum,
-            chunk_count or 0,
-            tuple(sorted(corrupt)),
-            tuple(errors),
+            object_id=object_id,
+            version_id=version_id,
+            size_bytes=actual_size,
+            valid=valid,
+            checksum=actual_checksum,
+            chunk_count=chunk_count or 0,
+            corrupt_chunks=tuple(sorted(corrupt)),
+            errors=tuple(errors),
         )
 
     def delete(self, object_id: str, version_id: str) -> None:
