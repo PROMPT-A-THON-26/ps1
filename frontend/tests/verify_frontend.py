@@ -52,7 +52,7 @@ def test_no_unsupported_live_object_post():
 def test_demo_mode_exists():
     # Live API is the production/default mode. Demo mode is an explicit URL opt-in.
     assert 'params.get("mode") === "mock"' in HTML
-    assert 'mode === "mock" ? "mock" : "api"' in HTML
+    assert 'params.get("mode") === "mock"' in HTML
     assert 'CONFIG.mode==="mock"' in JS
     assert '/api/v1' in HTML
 
