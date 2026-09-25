@@ -194,12 +194,12 @@
 <script>
   (() => {
     const params = new URLSearchParams(location.search);
-    if (params.get("mode") === "api") {
-      window.VAULT_CONFIG = {
-        mode: "api",
-        baseUrl: params.get("baseUrl") || "http://localhost:8000/api/v1"
-      };
-    }
+    const mode = params.get("mode") === "mock" ? "mock" : "api";
+    const baseUrl = params.get("baseUrl")
+      || (location.hostname
+        ? location.protocol + "//" + location.hostname + ":8000/api/v1"
+        : "http://localhost:8000/api/v1");
+    window.VAULT_CONFIG = { mode, baseUrl };
   })();
 </script>
 <script src="./js/app.js"></script>
