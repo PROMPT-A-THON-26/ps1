@@ -207,6 +207,63 @@ async def test_rebalancer_does_not_move_when_durability_is_already_degraded(
         assert replica.status is ReplicaState.UNAVAILABLE
 
 
+@pytest.mark.asyncio
+async def test_rebalancer_reserves_target_capacity_across_planned_moves(db_session, tmp_path):
+    manager = MetadataManager(db_session)
+    for node_id, capacity, used in (
+        ("node-1", 100, 90),
+        ("node-2", 20, 15),
+        ("node-3", 100, 70),
+        ("node-4", 20, 10),
+    ):
+        manager.register_node(
+            node_id=node_id,
+            address=f"http://{node_id}:9001",
+            capacity_bytes=capacity,
+            status=NodeState.HEALTHY,
+        )
+        manager.update_node_heartbeat(
+            node_id,
+            capacity_bytes=capacity,
+            used_bytes=used,
+            status=NodeState.HEALTHY,
+        )
+
+    import hashlib
+    for name in ("one.bin", "two.bin"):
+        payload = b"12345678"
+        obj = manager.create_object(name)
+        version = manager.create_version(
+            obj.object_id,
+            size_bytes=len(payload),
+            checksum=hashlib.sha256(payload).hexdigest(),
+        )
+        manager.commit_version(version.version_id)
+        for node_id in ("node-1", "node-2", "node-3"):
+            replica = manager.create_replica(version.version_id, node_id)
+            manager.set_replica_state(replica.replica_id, ReplicaState.COPYING)
+            manager.mark_replica_healthy(
+                replica.replica_id,
+                checksum=version.checksum,
+                size_bytes=version.size_bytes,
+            )
+
+    rebalancer = Rebalancer(
+        db_session,
+        {},
+        replication_factor=3,
+        policy=RebalancePolicy(
+            high_watermark=0.80,
+            low_watermark=0.60,
+            max_moves_per_scan=2,
+        ),
+    )
+
+    jobs = rebalancer._plan_moves()
+    assert len(jobs) == 1
+    assert jobs[0].target_node_id == "node-4"
+
+
 def test_rebalance_policy_rejects_invalid_watermarks():
     with pytest.raises(ValueError):
         RebalancePolicy(high_watermark=0.5, low_watermark=0.5)
