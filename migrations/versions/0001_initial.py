@@ -60,14 +60,17 @@ def upgrade() -> None:
     op.create_index("ix_versions_object_id", "versions", ["object_id"])
     op.create_index("ix_versions_state", "versions", ["state"])
 
-    op.create_foreign_key(
-        "fk_objects_current_version_id",
-        "objects",
-        "versions",
-        ["current_version_id"],
-        ["version_id"],
-        ondelete="SET NULL",
-    )
+    # SQLite cannot add a standalone FOREIGN KEY with ALTER TABLE. Alembic's
+    # batch implementation recreates the table there while using ALTER TABLE
+    # directly on PostgreSQL.
+    with op.batch_alter_table("objects") as batch:
+        batch.create_foreign_key(
+            "fk_objects_current_version_id",
+            "versions",
+            ["current_version_id"],
+            ["version_id"],
+            ondelete="SET NULL",
+        )
 
     op.create_table(
         "replicas",
@@ -134,7 +137,8 @@ def downgrade() -> None:
     op.drop_table("rebalance_jobs")
     op.drop_table("repair_jobs")
     op.drop_table("replicas")
-    op.drop_constraint("fk_objects_current_version_id", "objects", type_="foreignkey")
+    with op.batch_alter_table("objects") as batch:
+        batch.drop_constraint("fk_objects_current_version_id", type_="foreignkey")
     op.drop_table("versions")
     op.drop_index("ix_objects_current_version_id", table_name="objects")
     op.drop_table("storage_nodes")
