@@ -54,7 +54,7 @@ class StatsOverrideClient:
     async def verify_object(self, *args, **kwargs):
         return await self.inner.verify_object(*args, **kwargs)
 
-    async def stream_object(self, *args, **kwargs):
+    def stream_object(self, *args, **kwargs):
         return self.inner.stream_object(*args, **kwargs)
 
     async def put_object(self, *args, **kwargs):
@@ -75,10 +75,7 @@ async def build_nodes(tmp_path: Path, stack: AsyncExitStack):
         app = create_storage_node_app(engine, node_id, NodeLifecycle())
         transport = ToggleTransport(app)
         client_transport = await stack.enter_async_context(
-            httpx.AsyncClient(
-                transport=transport,
-                base_url=f"http://{node_id}",
-            )
+            httpx.AsyncClient(transport=transport, base_url=f"http://{node_id}")
         )
         client = StorageNodeClient(
             StorageNodeClientConfig(
@@ -120,24 +117,16 @@ async def test_rebalancer_moves_replica_only_after_verified_destination(
             )
 
         coordinator = DistributedWriteCoordinator(
-            db_session,
-            raw_nodes,
-            replication_factor=3,
-            write_quorum=2,
-            read_quorum=1,
+            db_session, raw_nodes, replication_factor=3, write_quorum=2, read_quorum=1
         )
         result = await coordinator.write_object("rebalance.bin", b"rebalancing-data")
 
-        # node-1 is deliberately represented as overloaded and node-4 as the
-        # low-utilization target. The other two nodes retain healthy replicas.
         rebalancer = Rebalancer(
             db_session,
             nodes,
             replication_factor=3,
             policy=RebalancePolicy(
-                high_watermark=0.80,
-                low_watermark=0.60,
-                max_moves_per_scan=1,
+                high_watermark=0.80, low_watermark=0.60, max_moves_per_scan=1
             ),
         )
 
@@ -198,11 +187,7 @@ async def test_rebalancer_does_not_move_when_durability_is_already_degraded(
             )
 
         coordinator = DistributedWriteCoordinator(
-            db_session,
-            raw_nodes,
-            replication_factor=3,
-            write_quorum=2,
-            read_quorum=1,
+            db_session, raw_nodes, replication_factor=3, write_quorum=2, read_quorum=1
         )
         result = await coordinator.write_object("degraded.bin", b"durability-first")
         replica = db_session.scalar(
