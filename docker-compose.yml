@@ -1,8 +1,51 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vault}
+      POSTGRES_USER: ${POSTGRES_USER:-vault}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vault-dev-password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - vault_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-vault} -d ${POSTGRES_DB:-vault}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-vault}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-vault-dev-password}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - vault_mongodb_data:/data/db
+    healthcheck:
+      test:
+        ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   vault-node-01:
     build:
       context: .
       dockerfile: docker/node.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     environment:
       VAULT_NODE_ID: node-01
       VAULT_NODE_HOST: 0.0.0.0
@@ -10,11 +53,16 @@ services:
       VAULT_NODE_CAPACITY_BYTES: 10737418240
       VAULT_NODE_CHUNK_SIZE_BYTES: 16777216
       VAULT_NODE_DATA_DIR: /data/vault
+      VAULT_NODE_SQLITE_PATH: /var/lib/vault/node_state.sqlite3
     ports:
       - "9001:9001"
     volumes:
       - vault_node_01_data:/data/vault
+      - vault_node_01_state:/var/lib/vault
     restart: unless-stopped
 
 volumes:
   vault_node_01_data:
+  vault_node_01_state:
+  vault_postgres_data:
+  vault_mongodb_data:
