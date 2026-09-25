@@ -55,6 +55,10 @@ class FailureDetector:
                 target = NodeState.UNAVAILABLE
             elif age >= self.suspect_after:
                 target = NodeState.SUSPECT
+            elif node.status is NodeState.UNAVAILABLE:
+                target = NodeState.RECOVERING
+            elif node.status is NodeState.RECOVERING:
+                target = NodeState.HEALTHY
             else:
                 target = NodeState.HEALTHY
 
