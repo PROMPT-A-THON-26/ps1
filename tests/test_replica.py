@@ -103,7 +103,7 @@ def test_copy_replica_streams_and_verifies_source_and_destination(monkeypatch):
         if request.method == "PUT":
             body = await request.aread()
             assert body == payload
-            return httpx.Response(201, json={"size_bytes": len(body)})
+            return httpx.Response(201, json={"object_id": "obj", "version_id": "ver", "size_bytes": len(body)})
         raise AssertionError(request.method)
 
     transport = httpx.MockTransport(handler)
@@ -137,7 +137,7 @@ def test_copy_replica_rolls_back_when_destination_verification_fails(monkeypatch
             return httpx.Response(200, json={"valid": False, "errors": ["corrupt replica"]})
         if request.method == "PUT":
             body = await request.aread()
-            return httpx.Response(201, json={"size_bytes": len(body)})
+            return httpx.Response(201, json={"object_id": "obj", "version_id": "ver", "size_bytes": len(body)})
         if request.method == "DELETE":
             deleted.append(request.url.path)
             return httpx.Response(204)
