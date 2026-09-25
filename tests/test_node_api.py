@@ -87,3 +87,21 @@ def test_invalid_id_returns_bad_request(tmp_path):
     with client_for(tmp_path) as client:
         response = client.get("/internal/v1/objects/%2E%2E/ver-1")
         assert response.status_code == 400
+
+
+def test_verify_endpoint_detects_corruption(tmp_path):
+    with client_for(tmp_path) as client:
+        payload = b"abcdefghij"
+        assert client.put("/internal/v1/objects/obj-1/ver-1", content=payload).status_code == 201
+        version_dir = tmp_path / "objects" / "obj-1" / "ver-1"
+        (version_dir / "chunk-000001").write_bytes(b"XXXX")
+        response = client.get("/internal/v1/objects/obj-1/ver-1/verify")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["valid"] is False
+        assert 1 in body["corrupt_chunks"]
+
+def test_verify_endpoint_missing_object(tmp_path):
+    with client_for(tmp_path) as client:
+        response = client.get("/internal/v1/objects/missing/ver-1/verify")
+        assert response.status_code == 404
