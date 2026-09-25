@@ -1708,6 +1708,12 @@ Automatic integrity scanning
 Automatic corruption repair
         |
         v
+Failure/recovery scenarios
+        |
+        v
+Part-A storage integration
+        |
+        v
 Docker multi-node reliability runtime
 ```
 
@@ -1777,6 +1783,12 @@ Step 6 validates the control plane directly against the real Part-A storage-node
 - simulated node failure at the control-plane boundary;
 - automatic replacement replica creation through the real HTTP client path;
 - final checksum and size verification on the real replacement replicas.
+
+Step 5 CI verification: **131 passed, 1 warning** (run #252).
+
+Step 6 CI verification: **132 passed, 1 warning** (run #259).
+
+The warning in both runs is the existing Starlette/AnyIO deprecation warning.
 
 ### Verification policy
 
