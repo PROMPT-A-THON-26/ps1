@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from common.constants import NodeState, ObjectState, VersionState
+from common.constants import NodeState, ObjectState, ReplicaState, VersionState
 from common.errors import ObjectNotFound
 from metadata.models import Object, Replica, StorageNode, Version
 
@@ -55,9 +55,9 @@ class GatewayService:
         result = []
         for version in versions:
             healthy = self.session.scalar(
-                select(__import__("sqlalchemy", fromlist=["func"]).func.count(Replica.replica_id)).where(
+                select(func.count(Replica.replica_id)).where(
                     Replica.version_id == version.version_id,
-                    Replica.status == __import__("common.constants", fromlist=["ReplicaState"]).ReplicaState.HEALTHY,
+                    Replica.status == ReplicaState.HEALTHY,
                 )
             )
             result.append({
