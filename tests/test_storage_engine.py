@@ -133,3 +133,46 @@ def test_stream_write_is_bounded_to_chunks(tmp_path):
     assert size == 12
     assert engine.read_bytes("obj-1", "ver-1") == b"abcdefghijkl"
     assert len(list((tmp_path / "objects" / "obj-1" / "ver-1").glob("chunk-*"))) == 3
+
+
+def test_checksums_are_stored_and_verify(tmp_path):
+    import hashlib, json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    payload = b"abcdefghij"
+    engine.write_bytes("obj-1", "ver-1", payload)
+    metadata = json.loads((tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json").read_text())
+    assert metadata["checksum"] == hashlib.sha256(payload).hexdigest()
+    assert metadata["chunk_checksums"] == [
+        hashlib.sha256(b"abcd").hexdigest(),
+        hashlib.sha256(b"efgh").hexdigest(),
+        hashlib.sha256(b"ij").hexdigest(),
+    ]
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is True
+    assert result.corrupt_chunks == ()
+
+def test_verify_detects_corrupt_chunk(tmp_path):
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"abcdefghij")
+    path = tmp_path / "objects" / "obj-1" / "ver-1" / "chunk-000001"
+    path.write_bytes(b"XXXX")
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert 1 in result.corrupt_chunks
+    assert "object checksum mismatch" in result.errors
+
+def test_verify_detects_missing_chunk(tmp_path):
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"abcdefghij")
+    (tmp_path / "objects" / "obj-1" / "ver-1" / "chunk-000001").unlink()
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert result.corrupt_chunks == (1,)
+
+def test_empty_object_has_sha256_checksum(tmp_path):
+    import hashlib
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"")
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is True
+    assert result.checksum == hashlib.sha256(b"").hexdigest()
