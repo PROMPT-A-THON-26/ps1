@@ -50,8 +50,11 @@ def test_no_unsupported_live_object_post():
     assert '"/objects/"+encodeURIComponent(objectName),{method:"PUT"' in JS
 
 def test_demo_mode_exists():
-    assert 'mode:"mock"' in JS
-    assert 'baseUrl:"/api/v1"' in JS
+    # Live API is the production/default mode. Demo mode is an explicit URL opt-in.
+    assert 'params.get("mode") === "mock"' in HTML
+    assert 'mode === "mock" ? "mock" : "api"' in HTML
+    assert 'CONFIG.mode==="mock"' in JS
+    assert '/api/v1' in HTML
 
 def test_safe_demo_is_explicit():
     assert "Demo-only control" in JS
