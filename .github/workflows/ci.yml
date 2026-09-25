@@ -57,7 +57,7 @@ jobs:
               )
               with urllib.request.urlopen(request, timeout=5) as response:
                   body = response.read()
-                  return response.status, dict(response.headers), body
+                  return response.status, response.headers, body
 
           deadline = time.time() + 90
           while time.time() < deadline:
@@ -88,7 +88,7 @@ jobs:
               headers=headers,
           )
           assert status == 201, (status, body)
-          assert response_headers["X-Request-ID"] == "req_ci_smoke"
+          assert response_headers.get("X-Request-ID") == "req_ci_smoke"
 
           status, _, body = request(
               "GET",
