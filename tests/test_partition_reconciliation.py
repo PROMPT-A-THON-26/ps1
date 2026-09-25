@@ -7,7 +7,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 
-from common.constants import NodeState, ReplicaState
+from common.constants import ReplicaState
 from health.failure_detector import FailureDetector
 from metadata.manager import MetadataManager
 from metadata.models import Replica, StorageNode
