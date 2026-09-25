@@ -138,7 +138,13 @@ class PartitionReconciler:
             verified.checksum == version.checksum
             and verified.size_bytes == version.size_bytes
         ):
-            if replica.status is not ReplicaState.HEALTHY:
+            if replica.status is ReplicaState.UNAVAILABLE:
+                self.manager.mark_replica_reconciled(
+                    replica.replica_id,
+                    checksum=verified.checksum,
+                    size_bytes=verified.size_bytes,
+                )
+            elif replica.status is not ReplicaState.HEALTHY:
                 self._mark_healthy(replica, verified.checksum, verified.size_bytes)
             return ReplicaState.HEALTHY
 
