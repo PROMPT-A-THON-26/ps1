@@ -544,13 +544,8 @@ class StorageNodeClient:
                     detail=payload,
                     request_id=response.headers.get("X-Request-ID", rid),
                 )
-            if not result.valid:
-                raise StorageNodeIntegrityError(
-                    "Storage node reported that stored data failed integrity verification.",
-                    status_code=response.status_code,
-                    detail=payload,
-                    request_id=response.headers.get("X-Request-ID", rid),
-                )
+            # VERIFY invalid=true/false is an integrity result, not a transport
+            # error. IntegrityManager owns the CORRUPTED state transition.
             return result
         finally:
             await response.aclose()
