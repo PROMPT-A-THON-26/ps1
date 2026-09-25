@@ -1590,55 +1590,76 @@ No team member should silently change shared schemas, API contracts, state names
 
 # 39. Current Project Status
 
-The repository is currently being prepared for implementation.
+The audited storage data plane and control-plane foundation have now been integrated on:
 
-The planned sequence is:
+`feature/integrated-distributed-reliability`
+
+The integration gate currently covers:
+
+- quorum-based replicated writes;
+- metadata-backed replica state;
+- storage-node HTTP client integration;
+- read failover across healthy replicas;
+- node failure simulation;
+- automatic replacement-replica repair;
+- end-to-end checksum and size verification;
+- corruption detection with healthy-replica failover;
+- write-quorum failure and version abort handling.
+
+The integrated branch currently has **101 automated tests passing in CI**.
+
+Current verification chain:
 
 ```text
-Architecture
+Client intent
     |
     v
-Contracts
+MetadataManager
     |
     v
-Foundation
+DistributedWriteCoordinator
+    |
+    +--------------------+
+    |                    |
+    v                    v
+StorageNodeClient   PostgreSQL metadata
     |
     v
-Storage Node
+Storage Node API
     |
     v
-Metadata + Gateway
-    |
-    v
-Replication
-    |
-    v
-Integrity
-    |
-    v
-Failure Detection
-    |
-    v
-Repair
-    |
-    v
-Network Partitions
-    |
-    v
-Rebalancing
-    |
-    v
-Failure Testing
-    |
-    v
-Performance + Demo
+Chunked filesystem + SHA-256
 ```
 
-The next implementation task is **Step 0 — Project Foundation**, followed by the detailed Step 1 storage-node work.
+The next major control-plane milestones are:
+
+```text
+Integrated replication
+        |
+        v
+Failure detector
+        |
+        v
+Background repair workers
+        |
+        v
+Network-partition reconciliation
+        |
+        v
+Rebalancing
+        |
+        v
+Full Docker multi-node deployment
+        |
+        v
+Frontend / demonstration
+```
+
+The repository should not claim full production fault tolerance until these remaining distributed workflows have their own automated tests.
 
 ---
 
-## 40. Project Philosophy
+# 40. Project Philosophy
 
 Vault is being built around one central principle:
 
