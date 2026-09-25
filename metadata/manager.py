@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Iterator, Optional
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -37,23 +38,34 @@ class MetadataManager:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    @contextmanager
+    def _transaction(self) -> Iterator[Session]:
+        """Run an operation atomically while remaining composable with caller transactions."""
+        if self.session.in_transaction():
+            with self.session.begin_nested():
+                yield self.session
+        else:
+            with self.session.begin():
+                yield self.session
+
     def get_object(self, name: str) -> Optional[Object]:
-        if not isinstance(name, str) or not name:
+        if not isinstance(name, str) or not name.strip():
             raise ValueError("object name must not be empty")
-        with self.session.begin():
-            return self.session.scalar(select(Object).where(Object.name == name))
+        normalized_name = name.strip()
+        with self._transaction():
+            return self.session.scalar(select(Object).where(Object.name == normalized_name))
 
     def get_object_or_raise(self, name: str) -> Object:
         obj = self.get_object(name)
         if obj is None:
-            raise ObjectNotFound(name)
+            raise ObjectNotFound(name.strip() if isinstance(name, str) else str(name))
         return obj
 
     def create_object(self, name: str) -> Object:
         if not isinstance(name, str) or not name.strip():
             raise ValueError("object name must not be empty")
         normalized_name = name.strip()
-        with self.session.begin():
+        with self._transaction():
             existing = self.session.scalar(
                 select(Object).where(Object.name == normalized_name).with_for_update()
             )
@@ -84,6 +96,26 @@ class MetadataManager:
             )
         return current.version_number
 
+    @staticmethod
+    def _validate_expected_version(value: Optional[int]) -> None:
+        if value is None:
+            return
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(
+                "expected_current_version must be a non-negative integer or None"
+            )
+
+    @staticmethod
+    def _expected_matches(
+        expected_current_version: Optional[int],
+        current_number: Optional[int],
+    ) -> bool:
+        if expected_current_version is None:
+            return True
+        # A brand-new object has logical current version 0 for conditional writes.
+        actual = 0 if current_number is None else current_number
+        return actual == expected_current_version
+
     def create_version(
         self,
         object_id: UUID,
@@ -92,11 +124,17 @@ class MetadataManager:
         checksum: str,
         expected_current_version: Optional[int] = None,
     ) -> Version:
-        if not isinstance(size_bytes, int) or isinstance(size_bytes, bool) or size_bytes < 0:
+        if (
+            not isinstance(size_bytes, int)
+            or isinstance(size_bytes, bool)
+            or size_bytes < 0
+        ):
             raise ValueError("size_bytes must be a non-negative integer")
-        normalized_checksum = _validate_checksum(checksum)
 
-        with self.session.begin():
+        normalized_checksum = _validate_checksum(checksum)
+        self._validate_expected_version(expected_current_version)
+
+        with self._transaction():
             obj = self._lock_object(object_id)
             if obj.state is not ObjectState.ACTIVE:
                 raise InvalidState(
@@ -104,19 +142,8 @@ class MetadataManager:
                 )
 
             current_number = self._current_version_number(obj)
-            if (
-                expected_current_version is not None
-                and (
-                    not isinstance(expected_current_version, int)
-                    or isinstance(expected_current_version, bool)
-                    or expected_current_version < 0
-                )
-            ):
-                raise ValueError("expected_current_version must be a non-negative integer or None")
-
-            if (
-                expected_current_version is not None
-                and current_number != expected_current_version
+            if not self._expected_matches(
+                expected_current_version, current_number
             ):
                 raise VersionConflict(expected_current_version, current_number)
 
@@ -144,7 +171,9 @@ class MetadataManager:
         *,
         expected_current_version: Optional[int] = None,
     ) -> Version:
-        with self.session.begin():
+        self._validate_expected_version(expected_current_version)
+
+        with self._transaction():
             version = self.session.scalar(
                 select(Version).where(Version.version_id == version_id).with_for_update()
             )
@@ -154,7 +183,9 @@ class MetadataManager:
             obj = self._lock_object(version.object_id)
             current_number = self._current_version_number(obj)
 
-            if expected_current_version is not None and current_number != expected_current_version:
+            if not self._expected_matches(
+                expected_current_version, current_number
+            ):
                 raise VersionConflict(expected_current_version, current_number)
 
             if version.state is not VersionState.PREPARING:
@@ -173,10 +204,11 @@ class MetadataManager:
             return version
 
     def create_replica(self, version_id: UUID, node_id: str) -> Replica:
-        if not node_id or not isinstance(node_id, str):
+        if not isinstance(node_id, str) or not node_id.strip():
             raise ValueError("node_id must be a non-empty string")
+        normalized_node_id = node_id.strip()
 
-        with self.session.begin():
+        with self._transaction():
             version = self.session.scalar(
                 select(Version).where(Version.version_id == version_id)
             )
@@ -184,27 +216,27 @@ class MetadataManager:
                 raise ObjectNotFound(str(version_id))
 
             node = self.session.scalar(
-                select(StorageNode).where(StorageNode.node_id == node_id)
+                select(StorageNode).where(StorageNode.node_id == normalized_node_id)
             )
             if node is None:
-                raise ObjectNotFound(node_id)
+                raise ObjectNotFound(normalized_node_id)
 
             existing = self.session.scalar(
                 select(Replica)
                 .where(
                     Replica.version_id == version_id,
-                    Replica.node_id == node_id,
+                    Replica.node_id == normalized_node_id,
                 )
                 .with_for_update()
             )
             if existing is not None:
                 raise InvalidState(
-                    f"Replica already exists for version {version_id} on node {node_id}."
+                    f"Replica already exists for version {version_id} on node {normalized_node_id}."
                 )
 
             replica = Replica(
                 version_id=version_id,
-                node_id=node_id,
+                node_id=normalized_node_id,
                 status=ReplicaState.PENDING,
             )
             self.session.add(replica)
@@ -215,7 +247,7 @@ class MetadataManager:
         if not isinstance(state, ReplicaState):
             raise ValueError("state must be a ReplicaState")
 
-        with self.session.begin():
+        with self._transaction():
             replica = self.session.scalar(
                 select(Replica).where(Replica.replica_id == replica_id).with_for_update()
             )
@@ -224,10 +256,7 @@ class MetadataManager:
 
             allowed = {
                 ReplicaState.PENDING: {ReplicaState.COPYING, ReplicaState.FAILED},
-                ReplicaState.COPYING: {
-                    ReplicaState.HEALTHY,
-                    ReplicaState.FAILED,
-                },
+                ReplicaState.COPYING: {ReplicaState.FAILED},
                 ReplicaState.HEALTHY: {
                     ReplicaState.STALE,
                     ReplicaState.CORRUPTED,
@@ -237,7 +266,9 @@ class MetadataManager:
                 ReplicaState.CORRUPTED: {ReplicaState.REPAIRING},
                 ReplicaState.UNAVAILABLE: {ReplicaState.REPAIRING},
                 ReplicaState.REPAIRING: {ReplicaState.COPYING, ReplicaState.FAILED},
-                ReplicaState.FAILED: {ReplicaState.REPAIRING, ReplicaState.COPYING},
+                # FAILED is terminal for that replica operation. A future repair
+                # creates/uses a new job rather than inventing an extra transition.
+                ReplicaState.FAILED: set(),
             }
 
             if state not in allowed.get(replica.status, set()):
@@ -262,10 +293,14 @@ class MetadataManager:
         size_bytes: int,
     ) -> Replica:
         actual = _validate_checksum(checksum)
-        if not isinstance(size_bytes, int) or isinstance(size_bytes, bool) or size_bytes < 0:
+        if (
+            not isinstance(size_bytes, int)
+            or isinstance(size_bytes, bool)
+            or size_bytes < 0
+        ):
             raise ValueError("size_bytes must be a non-negative integer")
 
-        with self.session.begin():
+        with self._transaction():
             replica = self.session.scalar(
                 select(Replica).where(Replica.replica_id == replica_id).with_for_update()
             )
@@ -311,27 +346,33 @@ class MetadataManager:
     ) -> StorageNode:
         if not isinstance(address, str) or not address.strip():
             raise ValueError("address must be a non-empty string")
-        if not isinstance(capacity_bytes, int) or isinstance(capacity_bytes, bool) or capacity_bytes < 0:
+        if (
+            not isinstance(capacity_bytes, int)
+            or isinstance(capacity_bytes, bool)
+            or capacity_bytes < 0
+        ):
             raise ValueError("capacity_bytes must be a non-negative integer")
         if not isinstance(status, NodeState):
             raise ValueError("status must be a NodeState")
 
         normalized_address = address.strip().rstrip("/")
-        with self.session.begin():
+        with self._transaction():
             existing = self.session.scalar(
-                select(StorageNode).where(StorageNode.address == normalized_address).with_for_update()
+                select(StorageNode)
+                .where(StorageNode.address == normalized_address)
+                .with_for_update()
             )
             if existing is not None:
-                if node_id is not None and existing.node_id != node_id:
+                if node_id is not None and existing.node_id != node_id.strip():
                     raise ObjectAlreadyExists(normalized_address)
                 return existing
 
-            normalized_node_id = node_id or new_uuid().hex
-            if not isinstance(normalized_node_id, str) or not normalized_node_id.strip():
+            normalized_node_id = node_id.strip() if node_id is not None else new_uuid().hex
+            if not normalized_node_id:
                 raise ValueError("node_id must be a non-empty string")
 
             node = StorageNode(
-                node_id=normalized_node_id.strip(),
+                node_id=normalized_node_id,
                 address=normalized_address,
                 capacity_bytes=capacity_bytes,
                 used_bytes=0,
@@ -350,24 +391,37 @@ class MetadataManager:
         status: Optional[NodeState] = None,
         heartbeat_at: Optional[datetime] = None,
     ) -> StorageNode:
+        if not isinstance(node_id, str) or not node_id.strip():
+            raise ValueError("node_id must be a non-empty string")
+
         now = heartbeat_at or datetime.now(timezone.utc)
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
 
-        with self.session.begin():
+        with self._transaction():
             node = self.session.scalar(
-                select(StorageNode).where(StorageNode.node_id == node_id).with_for_update()
+                select(StorageNode).where(
+                    StorageNode.node_id == node_id.strip()
+                ).with_for_update()
             )
             if node is None:
                 raise ObjectNotFound(node_id)
 
             if capacity_bytes is not None:
-                if not isinstance(capacity_bytes, int) or isinstance(capacity_bytes, bool) or capacity_bytes < 0:
+                if (
+                    not isinstance(capacity_bytes, int)
+                    or isinstance(capacity_bytes, bool)
+                    or capacity_bytes < 0
+                ):
                     raise ValueError("capacity_bytes must be a non-negative integer")
                 node.capacity_bytes = capacity_bytes
 
             if used_bytes is not None:
-                if not isinstance(used_bytes, int) or isinstance(used_bytes, bool) or used_bytes < 0:
+                if (
+                    not isinstance(used_bytes, int)
+                    or isinstance(used_bytes, bool)
+                    or used_bytes < 0
+                ):
                     raise ValueError("used_bytes must be a non-negative integer")
                 if used_bytes > node.capacity_bytes:
                     raise ValueError("used_bytes cannot exceed capacity_bytes")
