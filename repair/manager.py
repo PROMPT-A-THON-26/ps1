@@ -45,12 +45,18 @@ class RepairManager:
         client_factory=StorageNodeClient,
         max_attempts: int = 5,
     ) -> None:
-        if not isinstance(max_attempts, int) or isinstance(max_attempts, bool) or max_attempts < 1:
+        settings = get_settings()
+        resolved_attempts = settings.max_attempts if max_attempts is None else max_attempts
+        resolved_factor = settings.replication_factor if replication_factor is None else replication_factor
+        if not isinstance(resolved_attempts, int) or isinstance(resolved_attempts, bool) or resolved_attempts < 1:
             raise ValueError("max_attempts must be a positive integer")
+        if not isinstance(resolved_factor, int) or isinstance(resolved_factor, bool) or resolved_factor < 1:
+            raise ValueError("replication_factor must be a positive integer")
         self.session = session
         self.metadata = MetadataManager(session)
         self.client_factory = client_factory
-        self.max_attempts = max_attempts
+        self.max_attempts = resolved_attempts
+        self.replication_factor = resolved_factor
 
     def _version(self, version_id: UUID) -> Version:
         version = self.session.scalar(
@@ -195,6 +201,7 @@ class RepairManager:
         reason: str = "under-replicated",
         preferred_replica: Replica | None = None,
     ) -> RepairJob | None:
+        replication_factor = self.replication_factor if replication_factor is None else replication_factor
         if not isinstance(replication_factor, int) or isinstance(replication_factor, bool) or replication_factor < 1:
             raise ValueError("replication_factor must be a positive integer")
 
@@ -445,6 +452,7 @@ class RepairManager:
         replication_factor: int = 3,
         reason: str = "under-replicated",
     ) -> list[RepairResult]:
+        replication_factor = self.replication_factor if replication_factor is None else replication_factor
         results: list[RepairResult] = []
         while True:
             healthy_count = int(
