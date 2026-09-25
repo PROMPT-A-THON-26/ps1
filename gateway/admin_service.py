@@ -38,12 +38,9 @@ class RebalanceRequest(BaseModel):
 
 
 def _dispatch(task_name: str, *args: str, **kwargs: str) -> dict[str, Any]:
-    try:
-        from worker import tasks
-        result = getattr(tasks, task_name).apply_async(args=list(args), kwargs=kwargs)
-        return {"queued": True, "task_id": str(result.id)}
-    except Exception as exc:
-        return {"queued": False, "task_id": None, "dispatch_error": str(exc)}
+    from worker import tasks
+    result = getattr(tasks, task_name).apply_async(args=list(args), kwargs=kwargs)
+    return {"queued": True, "task_id": str(result.id)}
 
 
 def _serialize_job(job: Any) -> dict[str, Any]:
