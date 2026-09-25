@@ -1,4 +1,9 @@
-"""Async HTTP client for Vault's canonical storage-node API."""
+"""Async HTTP client for Vault's canonical storage-node API.
+
+This module is the control-plane boundary to Part A. It keeps transport,
+timeouts, retries, request tracing, response validation, and error mapping in
+one place so higher-level replication/repair code can remain policy-focused.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +14,7 @@ from dataclasses import dataclass
 import json
 import random
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import httpx
 
@@ -89,7 +94,7 @@ class NodeStats:
 
 @dataclass(frozen=True, slots=True)
 class RetryPolicy:
-    """Retry only safe/idempotent control-plane reads and health operations."""
+    """Retry policy for safe/idempotent operations."""
 
     max_attempts: int = 3
     base_delay_seconds: float = 0.2
@@ -109,6 +114,8 @@ class RetryPolicy:
 
 @dataclass(frozen=True, slots=True)
 class StorageNodeTimeouts:
+    """Operation-specific transport timeouts."""
+
     connect_seconds: float = 5.0
     health_seconds: float = 2.0
     stats_seconds: float = 3.0
@@ -120,7 +127,18 @@ class StorageNodeTimeouts:
     pool_seconds: float = 5.0
 
     def __post_init__(self) -> None:
-        for name, value in vars(self).items():
+        values = (
+            ("connect_seconds", self.connect_seconds),
+            ("health_seconds", self.health_seconds),
+            ("stats_seconds", self.stats_seconds),
+            ("head_seconds", self.head_seconds),
+            ("read_seconds", self.read_seconds),
+            ("write_seconds", self.write_seconds),
+            ("verify_seconds", self.verify_seconds),
+            ("delete_seconds", self.delete_seconds),
+            ("pool_seconds", self.pool_seconds),
+        )
+        for name, value in values:
             if value <= 0:
                 raise ValueError(f"{name} must be greater than zero")
 
@@ -159,6 +177,9 @@ class StorageNodeClientConfig:
         address = self.address.strip().rstrip("/")
         if not address:
             raise ValueError("storage-node address must not be empty")
+        parsed = urlparse(address)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("storage-node address must be an absolute http(s) URL")
         object.__setattr__(self, "address", address)
 
         if self.timeout_seconds is not None and self.timeout_seconds <= 0:
@@ -171,18 +192,20 @@ class StorageNodeClientConfig:
             )
 
         if self.timeouts is None:
+            timeout = self.timeout_seconds
             object.__setattr__(
                 self,
                 "timeouts",
                 StorageNodeTimeouts(
-                    connect_seconds=self.timeout_seconds or 5.0,
-                    health_seconds=self.timeout_seconds or 2.0,
-                    stats_seconds=self.timeout_seconds or 3.0,
-                    head_seconds=self.timeout_seconds or 5.0,
-                    read_seconds=self.timeout_seconds or 30.0,
-                    write_seconds=self.timeout_seconds or 60.0,
-                    verify_seconds=self.timeout_seconds or 30.0,
-                    delete_seconds=self.timeout_seconds or 10.0,
+                    connect_seconds=timeout or 5.0,
+                    health_seconds=timeout or 2.0,
+                    stats_seconds=timeout or 3.0,
+                    head_seconds=timeout or 5.0,
+                    read_seconds=timeout or 30.0,
+                    write_seconds=timeout or 60.0,
+                    verify_seconds=timeout or 30.0,
+                    delete_seconds=timeout or 10.0,
+                    pool_seconds=timeout or 5.0,
                 ),
             )
 
@@ -191,7 +214,9 @@ class StorageNodeClient:
     """Async client for the exact Part A storage-node HTTP contract."""
 
     RETRYABLE_STATUS_CODES = frozenset({502, 503, 504})
-    SAFE_RETRY_OPERATIONS = frozenset({"health", "stats", "head", "read", "verify", "delete"})
+    SAFE_RETRY_OPERATIONS = frozenset(
+        {"health", "stats", "head", "read", "verify", "delete"}
+    )
 
     def __init__(
         self,
@@ -234,6 +259,13 @@ class StorageNodeClient:
         *,
         request_id: str | None = None,
     ) -> StoredObject:
+        """Write one immutable object version.
+
+        PUT is intentionally not automatically retried because an HTTP timeout
+        can occur after the storage node has already committed the object. A
+        higher-level replication operation can safely reconcile such a case by
+        calling VERIFY before deciding whether to retry.
+        """
         self._validate_identifier(object_id, "object_id")
         self._validate_identifier(version_id, "version_id")
         rid = self._request_id(request_id)
@@ -246,29 +278,31 @@ class StorageNodeClient:
             content=data,
             retry=False,
         )
-        await self._raise_for_response(response)
+        try:
+            await self._raise_for_response(response)
+            if response.status_code != httpx.codes.CREATED:
+                raise self._protocol_status(
+                    response,
+                    f"Expected 201 from storage-node PUT, got {response.status_code}.",
+                    rid,
+                )
 
-        if response.status_code != httpx.codes.CREATED:
-            raise self._protocol_status(
-                response,
-                f"Expected 201 from storage-node PUT, got {response.status_code}.",
-                rid,
+            payload = self._json_object(response)
+            result = StoredObject(
+                object_id=self._required_string(payload, "object_id"),
+                version_id=self._required_string(payload, "version_id"),
+                size_bytes=self._required_nonnegative_int(payload, "size_bytes"),
             )
-
-        payload = self._json_object(response)
-        result = StoredObject(
-            object_id=self._required_string(payload, "object_id"),
-            version_id=self._required_string(payload, "version_id"),
-            size_bytes=self._required_nonnegative_int(payload, "size_bytes"),
-        )
-        if result.object_id != object_id or result.version_id != version_id:
-            raise StorageNodeProtocolError(
-                "Storage node returned identifiers different from the request.",
-                status_code=response.status_code,
-                detail=payload,
-                request_id=response.headers.get("X-Request-ID", rid),
-            )
-        return result
+            if result.object_id != object_id or result.version_id != version_id:
+                raise StorageNodeProtocolError(
+                    "Storage node returned identifiers different from the request.",
+                    status_code=response.status_code,
+                    detail=payload,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
+            return result
+        finally:
+            await response.aclose()
 
     @asynccontextmanager
     async def stream_object(
@@ -278,24 +312,49 @@ class StorageNodeClient:
         *,
         request_id: str | None = None,
     ) -> AsyncIterator[httpx.Response]:
-        """Open a streaming GET; only connection establishment may be retried."""
+        """Open a streaming GET.
+
+        Only connection establishment and HTTP response status are retried. A
+        transport error raised while the caller consumes response bytes is not
+        retried, because the client cannot safely replay a partially delivered
+        stream without caller-level range/resume semantics.
+        """
         self._validate_identifier(object_id, "object_id")
         self._validate_identifier(version_id, "version_id")
         rid = self._request_id(request_id)
 
-        response: httpx.Response | None = None
         for attempt in range(1, self.config.retry_policy.max_attempts + 1):
+            context = self._client.stream(
+                "GET",
+                self._object_path(object_id, version_id),
+                headers=self._headers(rid),
+                timeout=self.config.timeouts.for_operation("read"),
+            )
             try:
-                response = await self._client.stream(
-                    "GET",
-                    self._object_path(object_id, version_id),
-                    headers=self._headers(rid),
-                    timeout=self.config.timeouts.for_operation("read"),
-                ).__aenter__()
-                if response.status_code in self.RETRYABLE_STATUS_CODES and attempt < self.config.retry_policy.max_attempts:
-                    await response.aclose()
+                try:
+                    response = await context.__aenter__()
+                except httpx.TimeoutException as exc:
+                    if attempt >= self.config.retry_policy.max_attempts:
+                        raise StorageNodeUnavailableError(
+                            f"Storage node {self.config.address} timed out during GET.",
+                            request_id=rid,
+                        ) from exc
                     await self._sleep_before_retry(attempt)
                     continue
+                except httpx.RequestError as exc:
+                    if attempt >= self.config.retry_policy.max_attempts:
+                        raise StorageNodeUnavailableError(
+                            f"Storage node {self.config.address} could not be reached.",
+                            request_id=rid,
+                        ) from exc
+                    await self._sleep_before_retry(attempt)
+                    continue
+
+                if response.status_code in self.RETRYABLE_STATUS_CODES and attempt < self.config.retry_policy.max_attempts:
+                    await context.__aexit__(None, None, None)
+                    await self._sleep_before_retry(attempt)
+                    continue
+
                 await self._raise_for_response(response)
                 if response.status_code != httpx.codes.OK:
                     raise self._protocol_status(
@@ -303,27 +362,27 @@ class StorageNodeClient:
                         f"Expected 200 from storage-node GET, got {response.status_code}.",
                         rid,
                     )
-                break
-            except httpx.TimeoutException as exc:
-                if attempt >= self.config.retry_policy.max_attempts:
-                    raise StorageNodeUnavailableError(
-                        f"Storage node {self.config.address} timed out during GET.",
-                        request_id=rid,
-                    ) from exc
-                await self._sleep_before_retry(attempt)
-            except httpx.RequestError as exc:
-                if attempt >= self.config.retry_policy.max_attempts:
-                    raise StorageNodeUnavailableError(
-                        f"Storage node {self.config.address} could not be reached.",
-                        request_id=rid,
-                    ) from exc
-                await self._sleep_before_retry(attempt)
 
-        assert response is not None
-        try:
-            yield response
-        finally:
-            await response.aclose()
+                try:
+                    yield response
+                finally:
+                    await context.__aexit__(None, None, None)
+                return
+            except StorageNodeClientError:
+                # _raise_for_response closes protocol-error responses. Keep the
+                # context manager consistent for any error that escaped before
+                # the caller received the response.
+                try:
+                    await context.__aexit__(None, None, None)
+                except Exception:
+                    pass
+                raise
+            except Exception:
+                try:
+                    await context.__aexit__(None, None, None)
+                except Exception:
+                    pass
+                raise
 
     async def head_object(
         self,
@@ -342,38 +401,41 @@ class StorageNodeClient:
             headers=self._headers(rid),
             retry=True,
         )
-        await self._raise_for_response(response)
-        if response.status_code != httpx.codes.OK:
-            raise self._protocol_status(
-                response,
-                f"Expected 200 from storage-node HEAD, got {response.status_code}.",
-                rid,
-            )
-
-        raw_size = response.headers.get("content-length")
-        if raw_size is None:
-            raise StorageNodeProtocolError(
-                "Storage-node HEAD response is missing Content-Length.",
-                status_code=response.status_code,
-                request_id=response.headers.get("X-Request-ID", rid),
-            )
         try:
-            size = int(raw_size)
-        except ValueError as exc:
-            raise StorageNodeProtocolError(
-                "Storage-node HEAD returned a non-integer Content-Length.",
-                status_code=response.status_code,
-                detail=raw_size,
-                request_id=response.headers.get("X-Request-ID", rid),
-            ) from exc
-        if size < 0:
-            raise StorageNodeProtocolError(
-                "Storage-node HEAD returned a negative Content-Length.",
-                status_code=response.status_code,
-                detail=raw_size,
-                request_id=response.headers.get("X-Request-ID", rid),
-            )
-        return size
+            await self._raise_for_response(response)
+            if response.status_code != httpx.codes.OK:
+                raise self._protocol_status(
+                    response,
+                    f"Expected 200 from storage-node HEAD, got {response.status_code}.",
+                    rid,
+                )
+
+            raw_size = response.headers.get("content-length")
+            if raw_size is None:
+                raise StorageNodeProtocolError(
+                    "Storage-node HEAD response is missing Content-Length.",
+                    status_code=response.status_code,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
+            try:
+                size = int(raw_size)
+            except ValueError as exc:
+                raise StorageNodeProtocolError(
+                    "Storage-node HEAD returned a non-integer Content-Length.",
+                    status_code=response.status_code,
+                    detail=raw_size,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                ) from exc
+            if size < 0:
+                raise StorageNodeProtocolError(
+                    "Storage-node HEAD returned a negative Content-Length.",
+                    status_code=response.status_code,
+                    detail=raw_size,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
+            return size
+        finally:
+            await response.aclose()
 
     async def delete_object(
         self,
@@ -392,13 +454,16 @@ class StorageNodeClient:
             headers=self._headers(rid),
             retry=True,
         )
-        await self._raise_for_response(response)
-        if response.status_code != httpx.codes.NO_CONTENT:
-            raise self._protocol_status(
-                response,
-                f"Expected 204 from storage-node DELETE, got {response.status_code}.",
-                rid,
-            )
+        try:
+            await self._raise_for_response(response)
+            if response.status_code != httpx.codes.NO_CONTENT:
+                raise self._protocol_status(
+                    response,
+                    f"Expected 204 from storage-node DELETE, got {response.status_code}.",
+                    rid,
+                )
+        finally:
+            await response.aclose()
 
     async def verify_object(
         self,
@@ -407,6 +472,7 @@ class StorageNodeClient:
         *,
         request_id: str | None = None,
     ) -> VerifiedObject:
+        """Verify stored bytes and return their measured checksum/size."""
         self._validate_identifier(object_id, "object_id")
         self._validate_identifier(version_id, "version_id")
         rid = self._request_id(request_id)
@@ -417,39 +483,42 @@ class StorageNodeClient:
             headers=self._headers(rid),
             retry=True,
         )
-        await self._raise_for_response(response)
-        if response.status_code != httpx.codes.OK:
-            raise self._protocol_status(
-                response,
-                f"Expected 200 from storage-node VERIFY, got {response.status_code}.",
-                rid,
-            )
+        try:
+            await self._raise_for_response(response)
+            if response.status_code != httpx.codes.OK:
+                raise self._protocol_status(
+                    response,
+                    f"Expected 200 from storage-node VERIFY, got {response.status_code}.",
+                    rid,
+                )
 
-        payload = self._json_object(response)
-        verified = payload.get("verified")
-        if type(verified) is not bool or not verified:
-            raise StorageNodeProtocolError(
-                "Storage node VERIFY response must explicitly report verified=true.",
-                status_code=response.status_code,
-                detail=payload,
-                request_id=response.headers.get("X-Request-ID", rid),
-            )
+            payload = self._json_object(response)
+            verified = payload.get("verified")
+            if type(verified) is not bool or not verified:
+                raise StorageNodeProtocolError(
+                    "Storage node VERIFY response must explicitly report verified=true.",
+                    status_code=response.status_code,
+                    detail=payload,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
 
-        result = VerifiedObject(
-            object_id=self._required_string(payload, "object_id"),
-            version_id=self._required_string(payload, "version_id"),
-            size_bytes=self._required_nonnegative_int(payload, "size_bytes"),
-            checksum=self._required_checksum(payload, "checksum"),
-            verified=True,
-        )
-        if result.object_id != object_id or result.version_id != version_id:
-            raise StorageNodeProtocolError(
-                "Storage-node VERIFY returned identifiers different from the request.",
-                status_code=response.status_code,
-                detail=payload,
-                request_id=response.headers.get("X-Request-ID", rid),
+            result = VerifiedObject(
+                object_id=self._required_string(payload, "object_id"),
+                version_id=self._required_string(payload, "version_id"),
+                size_bytes=self._required_nonnegative_int(payload, "size_bytes"),
+                checksum=self._required_checksum(payload, "checksum"),
+                verified=True,
             )
-        return result
+            if result.object_id != object_id or result.version_id != version_id:
+                raise StorageNodeProtocolError(
+                    "Storage-node VERIFY returned identifiers different from the request.",
+                    status_code=response.status_code,
+                    detail=payload,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
+            return result
+        finally:
+            await response.aclose()
 
     async def health(self, *, request_id: str | None = None) -> NodeHealth:
         rid = self._request_id(request_id)
@@ -460,18 +529,21 @@ class StorageNodeClient:
             headers=self._headers(rid),
             retry=True,
         )
-        await self._raise_for_response(response)
-        if response.status_code != httpx.codes.OK:
-            raise self._protocol_status(
-                response,
-                f"Expected 200 from storage-node health, got {response.status_code}.",
-                rid,
+        try:
+            await self._raise_for_response(response)
+            if response.status_code != httpx.codes.OK:
+                raise self._protocol_status(
+                    response,
+                    f"Expected 200 from storage-node health, got {response.status_code}.",
+                    rid,
+                )
+            payload = self._json_object(response)
+            return NodeHealth(
+                status=self._required_string(payload, "status"),
+                node_id=self._required_string(payload, "node_id"),
             )
-        payload = self._json_object(response)
-        return NodeHealth(
-            status=self._required_string(payload, "status"),
-            node_id=self._required_string(payload, "node_id"),
-        )
+        finally:
+            await response.aclose()
 
     async def stats(self, *, request_id: str | None = None) -> NodeStats:
         rid = self._request_id(request_id)
@@ -482,28 +554,38 @@ class StorageNodeClient:
             headers=self._headers(rid),
             retry=True,
         )
-        await self._raise_for_response(response)
-        if response.status_code != httpx.codes.OK:
-            raise self._protocol_status(
-                response,
-                f"Expected 200 from storage-node stats, got {response.status_code}.",
-                rid,
+        try:
+            await self._raise_for_response(response)
+            if response.status_code != httpx.codes.OK:
+                raise self._protocol_status(
+                    response,
+                    f"Expected 200 from storage-node stats, got {response.status_code}.",
+                    rid,
+                )
+            payload = self._json_object(response)
+            result = NodeStats(
+                node_id=self._required_string(payload, "node_id"),
+                capacity_bytes=self._required_nonnegative_int(payload, "capacity_bytes"),
+                used_bytes=self._required_nonnegative_int(payload, "used_bytes"),
+                free_bytes=self._required_nonnegative_int(payload, "free_bytes"),
             )
-        payload = self._json_object(response)
-        result = NodeStats(
-            node_id=self._required_string(payload, "node_id"),
-            capacity_bytes=self._required_nonnegative_int(payload, "capacity_bytes"),
-            used_bytes=self._required_nonnegative_int(payload, "used_bytes"),
-            free_bytes=self._required_nonnegative_int(payload, "free_bytes"),
-        )
-        if result.used_bytes > result.capacity_bytes or result.free_bytes > result.capacity_bytes:
-            raise StorageNodeProtocolError(
-                "Storage-node STATS returned capacity values that are internally inconsistent.",
-                status_code=response.status_code,
-                detail=payload,
-                request_id=response.headers.get("X-Request-ID", rid),
-            )
-        return result
+            if result.used_bytes > result.capacity_bytes:
+                raise StorageNodeProtocolError(
+                    "Storage-node STATS reports used_bytes above capacity_bytes.",
+                    status_code=response.status_code,
+                    detail=payload,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
+            if result.free_bytes > result.capacity_bytes:
+                raise StorageNodeProtocolError(
+                    "Storage-node STATS reports free_bytes above capacity_bytes.",
+                    status_code=response.status_code,
+                    detail=payload,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
+            return result
+        finally:
+            await response.aclose()
 
     async def _request(
         self,
@@ -514,8 +596,11 @@ class StorageNodeClient:
         retry: bool,
         **kwargs: Any,
     ) -> httpx.Response:
-        attempts = self.config.retry_policy.max_attempts if retry and operation in self.SAFE_RETRY_OPERATIONS else 1
-        last_error: Exception | None = None
+        attempts = (
+            self.config.retry_policy.max_attempts
+            if retry and operation in self.SAFE_RETRY_OPERATIONS
+            else 1
+        )
 
         for attempt in range(1, attempts + 1):
             try:
@@ -525,13 +610,15 @@ class StorageNodeClient:
                     timeout=self.config.timeouts.for_operation(operation),
                     **kwargs,
                 )
-                if response.status_code in self.RETRYABLE_STATUS_CODES and attempt < attempts:
+                if (
+                    response.status_code in self.RETRYABLE_STATUS_CODES
+                    and attempt < attempts
+                ):
                     await response.aclose()
                     await self._sleep_before_retry(attempt)
                     continue
                 return response
             except httpx.TimeoutException as exc:
-                last_error = exc
                 if attempt >= attempts:
                     raise StorageNodeUnavailableError(
                         f"Storage node {self.config.address} timed out during {operation}.",
@@ -539,7 +626,6 @@ class StorageNodeClient:
                     ) from exc
                 await self._sleep_before_retry(attempt)
             except httpx.RequestError as exc:
-                last_error = exc
                 if attempt >= attempts:
                     raise StorageNodeUnavailableError(
                         f"Storage node {self.config.address} could not be reached during {operation}.",
@@ -550,48 +636,51 @@ class StorageNodeClient:
         raise StorageNodeUnavailableError(
             f"Storage node request failed during {operation}.",
             request_id=kwargs.get("headers", {}).get("X-Request-ID"),
-        ) from last_error
+        )
 
     async def _raise_for_response(self, response: httpx.Response) -> None:
         if response.is_success:
             return
+
         request_id = response.headers.get("X-Request-ID")
         detail = await self._response_json_or_text(response)
+        try:
+            if response.status_code in {400, 422}:
+                raise StorageNodeInvalidRequestError(
+                    "Storage node rejected the request.",
+                    status_code=response.status_code,
+                    detail=detail,
+                    request_id=request_id,
+                )
+            if response.status_code == httpx.codes.NOT_FOUND:
+                raise StorageObjectNotFoundError(
+                    "Object/version was not found on the storage node.",
+                    status_code=response.status_code,
+                    detail=detail,
+                    request_id=request_id,
+                )
+            if response.status_code == httpx.codes.CONFLICT:
+                raise StorageObjectAlreadyExistsError(
+                    "Object/version already exists on the storage node.",
+                    status_code=response.status_code,
+                    detail=detail,
+                    request_id=request_id,
+                )
+            if response.status_code == 507:
+                raise StorageNodeInsufficientCapacityError(
+                    "Storage node has insufficient capacity.",
+                    status_code=response.status_code,
+                    detail=detail,
+                    request_id=request_id,
+                )
 
-        if response.status_code in {400, 422}:
-            raise StorageNodeInvalidRequestError(
-                "Storage node rejected the request.",
-                status_code=response.status_code,
-                detail=detail,
-                request_id=request_id,
+            raise self._protocol_status(
+                response,
+                f"Unexpected storage-node HTTP status {response.status_code}.",
+                request_id,
             )
-        if response.status_code == httpx.codes.NOT_FOUND:
-            raise StorageObjectNotFoundError(
-                "Object/version was not found on the storage node.",
-                status_code=response.status_code,
-                detail=detail,
-                request_id=request_id,
-            )
-        if response.status_code == httpx.codes.CONFLICT:
-            raise StorageObjectAlreadyExistsError(
-                "Object/version already exists on the storage node.",
-                status_code=response.status_code,
-                detail=detail,
-                request_id=request_id,
-            )
-        if response.status_code == 507:
-            raise StorageNodeInsufficientCapacityError(
-                "Storage node has insufficient capacity.",
-                status_code=response.status_code,
-                detail=detail,
-                request_id=request_id,
-            )
-
-        raise self._protocol_status(
-            response,
-            f"Unexpected storage-node HTTP status {response.status_code}.",
-            request_id,
-        )
+        finally:
+            await response.aclose()
 
     @staticmethod
     def _protocol_status(
@@ -697,12 +786,16 @@ class StorageNodeClient:
             f"{quote(version_id, safe='')}"
         )
 
-    @staticmethod
-    async def _sleep_before_retry(attempt: int) -> None:
-        # Full jitter prevents multiple control-plane workers from synchronizing
-        # retries during a node outage.
-        base = min(2.0, 0.2 * (2 ** (attempt - 1)))
-        delay = random.uniform(base * 0.75, base * 1.25)
+    async def _sleep_before_retry(self, attempt: int) -> None:
+        base = min(
+            self.config.retry_policy.max_delay_seconds,
+            self.config.retry_policy.base_delay_seconds * (2 ** (attempt - 1)),
+        )
+        if base <= 0:
+            return
+        ratio = self.config.retry_policy.jitter_ratio
+        delay = random.uniform(base * (1 - ratio), base * (1 + ratio))
+        delay = min(delay, self.config.retry_policy.max_delay_seconds)
         await asyncio.sleep(delay)
 
     @staticmethod
