@@ -31,10 +31,8 @@ async def test_step6_real_part_a_client_contract(tmp_path):
         base_url="http://node-contract:9001",
     ) as transport:
         client = StorageNodeClient(
-            StorageNodeClientConfig(
-                "http://node-contract:9001",
-                client=transport,
-            )
+            StorageNodeClientConfig("http://node-contract:9001"),
+            client=transport,
         )
 
         payload = b"step6-real-part-a-contract"
