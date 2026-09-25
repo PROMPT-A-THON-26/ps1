@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from common.constants import ErrorCode, JobStatus, NodeState, ReplicaState
+from common.settings import settings
 from common.errors import ObjectNotFound, VaultError
 from common.ids import new_uuid
 from metadata.manager import MetadataManager
@@ -187,7 +188,7 @@ class RepairManager:
         self,
         version_id: UUID,
         *,
-        replication_factor: int = 3,
+        replication_factor: int | None = None,
         reason: str = "under-replicated",
         preferred_replica: Replica | None = None,
     ) -> RepairJob | None:
@@ -438,7 +439,7 @@ class RepairManager:
         self,
         version_id: UUID,
         *,
-        replication_factor: int = 3,
+        replication_factor: int | None = None,
         reason: str = "under-replicated",
     ) -> list[RepairResult]:
         results: list[RepairResult] = []
