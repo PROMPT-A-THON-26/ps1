@@ -5,7 +5,7 @@ from storage.storage_engine import StorageEngine
 
 
 def client_for(tmp_path):
-    node_server.engine = StorageEngine(tmp_path, 1024 * 1024)
+    node_server.engine = StorageEngine(tmp_path, 1024 * 1024, chunk_size_bytes=4)
     return TestClient(node_server.app)
 
 
@@ -27,28 +27,30 @@ def test_stats(tmp_path):
         assert body["node_id"] == node_server.config.node_id
         assert body["capacity_bytes"] == 1024 * 1024
         assert body["used_bytes"] >= 0
+        assert body["chunk_size_bytes"] == 4
 
 
 def test_object_lifecycle(tmp_path):
     with client_for(tmp_path) as client:
+        payload = b"vault-data"
         put = client.put(
             "/internal/v1/objects/obj-test/ver-1",
-            content=b"vault-data",
+            content=payload,
         )
         assert put.status_code == 201
         assert put.json() == {
             "object_id": "obj-test",
             "version_id": "ver-1",
-            "size_bytes": 10,
+            "size_bytes": len(payload),
         }
 
         head = client.head("/internal/v1/objects/obj-test/ver-1")
         assert head.status_code == 200
-        assert head.headers["content-length"] == "10"
+        assert head.headers["content-length"] == str(len(payload))
 
         get = client.get("/internal/v1/objects/obj-test/ver-1")
         assert get.status_code == 200
-        assert get.content == b"vault-data"
+        assert get.content == payload
 
         duplicate = client.put(
             "/internal/v1/objects/obj-test/ver-1",
@@ -61,6 +63,25 @@ def test_object_lifecycle(tmp_path):
 
         missing = client.get("/internal/v1/objects/obj-test/ver-1")
         assert missing.status_code == 404
+
+
+def test_large_object_is_stored_as_multiple_chunks(tmp_path):
+    with client_for(tmp_path) as client:
+        payload = b"0123456789" * 3
+        put = client.put(
+            "/internal/v1/objects/large/ver-1",
+            content=payload,
+        )
+        assert put.status_code == 201
+        assert put.json()["size_bytes"] == len(payload)
+
+        version_dir = tmp_path / "objects" / "large" / "ver-1"
+        assert len(list(version_dir.glob("chunk-*"))) == 8
+
+        streamed = client.get("/internal/v1/objects/large/ver-1")
+        assert streamed.status_code == 200
+        assert streamed.headers["content-length"] == str(len(payload))
+        assert streamed.content == payload
 
 
 def test_invalid_id_returns_bad_request(tmp_path):
