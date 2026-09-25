@@ -267,7 +267,7 @@ async def test_verify_surfaces_reported_corruption(no_delay_retry_policy: RetryP
 
 
 @pytest.mark.asyncio
-async def test_verify_requires_explicit_verified_true(no_delay_retry_policy: RetryPolicy) -> None:
+async def test_verify_requires_canonical_valid_and_size_fields(no_delay_retry_policy: RetryPolicy) -> None:
     app = FastAPI()
 
     @app.get("/internal/v1/objects/{object_id}/{version_id}/verify")
@@ -276,7 +276,6 @@ async def test_verify_requires_explicit_verified_true(no_delay_retry_policy: Ret
         return {
             "object_id": "obj",
             "version_id": "ver",
-            "size_bytes": 1,
             "checksum": "a" * 64,
         }
 
