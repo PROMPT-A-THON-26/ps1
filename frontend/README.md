@@ -45,7 +45,7 @@ Before app.js is loaded, Part B can supply:
       baseUrl: "http://localhost:8000/api/v1"
     };
 
-The UI expects these logical operations:
+The UI uses the documented Part B public REST contract. In live mode it synchronizes health, nodes and object catalog data at startup/refresh, while administrative actions are sent through the same centralized adapter. The UI expects these logical operations:
 
 - GET health summary
 - GET nodes
@@ -54,7 +54,7 @@ The UI expects these logical operations:
 - GET integrity jobs/results
 - GET rebalance jobs
 - GET events
-- POST object upload
+- PUT object upload (`/objects/{name}`)
 - POST repair
 - POST integrity check
 - POST rebalance
