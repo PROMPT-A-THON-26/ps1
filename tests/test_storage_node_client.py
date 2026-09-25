@@ -45,18 +45,16 @@ def build_mock_node() -> tuple[FastAPI, dict[tuple[str, str], bytes], dict[str, 
 
     # Put the special test route before the parameterized route. FastAPI uses
     # route registration order for matching.
-    @app.put("/internal/v1/objects/capacity/version")
-    async def capacity(_: Request) -> Response:
-        return Response(status_code=507, content=b"full")
-
-    @app.put("/internal/v1/objects/existing/ver")
-    async def existing(_: Request) -> Response:
-        return Response(status_code=409, content=b"exists")
-
     @app.put("/internal/v1/objects/{object_id}/{version_id}")
     async def put_object(object_id: str, version_id: str, request: Request) -> Response:
         seen_request_ids["put"].append(request.headers.get("x-request-id", ""))
         key = (object_id, version_id)
+        if key == ("capacity", "version"):
+            return Response(status_code=507, content=b"full")
+        if key == ("existing", "ver"):
+            return Response(status_code=409, content=b"exists")
+        if key == ("invalid", "request"):
+            return Response(status_code=400, content=b"invalid")
         if key in objects:
             return Response(status_code=409, content=b"exists")
         data = b"".join([chunk async for chunk in request.stream()])
@@ -209,11 +207,7 @@ async def test_storage_node_error_mapping(no_delay_retry_policy: RetryPolicy) ->
                 await node.put_object("capacity", "version", b"x")
 
             with pytest.raises(StorageNodeInvalidRequestError):
-                await node.put_object("invalid", "request", b"x") if False else node._request(
-                    "PUT", "/internal/v1/objects/invalid/request",
-                    operation="write", retry=False, content=b"x",
-                    headers={"X-Request-ID": "req-invalid", "Content-Type": "application/octet-stream"},
-                )
+                await node.put_object("invalid", "request", b"x")
 
 
 @pytest.mark.asyncio
@@ -221,8 +215,8 @@ async def test_protocol_error_on_success_with_malformed_payload(no_delay_retry_p
     app = FastAPI()
 
     @app.put("/internal/v1/objects/{object_id}/{version_id}")
-    async def malformed(_: str, __: str, request: Request) -> Response:
-        del request
+    async def malformed(object_id: str, version_id: str, request: Request) -> Response:
+        del object_id, version_id, request
         return Response(
             status_code=201,
             content=b'{"object_id":"wrong","version_id":"wrong","size_bytes":1}',
@@ -244,7 +238,8 @@ async def test_verify_requires_explicit_verified_true(no_delay_retry_policy: Ret
     app = FastAPI()
 
     @app.get("/internal/v1/objects/{object_id}/{version_id}/verify")
-    async def verify(_: str, __: str) -> dict[str, object]:
+    async def verify(object_id: str, version_id: str) -> dict[str, object]:
+        del object_id, version_id
         return {
             "object_id": "obj",
             "version_id": "ver",
@@ -327,7 +322,8 @@ async def test_stream_get_retries_only_before_success(no_delay_retry_policy: Ret
     calls = 0
 
     @app.get("/internal/v1/objects/{object_id}/{version_id}")
-    async def get(_: str, __: str) -> Response:
+    async def get(object_id: str, version_id: str) -> Response:
+        del object_id, version_id
         nonlocal calls
         calls += 1
         if calls < 2:
