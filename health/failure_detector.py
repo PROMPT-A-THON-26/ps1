@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from typing import Callable, Optional
 from uuid import UUID
 
+from sqlalchemy import select
+
 from common.config import get_settings
 from common.constants import NodeState, ReplicaState, VersionState
 from common.errors import VaultError
