@@ -384,6 +384,16 @@ def test_client_rejects_path_traversal_identifiers() -> None:
         StorageNodeClient("http://test")._object_path("object", "version\x00evil")
 
 
+def test_client_uses_central_storage_request_timeout() -> None:
+    client = StorageNodeClient("http://test")
+    assert client.config.timeouts.connect_seconds == 30.0
+    assert client.config.timeouts.health_seconds == 30.0
+    assert client.config.timeouts.read_seconds == 30.0
+    assert client.config.timeouts.write_seconds == 30.0
+    import asyncio
+    asyncio.run(client.aclose())
+
+
 def test_client_default_operation_timeouts_are_specific() -> None:
     config = StorageNodeClientConfig("http://test")
     assert config.timeouts.health_seconds == 2.0
