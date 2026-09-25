@@ -16,6 +16,7 @@ from metadata.models import Replica, StorageNode, Version
 from replication.node_client import (
     StorageNodeClient,
     StorageNodeClientError,
+    StorageNodeIntegrityError,
     StorageObjectNotFoundError,
 )
 
@@ -124,6 +125,12 @@ class PartitionReconciler:
             verified = await client.verify_object(
                 str(version.object_id), str(version.version_id)
             )
+        except StorageNodeIntegrityError:
+            # The node was reachable and completed its verification. The
+            # verification result was invalid, so this is corruption rather
+            # than node unavailability.
+            self._mark_if_possible(replica, ReplicaState.CORRUPTED)
+            return ReplicaState.CORRUPTED
         except StorageObjectNotFoundError:
             self._mark_if_possible(replica, ReplicaState.UNAVAILABLE)
             return ReplicaState.UNAVAILABLE
