@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 
+import httpx
 import pytest
 from fastapi import FastAPI, Request, Response
 from httpx import ASGITransport
@@ -39,6 +40,8 @@ def build_mock_node() -> tuple[FastAPI, dict[tuple[str, str], bytes]]:
     @app.put("/internal/v1/objects/{object_id}/{version_id}")
     async def put_object(object_id: str, version_id: str, request: Request) -> Response:
         key = (object_id, version_id)
+        if key == ("capacity", "version"):
+            return Response(status_code=507, content=b"full")
         if key in objects:
             return Response(status_code=409, content=b"exists")
         data = b"".join([chunk async for chunk in request.stream()])
@@ -74,7 +77,7 @@ def build_mock_node() -> tuple[FastAPI, dict[tuple[str, str], bytes]]:
         return Response(status_code=204)
 
     @app.get("/internal/v1/objects/{object_id}/{version_id}/verify")
-    async def verify_object(object_id: str, version_id: str) -> dict[str, object]:
+    async def verify_object(object_id: str, version_id: str) -> Response | dict[str, object]:
         data = objects.get((object_id, version_id))
         if data is None:
             return Response(status_code=404, content=b"missing")
@@ -92,52 +95,49 @@ def build_mock_node() -> tuple[FastAPI, dict[tuple[str, str], bytes]]:
 @pytest.mark.asyncio
 async def test_storage_node_client_full_contract() -> None:
     app, objects = build_mock_node()
-    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as transport_client:
+        async with StorageNodeClient(
+            StorageNodeClientConfig("http://testserver"),
+            client=transport_client,
+        ) as node:
+            payload = b"large-enough-for-streaming-contract"
+            uploaded = await node.put_object(
+                "obj-1",
+                "ver-1",
+                payload,
+                request_id="req-test",
+            )
+            assert uploaded.size_bytes == len(payload)
 
-    async with StorageNodeClient(
-        StorageNodeClientConfig("http://testserver"),
-        client=__import__("httpx").AsyncClient(
-            transport=transport,
-            base_url="http://testserver",
-        ),
-    ) as node:
-        payload = b"large-enough-for-streaming-contract"
-        uploaded = await node.put_object(
-            "obj-1",
-            "ver-1",
-            payload,
-            request_id="req-test",
-        )
-        assert uploaded.size_bytes == len(payload)
+            assert await node.head_object("obj-1", "ver-1") == len(payload)
 
-        assert await node.head_object("obj-1", "ver-1") == len(payload)
+            async with node.stream_object("obj-1", "ver-1") as response:
+                received = b"".join([chunk async for chunk in response.aiter_bytes()])
+            assert received == payload
 
-        async with node.stream_object("obj-1", "ver-1") as response:
-            received = b"".join([chunk async for chunk in response.aiter_bytes()])
-        assert received == payload
+            verified = await node.verify_object("obj-1", "ver-1")
+            assert verified.verified is True
+            assert verified.size_bytes == len(payload)
+            assert verified.checksum == sha256(payload).hexdigest()
 
-        verified = await node.verify_object("obj-1", "ver-1")
-        assert verified.verified is True
-        assert verified.size_bytes == len(payload)
-        assert verified.checksum == sha256(payload).hexdigest()
+            health = await node.health()
+            assert health.node_id == "node-test"
+            assert health.status == "healthy"
 
-        health = await node.health()
-        assert health.node_id == "node-test"
-        assert health.status == "healthy"
+            stats = await node.stats()
+            assert stats.used_bytes == len(payload)
+            assert stats.free_bytes == stats.capacity_bytes - len(payload)
 
-        stats = await node.stats()
-        assert stats.used_bytes == len(payload)
-        assert stats.free_bytes == stats.capacity_bytes - len(payload)
-
-        await node.delete_object("obj-1", "ver-1")
-        assert ("obj-1", "ver-1") not in objects
+            await node.delete_object("obj-1", "ver-1")
+            assert ("obj-1", "ver-1") not in objects
 
 
 @pytest.mark.asyncio
 async def test_streaming_upload_accepts_async_iterable() -> None:
     app, objects = build_mock_node()
-    import httpx
-
     chunks = [b"chunk-1", b"chunk-2", b"chunk-3"]
 
     async def source():
@@ -163,14 +163,14 @@ async def test_storage_node_error_mapping() -> None:
         return Response(status_code=404, content=b"missing")
 
     @app.put("/internal/v1/objects/{object_id}/{version_id}")
-    async def existing(_: str, __: str, __request: Request) -> Response:
+    async def existing(_: str, __: str, request: Request) -> Response:
+        del request
         return Response(status_code=409, content=b"exists")
 
-    @app.get("/internal/v1/objects/capacity/version")
-    async def capacity() -> Response:
+    @app.put("/internal/v1/objects/capacity/version")
+    async def capacity(request: Request) -> Response:
+        del request
         return Response(status_code=507, content=b"full")
-
-    import httpx
 
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app),
@@ -184,8 +184,30 @@ async def test_storage_node_error_mapping() -> None:
             with pytest.raises(StorageObjectAlreadyExistsError):
                 await node.put_object("existing", "ver", b"x")
 
-            with pytest.raises(StorageNodeProtocolError):
+            with pytest.raises(StorageNodeInsufficientCapacityError):
                 await node.put_object("capacity", "version", b"x")
+
+
+@pytest.mark.asyncio
+async def test_protocol_error_on_success_with_malformed_payload() -> None:
+    app = FastAPI()
+
+    @app.put("/internal/v1/objects/{object_id}/{version_id}")
+    async def malformed(_: str, __: str, request: Request) -> Response:
+        del request
+        return Response(
+            status_code=201,
+            content=b'{"object_id":"wrong","version_id":"wrong","size_bytes":1}',
+            media_type="application/json",
+        )
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as transport_client:
+        async with StorageNodeClient("http://testserver", client=transport_client) as node:
+            with pytest.raises(StorageNodeProtocolError):
+                await node.put_object("obj", "ver", b"x")
 
 
 @pytest.mark.asyncio
