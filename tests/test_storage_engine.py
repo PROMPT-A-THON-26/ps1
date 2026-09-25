@@ -7,6 +7,7 @@ from storage.storage_engine import (
     ObjectAlreadyExistsError,
     ObjectNotFoundError,
     StorageEngine,
+    StorageError,
     StorageFullError,
 )
 
@@ -390,5 +391,5 @@ def test_objects_directory_symlink_is_rejected(tmp_path):
     except (OSError, NotImplementedError):
         pytest.skip("directory symlinks are not available")
 
-    with pytest.raises(Exception):
+    with pytest.raises(StorageError):
         StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
