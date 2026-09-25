@@ -345,7 +345,7 @@ async def test_put_is_not_automatically_retried(no_delay_retry_policy: RetryPoli
     ) as transport_client:
         config = StorageNodeClientConfig("http://testserver", retry_policy=no_delay_retry_policy)
         async with StorageNodeClient(config, client=transport_client) as node:
-            with pytest.raises(StorageNodeProtocolError):
+            with pytest.raises(StorageNodeUnavailableError):
                 await node.put_object("obj", "ver", b"x")
             assert calls == 1
 
@@ -382,6 +382,14 @@ def test_client_rejects_path_traversal_identifiers() -> None:
         StorageNodeClient("http://test")._object_path("object", "version/evil")
     with pytest.raises(ValueError):
         StorageNodeClient("http://test")._object_path("object", "version\x00evil")
+
+
+def test_client_default_operation_timeouts_are_specific() -> None:
+    config = StorageNodeClientConfig("http://test")
+    assert config.timeouts.health_seconds == 2.0
+    assert config.timeouts.stats_seconds == 3.0
+    assert config.timeouts.read_seconds == 30.0
+    assert config.timeouts.write_seconds == 60.0
 
 
 def test_client_config_validates_address_and_timeouts() -> None:
