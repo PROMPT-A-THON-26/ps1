@@ -1,0 +1,1 @@
+"""Shared Vault domain utilities."""
