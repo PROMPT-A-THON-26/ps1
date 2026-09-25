@@ -8,6 +8,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -66,7 +67,7 @@ def build_gateway_router(
                 }
                 for obj in GatewayService(session).list_objects()
             ]
-        return JSONResponse(payload, headers={"X-Request-ID": request_id})
+        return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
 
     @router.get("/objects/{name}/metadata")
     def object_metadata(name: str, request: Request) -> JSONResponse:
