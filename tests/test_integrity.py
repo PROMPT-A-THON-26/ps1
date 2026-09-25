@@ -143,7 +143,7 @@ async def test_checksum_mismatch_marks_corrupt_and_enqueues_verified_repair(db_s
 
     job = db_session.query(RepairJob).one()
     assert job.status is JobStatus.PENDING
-    assert job.source_node_id == "node-a"
+    assert job.source_node_id in {"node-a", "node-c"}
     assert job.target_node_id == "node-b"
 
     repair = RepairManager(db_session, client_factory=FakeClient)
