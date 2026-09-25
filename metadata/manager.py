@@ -447,6 +447,29 @@ class MetadataManager:
             self.session.flush()
             return replica
 
+    def remove_replica(self, replica_id: UUID) -> Replica:
+        """Remove metadata only after storage deletion is already safe."""
+        if not isinstance(replica_id, UUID):
+            raise ValueError("replica_id must be a UUID")
+        with self._transaction():
+            replica = self.session.scalar(
+                select(Replica).where(Replica.replica_id == replica_id).with_for_update()
+            )
+            if replica is None:
+                raise ObjectNotFound(str(replica_id))
+            if replica.status not in {
+                ReplicaState.HEALTHY,
+                ReplicaState.CORRUPTED,
+                ReplicaState.STALE,
+                ReplicaState.UNAVAILABLE,
+            }:
+                raise InvalidState(
+                    f"Replica {replica.replica_id} cannot be removed from state {replica.status}."
+                )
+            self.session.delete(replica)
+            self.session.flush()
+            return replica
+
     def register_node(
         self,
         *,
