@@ -119,9 +119,9 @@ async def test_admin_integrity_and_rebalance_dispatch_background_tasks(db_sessio
         )
 
     assert integrity.status_code == 202
-    assert integrity.json()["job_id"] == str(replica.replica_id)
+    assert integrity.json()["job_id"] == "task-integrity-1"
     assert rebalance.status_code == 202
-    assert rebalance.json()["job_id"] == "node-a"
+    assert rebalance.json()["job_id"] == "task-rebalance-1"
     assert calls == [
         ("verify", str(replica.replica_id)),
         ("rebalance", "node-a"),
