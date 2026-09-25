@@ -101,7 +101,7 @@ def run_repair_job(task: Task, repair_id: str) -> dict[str, object]:
                 ).run_job(UUID(str(repair_id)))
             )
         return _job_payload(result)
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError) as exc:
         if _retryable(exc):
             return _retry(task, exc)
         raise
@@ -129,7 +129,7 @@ def verify_replica(task: Task, replica_id: str) -> dict[str, object]:
             "corrupted": result.corrupted,
             "repair_id": None if result.repair_id is None else str(result.repair_id),
         }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError) as exc:
         if _retryable(exc):
             return _retry(task, exc)
         raise
@@ -157,7 +157,7 @@ def scan_node(task: Task, node_id: str) -> dict[str, object]:
                 str(item.repair_id) for item in results if item.repair_id is not None
             ],
         }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError) as exc:
         if _retryable(exc):
             return _retry(task, exc)
         raise
@@ -185,7 +185,7 @@ def scan_version(task: Task, version_id: str) -> dict[str, object]:
                 str(item.repair_id) for item in results if item.repair_id is not None
             ],
         }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError) as exc:
         if _retryable(exc):
             return _retry(task, exc)
         raise
@@ -231,7 +231,7 @@ def check_under_replicated_objects(task: Task) -> dict[str, object]:
                                     "repair_id": str(result.repair_id),
                                 }
                             )
-            except Exception as exc:
+            except (StorageNodeClientError, VaultError) as exc:
                 if _retryable(exc):
                     failures.append(
                         {"version_id": str(version_id), "error": str(exc)}
@@ -265,7 +265,7 @@ def rebalance_node(task: Task, node_id: str) -> dict[str, object]:
             "node_id": node_id,
             "migrations": [_job_payload(result) for result in results],
         }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError) as exc:
         if _retryable(exc):
             return _retry(task, exc)
         raise
@@ -287,7 +287,7 @@ def run_rebalance_job(task: Task, rebalance_id: str) -> dict[str, object]:
                 ).run_job(UUID(str(rebalance_id)))
             )
         return _job_payload(result)
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError) as exc:
         if _retryable(exc):
             return _retry(task, exc)
         raise
@@ -330,7 +330,7 @@ def migrate_replica(
             )
             result = _run(manager.run_job(job.rebalance_id))
         return _job_payload(result)
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError) as exc:
         if _retryable(exc):
             return _retry(task, exc)
         raise
