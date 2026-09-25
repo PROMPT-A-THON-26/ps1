@@ -397,6 +397,14 @@ class MetadataManager:
             if not normalized_node_id:
                 raise ValueError("node_id must be a non-empty string")
 
+            id_conflict = self.session.scalar(
+                select(StorageNode)
+                .where(StorageNode.node_id == normalized_node_id)
+                .with_for_update()
+            )
+            if id_conflict is not None:
+                raise ObjectAlreadyExists(normalized_node_id)
+
             node = StorageNode(
                 node_id=normalized_node_id,
                 address=normalized_address,
@@ -485,15 +493,6 @@ class MetadataManager:
         if status is not None:
             if not isinstance(status, NodeState):
                 raise ValueError("status must be a NodeState")
-            if accepted:
-                with self._transaction():
-                    node = self.session.scalar(
-                        select(StorageNode)
-                        .where(StorageNode.node_id == node.node_id)
-                        .with_for_update()
-                    )
-                    if node is None:
-                        raise ObjectNotFound(str(node_id))
-                    node.status = status
-                    self.session.flush()
+            if accepted and node.status is not status:
+                node = self.transition_node_state(node.node_id, status)
         return node
