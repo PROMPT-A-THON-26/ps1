@@ -121,7 +121,7 @@ async def test_quorum_failure_does_not_commit(db_session):
         ).replicate_version(version.version_id, payload_factory=lambda: b"hello")
 
     assert exc.value.status_code == 503
-    assert version.state is VersionState.PREPARING
+    assert version.state is VersionState.FAILED
 
 
 @pytest.mark.asyncio
