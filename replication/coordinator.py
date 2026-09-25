@@ -395,13 +395,21 @@ class DistributedWriteCoordinator:
             await self._reconcile_or_fail(
                 client,
                 replica_id,
-                node_id,
                 object_id,
                 version_id,
                 checksum,
                 size_bytes,
-                mark_unavailable=True,
             )
+            if not self._replica_is_healthy(replica_id):
+                # A data-path failure does not prove the node itself is dead.
+                # Only evict it when a fresh heartbeat also fails.
+                if not await self._is_node_reachable(client):
+                    try:
+                        self.manager.set_node_status(
+                            node_id, NodeState.UNAVAILABLE
+                        )
+                    except ObjectNotFound:
+                        pass
             return node_id, self._replica_is_healthy(replica_id)
         except StorageNodeClientError:
             await self._reconcile_or_fail(
@@ -412,7 +420,6 @@ class DistributedWriteCoordinator:
                 version_id,
                 checksum,
                 size_bytes,
-                mark_unavailable=False,
             )
             return node_id, self._replica_is_healthy(replica_id)
         except Exception:
@@ -423,13 +430,10 @@ class DistributedWriteCoordinator:
         self,
         client: StorageNodeClient,
         replica_id: UUID,
-        node_id: str,
         object_id: str,
         version_id: str,
         checksum: str,
         size_bytes: int,
-        *,
-        mark_unavailable: bool,
     ) -> None:
         try:
             verified = await client.verify_object(object_id, version_id)
@@ -444,13 +448,13 @@ class DistributedWriteCoordinator:
             pass
 
         self.manager.set_replica_state(replica_id, ReplicaState.FAILED)
-        if mark_unavailable:
-            try:
-                self.manager.update_node_heartbeat(
-                    node_id, status=NodeState.UNAVAILABLE
-                )
-            except ObjectNotFound:
-                pass
+
+    async def _is_node_reachable(self, client: StorageNodeClient) -> bool:
+        try:
+            await client.health()
+        except StorageNodeClientError:
+            return False
+        return True
 
     def _replica_is_healthy(self, replica_id: UUID) -> bool:
         replica = self.session.scalar(
