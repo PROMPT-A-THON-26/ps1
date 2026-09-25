@@ -144,19 +144,22 @@ async def test_node_failure_repair_restores_rf_without_deleting_other_sources(db
         version_id=version.version_id,
         node_id="node-b",
     ).one()
-    metadata.set_replica_state(failed.replica_id, ReplicaState.UNAVAILABLE)
+
+    node = db_session.query(StorageNode).filter_by(node_id="node-b").one()
+    node.last_heartbeat_at = BASE
+    db_session.commit()
 
     detector = FailureDetector(
         db_session,
         suspect_after_seconds=15,
         unavailable_after_seconds=30,
-        clock=lambda: BASE + __import__("datetime").timedelta(seconds=30),
     )
-    db_session.query(StorageNode).filter_by(node_id="node-b").one().last_heartbeat_at = BASE
-    db_session.commit()
-    transitions = detector.scan(now=BASE + __import__("datetime").timedelta(seconds=30))
-    assert transitions and transitions[0].current is NodeState.UNAVAILABLE
+    first = detector.scan(now=BASE + timedelta(seconds=15))
+    assert first and first[0].current is NodeState.SUSPECT
+    second = detector.scan(now=BASE + timedelta(seconds=30))
+    assert second and second[0].current is NodeState.UNAVAILABLE
 
+    metadata.set_replica_state(failed.replica_id, ReplicaState.UNAVAILABLE)
     repair = RepairManager(db_session, client_factory=ChaosClient)
     job = repair.schedule_for_version(version.version_id, replication_factor=3)
     assert job is not None
