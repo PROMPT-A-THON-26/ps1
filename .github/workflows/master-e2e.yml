@@ -1,0 +1,130 @@
+name: Vault MASTER end-to-end
+
+on:
+  push:
+    branches: [MASTER]
+  pull_request:
+    branches: [MASTER]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Frontend verification
+        run: |
+          python frontend/tests/verify_frontend.py
+          node --check frontend/js/app.js
+
+      - name: Validate compose
+        run: docker compose config --quiet
+
+      - name: Build and start complete stack
+        run: docker compose up -d --build
+
+      - name: Wait for gateway and frontend
+        run: |
+          python - <<'PY'
+          import time
+          import urllib.request
+
+          checks = [
+              ("gateway", "http://127.0.0.1:8000/healthz"),
+              ("frontend", "http://127.0.0.1:5173/"),
+          ]
+
+          deadline = time.time() + 180
+          while time.time() < deadline:
+              good = True
+              for name, url in checks:
+                  try:
+                      with urllib.request.urlopen(url, timeout=3) as response:
+                          if response.status != 200:
+                              good = False
+                              break
+                  except Exception:
+                      good = False
+                      break
+              if good:
+                  print("gateway and frontend are ready")
+                  break
+              time.sleep(3)
+          else:
+              raise SystemExit("stack did not become ready")
+          PY
+
+      - name: Smoke test public API
+        run: |
+          python - <<'PY'
+          import json
+          import urllib.request
+
+          def get(url):
+              with urllib.request.urlopen(url, timeout=10) as response:
+                  return response.status, json.loads(response.read().decode())
+
+          status, health = get("http://127.0.0.1:8000/api/v1/health")
+          assert status == 200
+          assert health["status"] in {"ok", "degraded"}
+
+          status, nodes = get("http://127.0.0.1:8000/api/v1/nodes")
+          assert status == 200
+          assert len(nodes) == 4
+
+          status, objects = get("http://127.0.0.1:8000/api/v1/objects")
+          assert status == 200
+          assert isinstance(objects, list)
+          print("API smoke test passed")
+          PY
+
+      - name: Smoke test object write/read/delete
+        run: |
+          python - <<'PY'
+          import urllib.error
+          import urllib.request
+
+          body = b"vault-master-e2e"
+          base = "http://127.0.0.1:8000/api/v1/objects/master-smoke"
+
+          put = urllib.request.Request(
+              base,
+              data=body,
+              method="PUT",
+              headers={"Content-Type": "application/octet-stream", "X-Request-ID": "req_master_smoke"},
+          )
+          with urllib.request.urlopen(put, timeout=30) as response:
+              assert response.status == 201
+
+          with urllib.request.urlopen(base, timeout=30) as response:
+              assert response.status == 200
+              assert response.read() == body
+
+          delete = urllib.request.Request(base, method="DELETE")
+          with urllib.request.urlopen(delete, timeout=30) as response:
+              assert response.status == 204
+
+          try:
+              urllib.request.urlopen(base, timeout=10)
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 404
+          else:
+              raise AssertionError("deleted object remained readable")
+
+          print("object write/read/delete smoke test passed")
+          PY
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v
