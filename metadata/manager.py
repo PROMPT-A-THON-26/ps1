@@ -319,7 +319,7 @@ class MetadataManager:
                 raise ObjectNotFound(str(replica_id))
 
             allowed = {
-                ReplicaState.PENDING: {ReplicaState.COPYING, ReplicaState.FAILED},
+                ReplicaState.PENDING: {ReplicaState.REPAIRING, ReplicaState.COPYING, ReplicaState.FAILED},
                 ReplicaState.COPYING: {ReplicaState.FAILED},
                 ReplicaState.HEALTHY: {
                     ReplicaState.STALE,
