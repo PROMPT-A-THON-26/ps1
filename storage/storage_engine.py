@@ -114,7 +114,7 @@ class StorageEngine:
                         remaining = self.chunk_size_bytes - chunk_written
                         piece = incoming[offset : offset + remaining]
                         with self._lock:
-                            self._ensure_capacity(size + len(piece))
+                            self._ensure_capacity(len(piece))
                         chunk_handle.write(piece)
                         chunk_written += len(piece)
                         size += len(piece)
