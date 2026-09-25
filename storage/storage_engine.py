@@ -53,6 +53,7 @@ class StorageEngine:
 
     METADATA_NAME = "metadata.json"
     CHUNK_PREFIX = "chunk-"
+    MAX_VERIFY_CHUNKS = 1_000_000
 
     def __init__(
         self,
@@ -140,7 +141,7 @@ class StorageEngine:
 
                         with self._lock:
                             self._reserve_capacity(len(piece))
-                        reserved_bytes += len(piece)
+                            reserved_bytes += len(piece)
 
                         try:
                             chunk_handle.write(piece)
@@ -272,6 +273,9 @@ class StorageEngine:
             chunk_size_bytes = None
         if chunk_count is not None and chunk_count < 0:
             errors.append("invalid chunk_count")
+            chunk_count = None
+        if chunk_count is not None and chunk_count > self.MAX_VERIFY_CHUNKS:
+            errors.append("chunk_count exceeds verification limit")
             chunk_count = None
 
         expected_checksum = metadata.get("checksum")
@@ -658,14 +662,10 @@ class StorageEngine:
         errors: list[str],
     ) -> int | None:
         value = metadata.get(key)
-        if isinstance(value, bool):
+        if not isinstance(value, int) or isinstance(value, bool):
             errors.append(f"invalid {key}")
             return None
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            errors.append(f"invalid {key}")
-            return None
+        return value
 
     @staticmethod
     def _is_sha256(value: object) -> bool:
