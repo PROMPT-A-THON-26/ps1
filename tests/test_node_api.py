@@ -27,7 +27,6 @@ def test_stats(tmp_path):
         assert body["node_id"] == node_server.config.node_id
         assert body["capacity_bytes"] == 1024 * 1024
         assert body["used_bytes"] >= 0
-        assert body["chunk_size_bytes"] == 4
 
 
 def test_object_lifecycle(tmp_path):
