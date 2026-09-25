@@ -7,10 +7,10 @@ import httpx
 import pytest
 from sqlalchemy import select
 
-from common.constants import NodeState, ReplicaState, VersionState
+from common.constants import JobStatus, NodeState, ReplicaState, VersionState
 from common.errors import InsufficientReplicas
 from metadata.manager import MetadataManager
-from metadata.models import Replica, Version
+from metadata.models import RepairJob, Replica, Version
 from replication.coordinator import DistributedWriteCoordinator
 from replication.node_client import RetryPolicy, StorageNodeClient, StorageNodeClientConfig
 from storage.app_factory import create_storage_node_app
@@ -136,6 +136,10 @@ async def test_end_to_end_quorum_write_failover_and_repair(db_session, tmp_path)
         )
         assert repaired.target_node_id == "node-4"
         assert repaired.healthy_replica_count == 3
+        repair_job = db_session.scalar(select(RepairJob).where(RepairJob.version_id == result.version_id))
+        assert repair_job is not None
+        assert repair_job.status is JobStatus.SUCCEEDED
+        assert repair_job.attempts == 1
 
         final_replicas = list(
             db_session.scalars(
@@ -203,6 +207,10 @@ async def test_end_to_end_corrupt_replica_is_skipped(db_session, tmp_path):
             select(Replica).where(Replica.replica_id == replica.replica_id)
         )
         assert replica.status is ReplicaState.CORRUPTED
+        repair_job = db_session.scalar(select(RepairJob).where(RepairJob.version_id == result.version_id))
+        assert repair_job is not None
+        assert repair_job.status is JobStatus.PENDING
+        assert repair_job.target_node_id == "node-4"
 
 
 @pytest.mark.asyncio
