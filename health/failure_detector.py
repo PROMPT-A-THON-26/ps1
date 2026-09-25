@@ -43,6 +43,7 @@ class ProbeResult:
     state: NodeState
     reachable: bool
     changed: bool
+    stats_reachable: bool = True
     replica_count_marked_unavailable: int = 0
 
 
@@ -83,32 +84,6 @@ class FailureDetector:
                 raise StorageNodeClientError(
                     f"storage node identity mismatch: expected {node_id}, got {health.node_id}"
                 )
-            stats = await client.stats()
-
-            remote_status = health.status.strip().lower()
-            if remote_status == "draining":
-                next_state = NodeState.DRAINING
-            elif node.status is NodeState.UNAVAILABLE:
-                next_state = self.RECOVERY_TRANSITION
-            elif node.status is NodeState.RECOVERING:
-                next_state = NodeState.HEALTHY
-            else:
-                next_state = NodeState.HEALTHY
-
-            changed = next_state is not node.status
-            self.manager.update_node_heartbeat(
-                node_id,
-                capacity_bytes=stats.capacity_bytes,
-                used_bytes=stats.used_bytes,
-                status=next_state,
-                heartbeat_at=now,
-            )
-            return ProbeResult(
-                node_id=node_id,
-                state=next_state,
-                reachable=True,
-                changed=changed,
-            )
         except StorageNodeClientError:
             if node.status is NodeState.DRAINING:
                 return ProbeResult(
@@ -131,8 +106,47 @@ class FailureDetector:
                 state=next_state,
                 reachable=False,
                 changed=changed,
+                stats_reachable=False,
                 replica_count_marked_unavailable=marked,
             )
+
+        remote_status = health.status.strip().lower()
+        if remote_status == "draining":
+            next_state = NodeState.DRAINING
+        elif node.status is NodeState.UNAVAILABLE:
+            next_state = self.RECOVERY_TRANSITION
+        elif node.status is NodeState.RECOVERING:
+            next_state = NodeState.HEALTHY
+        else:
+            next_state = NodeState.HEALTHY
+
+        changed = next_state is not node.status
+        stats_reachable = True
+        try:
+            stats = await client.stats()
+        except StorageNodeClientError:
+            # Health is the liveness heartbeat. A stats-only partition must not
+            # make a live node look dead; capacity data simply remains stale.
+            stats = None
+            stats_reachable = False
+
+        heartbeat_kwargs = {
+            "status": next_state,
+            "heartbeat_at": now,
+        }
+        if stats is not None:
+            heartbeat_kwargs["capacity_bytes"] = stats.capacity_bytes
+            heartbeat_kwargs["used_bytes"] = stats.used_bytes
+
+        self.manager.update_node_heartbeat(node_id, **heartbeat_kwargs)
+
+        return ProbeResult(
+            node_id=node_id,
+            state=next_state,
+            reachable=True,
+            changed=changed,
+            stats_reachable=stats_reachable,
+        )
 
     async def scan_once(self) -> tuple[ProbeResult, ...]:
         results = await asyncio.gather(
