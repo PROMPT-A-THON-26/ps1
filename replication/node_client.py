@@ -673,7 +673,7 @@ class StorageNodeClient:
         request_id = response.headers.get("X-Request-ID")
         detail = await self._response_json_or_text(response)
         try:
-                if response.status_code in {400, 422}:
+            if response.status_code in {400, 422}:
                 raise StorageNodeInvalidRequestError(
                     "Storage node rejected the request.",
                     status_code=response.status_code,
