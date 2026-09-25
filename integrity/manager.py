@@ -52,6 +52,8 @@ class IntegrityManager:
         replication_factor: int | None = None,
         max_attempts: int | None = None,
     ) -> None:
+        replication_factor = settings.replication_factor if replication_factor is None else replication_factor
+        max_attempts = settings.max_attempts if max_attempts is None else max_attempts
         if (
             not isinstance(replication_factor, int)
             or isinstance(replication_factor, bool)
