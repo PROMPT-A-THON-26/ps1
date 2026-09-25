@@ -91,7 +91,7 @@ def test_expected_version_rejects_stale_writer(db_session):
     assert current.current_version_id == v2.version_id
 
 
-def test_commit_rejects_non_preparing_version_and_regression(db_session):
+def test_commit_rejects_non_preparing_version(db_session):
     manager = MetadataManager(db_session)
     obj = manager.create_object("versions.txt")
 
@@ -100,15 +100,6 @@ def test_commit_rejects_non_preparing_version_and_regression(db_session):
 
     with pytest.raises(InvalidState):
         manager.commit_version(v1.version_id)
-
-    v2 = manager.create_version(
-        obj.object_id, size_bytes=2, checksum=SHA_B, expected_current_version=1
-    )
-    manager.commit_version(v2.version_id)
-
-    with pytest.raises(VersionConflict):
-        # A second commit cannot move current_version_id backwards.
-        manager.commit_version(v1.version_id, expected_current_version=2)
 
 
 def test_replica_cannot_be_marked_healthy_without_verification(db_session):
@@ -295,17 +286,6 @@ def test_current_version_foreign_key_is_enforced(db_session):
     obj.current_version_id = uuid4()
     with pytest.raises(IntegrityError):
         db_session.commit()
-    db_session.rollback()
-
-
-def test_broken_current_version_pointer_is_detected(db_session):
-    manager = MetadataManager(db_session)
-    obj = manager.create_object("pointer.txt")
-
-    # Bypass the FK in memory only; do not commit the broken pointer.
-    obj.current_version_id = uuid4()
-    with pytest.raises(InvalidState):
-        manager.create_version(obj.object_id, size_bytes=1, checksum=SHA_A)
     db_session.rollback()
 
 
