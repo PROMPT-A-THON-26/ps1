@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local environments
+.venv/
+venv/
+env/
+
+# Local Vault development data
+vault.db
+*.sqlite3
+data/
+
+# Environment secrets
+.env
+
+# IDE/editor
+.vscode/
+.idea/
