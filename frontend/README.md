@@ -1,18 +1,16 @@
 # Vault Part C — Frontend
 
-Part C is a dependency-light judge-facing operations cockpit built with plain HTML, CSS and vanilla JavaScript.
+Part C is a dependency-light, judge-facing resilience cockpit built with plain HTML, CSS and vanilla JavaScript.
 
-## What makes the UI different
+## Why it stands out
 
-The first screen is intentionally not a generic CRUD dashboard. It treats Vault as a distributed-systems product and puts resilience on the first glance:
+The first screen explains a distributed-storage failure story instead of presenting a generic CRUD dashboard:
 
-- replica topology is visible instead of hidden in a detail page
-- a resilience score summarizes the operational state
-- failure-domain health and storage pressure are visible together
-- recovery, integrity and rebalance actions are one click away
-- object details show the replica spread and checksum state
-- all screens use the same state model and navigation
-- demo mode works without Part B, so the UI can be reviewed independently
+- replica topology and capacity pressure are visible immediately
+- resilience score, durability policy and failure-domain health share one state model
+- the Resilience Drill demonstrates detect → isolate → repair → verify as a safe local simulation
+- the command palette gives judges a fast way to move through the system
+- live mode uses the documented Part B public REST contract and never fabricates unsupported backend behavior
 
 ## Views
 
@@ -30,52 +28,57 @@ Open:
 
 No npm install and no framework are required.
 
-## Part B integration boundary
+## Live Part B integration
 
-The production adapter is intentionally isolated in frontend/js/app.js under the API object.
-
-Default mode:
+Default mode is safe mock mode:
 
     const CONFIG = window.VAULT_CONFIG || { mode: "mock", baseUrl: "/api/v1" };
 
-Before app.js is loaded, Part B can supply:
+For a quick live preview without editing the bundle, open:
 
-    window.VAULT_CONFIG = {
-      mode: "api",
-      baseUrl: "http://localhost:8000/api/v1"
-    };
+    http://localhost:5173/?mode=api&baseUrl=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fv1
 
-The UI uses the documented Part B public REST contract. In live mode it synchronizes health, nodes and object catalog data at startup/refresh, while administrative actions are sent through the same centralized adapter. The UI expects these logical operations:
+Live mode uses:
 
-- GET health summary
-- GET nodes
-- GET objects
-- GET repairs
-- GET integrity jobs/results
-- GET rebalance jobs
-- GET events
-- PUT object upload (`/objects/{name}`)
-- POST repair
-- POST integrity check
-- POST rebalance
-- POST node drain/resume
+- GET /health
+- GET /nodes
+- GET /objects
+- GET /objects/{name}/metadata
+- GET /objects/{name}/versions
+- PUT /objects/{name}
+- POST /admin/repair
+- POST /admin/integrity/check
+- POST /admin/rebalance
+- GET /admin/repair/{repair_id}
+- GET /admin/integrity/check/{job_id}
+- GET /admin/rebalance/{job_id}
 
-If the final Part B route names differ, translate them only in the API object. Do not spread backend-specific paths through the UI.
+The frontend polls accepted admin jobs and refreshes normalized state when a job reaches a terminal state.
 
-## Error contract
+Node drain/resume is intentionally demo-only because the documented Part B public contract does not expose a corresponding endpoint.
 
-The adapter is designed for:
+## Error handling
+
+API errors use the Part B shape:
 
     error.code
     error.message
     error.request_id
 
-Request IDs are generated for API calls so Part C can surface failures without inventing backend behavior.
+The frontend adds an X-Request-ID to API calls and surfaces failures through live toasts.
 
 ## Accessibility
 
-The layout uses semantic sections, labeled navigation, labeled search fields, keyboard-focus styles, a modal dialog, and live toast announcements.
+The layout uses semantic sections, labeled navigation, labeled search fields, live status regions, keyboard-focus styles, a modal dialog and an interactive command palette.
 
-## Scope boundary
+## Verification
 
-Part C does not change Part A or Part B implementation. It is safe to build and visually review while another developer works on the control plane.
+Run:
+
+    python frontend/tests/verify_frontend.py
+
+The repository CI also runs:
+
+    node --check frontend/js/app.js
+
+alongside the existing Python and integration test suite.
