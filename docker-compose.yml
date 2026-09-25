@@ -41,11 +41,6 @@ services:
     build:
       context: .
       dockerfile: docker/node.Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
     environment:
       VAULT_NODE_ID: node-01
       VAULT_NODE_HOST: 0.0.0.0
