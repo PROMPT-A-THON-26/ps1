@@ -234,8 +234,6 @@ async def test_quorum_failure_aborts_version(db_session, tmp_path):
             await coordinator.write_object("quorum-failure.bin", b"must-not-commit")
 
         failed = db_session.scalar(
-            select(Version).join_from(Version, Version.object).where(
-                Version.state is VersionState.FAILED
-            )
+            select(Version).where(Version.state == VersionState.FAILED)
         )
         assert failed is not None
