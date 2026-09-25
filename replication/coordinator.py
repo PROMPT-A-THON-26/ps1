@@ -415,7 +415,6 @@ class DistributedWriteCoordinator:
             await self._reconcile_or_fail(
                 client,
                 replica_id,
-                node_id,
                 object_id,
                 version_id,
                 checksum,
