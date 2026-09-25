@@ -62,6 +62,10 @@ class StorageNodeProtocolError(StorageNodeClientError):
     """The node returned a malformed or unsupported response."""
 
 
+class StorageNodeIntegrityError(StorageNodeClientError):
+    """The node successfully inspected an object but found integrity corruption."""
+
+
 @dataclass(frozen=True, slots=True)
 class StoredObject:
     object_id: str
@@ -76,6 +80,7 @@ class VerifiedObject:
     size_bytes: int
     checksum: str
     verified: bool
+    valid: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -493,10 +498,20 @@ class StorageNodeClient:
                 )
 
             payload = self._json_object(response)
-            verified = payload.get("verified")
+
+            verified = payload.get("verified", True)
             if type(verified) is not bool or not verified:
                 raise StorageNodeProtocolError(
                     "Storage node VERIFY response must explicitly report verified=true.",
+                    status_code=response.status_code,
+                    detail=payload,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
+
+            valid = payload.get("valid", True)
+            if type(valid) is not bool:
+                raise StorageNodeProtocolError(
+                    "Storage node VERIFY response has an invalid 'valid' field.",
                     status_code=response.status_code,
                     detail=payload,
                     request_id=response.headers.get("X-Request-ID", rid),
@@ -508,10 +523,18 @@ class StorageNodeClient:
                 size_bytes=self._required_nonnegative_int(payload, "size_bytes"),
                 checksum=self._required_checksum(payload, "checksum"),
                 verified=True,
+                valid=valid,
             )
             if result.object_id != object_id or result.version_id != version_id:
                 raise StorageNodeProtocolError(
                     "Storage-node VERIFY returned identifiers different from the request.",
+                    status_code=response.status_code,
+                    detail=payload,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
+            if not result.valid:
+                raise StorageNodeIntegrityError(
+                    "Storage node reported that stored data failed integrity verification.",
                     status_code=response.status_code,
                     detail=payload,
                     request_id=response.headers.get("X-Request-ID", rid),
