@@ -28,6 +28,20 @@ def test_health(tmp_path):
         }
 
 
+def test_request_id_is_echoed_for_traceability(tmp_path):
+    with client_for(tmp_path) as client:
+        response = client.get(
+            "/internal/v1/health",
+            headers={"X-Request-ID": "req_part_a_test"},
+        )
+        assert response.status_code == 200
+        assert response.headers["X-Request-ID"] == "req_part_a_test"
+
+        generated = client.get("/internal/v1/health")
+        assert generated.status_code == 200
+        assert generated.headers["X-Request-ID"].startswith("req_")
+
+
 def test_stats(tmp_path):
     with client_for(tmp_path) as client:
         response = client.get("/internal/v1/stats")
