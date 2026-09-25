@@ -133,18 +133,18 @@ class AdminService:
     def enqueue_integrity(self, request: IntegrityRequest) -> AdminDispatch:
         if request.replica_id is not None:
             result = verify_replica.delay(str(request.replica_id))
-            return AdminDispatch(str(request.replica_id), result.id, _celery_status(result.id))
+            return AdminDispatch(result.id, result.id, _celery_status(result.id))
         if request.node_id is not None:
             result = scan_node.delay(request.node_id)
-            return AdminDispatch(request.node_id, result.id, _celery_status(result.id))
+            return AdminDispatch(result.id, result.id, _celery_status(result.id))
         assert request.version_id is not None
         result = scan_version.delay(str(request.version_id))
-        return AdminDispatch(str(request.version_id), result.id, _celery_status(result.id))
+        return AdminDispatch(result.id, result.id, _celery_status(result.id))
 
     def enqueue_rebalance(self, request: RebalanceRequest) -> AdminDispatch:
         if request.node_id is not None:
             result = rebalance_node.delay(request.node_id)
-            return AdminDispatch(request.node_id, result.id, _celery_status(result.id))
+            return AdminDispatch(result.id, result.id, _celery_status(result.id))
 
         assert request.replica_id is not None and request.target_node_id is not None
         replica = self.session.scalar(
