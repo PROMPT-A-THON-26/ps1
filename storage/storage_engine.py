@@ -42,6 +42,7 @@ class VerificationResult:
     version_id: str
     valid: bool
     checksum: str | None
+    size_bytes: int
     chunk_count: int
     corrupt_chunks: tuple[int, ...]
     errors: tuple[str, ...]
@@ -251,6 +252,7 @@ class StorageEngine:
                 False,
                 None,
                 0,
+                0,
                 (),
                 (str(exc),),
             )
@@ -419,6 +421,7 @@ class StorageEngine:
             version_id,
             valid,
             actual_checksum,
+            actual_size,
             chunk_count or 0,
             tuple(sorted(corrupt)),
             tuple(errors),
