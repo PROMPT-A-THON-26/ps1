@@ -3,7 +3,7 @@
 > Fault-Tolerant Distributed Object Storage System
 
 **Repository:** `PROMPT-A-THON-26/ps1`  
-**Status:** Architecture and implementation planning  
+**Status:** Part B control plane implemented and integrated  
 **Problem Domain:** Distributed systems / object storage / fault tolerance
 
 ---
@@ -1670,3 +1670,98 @@ Part A's storage-node implementation is integrated under `storage/` and is exerc
 B13 covers node failure and repair, checksum corruption, network isolation/recovery, conditional concurrent writes, and persistence of job failure state across process restart.
 
 The final integration branch is intended as the handoff candidate; no feature work is considered complete until its GitHub Actions matrix passes on Python 3.11 and 3.12.
+
+
+---
+
+# 42. Final Part B Reliability Completion
+
+The control plane now covers the full B1-B14 milestone sequence plus the production-facing reliability pieces defined by the implementation specification:
+
+- durable PostgreSQL metadata and Alembic migration foundation;
+- object/version/replica/node lifecycle enforcement;
+- deterministic placement, replication, quorum-aware gateway I/O, and conditional writes;
+- heartbeat processing and failure detection;
+- automatic repair-job creation when a committed replica becomes unavailable because of node failure;
+- verified checksum/size integrity scanning and corruption-triggered repair;
+- partition recovery and recovered-node reconciliation;
+- copy/verify-before-delete rebalancing and node draining;
+- failure/chaos validation and Part A storage-node integration;
+- Celery + Redis background workers with retry/backoff, late acknowledgements, bounded worker concurrency, and periodic scheduling;
+- administrative repair, integrity, and rebalancing APIs;
+- central environment-backed configuration for durability, health, storage timeout, worker retry, and scan policies.
+
+## Background worker
+
+The Celery application is:
+
+`worker.celery_app:celery_app`
+
+Run a worker with:
+
+`celery -A worker.celery_app:celery_app worker --loglevel=INFO`
+
+Run the periodic scheduler with:
+
+`celery -A worker.celery_app:celery_app beat --loglevel=INFO`
+
+Canonical tasks:
+
+`repair_version`, `verify_replica`, `scan_node`, `check_under_replicated_objects`, `rebalance_node`, `migrate_replica`, `process_node_health`
+
+Additional orchestration tasks exist for durable job execution and fan-out:
+
+`run_repair_job`, `run_rebalance_job`, `scan_version`, `scan_all_nodes`, `rebalance_draining_nodes`
+
+Redis is the broker/result backend by default. Retryable storage/control-plane failures use exponential backoff and durable repair/rebalance state remains in PostgreSQL.
+
+## Administrative API
+
+Repair:
+
+`POST /api/v1/admin/repair`
+
+`GET /api/v1/admin/repair/{repair_id}`
+
+Integrity:
+
+`POST /api/v1/admin/integrity/check`
+
+`GET /api/v1/admin/integrity/check/{job_id}`
+
+Rebalance:
+
+`POST /api/v1/admin/rebalance`
+
+`GET /api/v1/admin/rebalance/{job_id}`
+
+The integrity request accepts exactly one target: `replica_id`, `node_id`, or `version_id`.
+
+The rebalancing request accepts either a `node_id` to drain or a `replica_id` plus `target_node_id` to migrate a specific replica.
+
+## Configuration
+
+The repository's `.env.example` documents the centralized configuration surface. The `VAULT_*` variables are the preferred names; legacy durability/health names remain accepted for compatibility.
+
+Database migrations:
+
+`alembic upgrade head`
+
+The migration environment reads `DATABASE_URL` so development can use SQLite while deployment can use PostgreSQL.
+
+## Reliability invariants
+
+The completed control plane maintains the following invariants:
+
+1. A replica reaches `HEALTHY` only after storage success and verification.
+2. Repair and rebalancing verify a trusted healthy source before copying.
+3. Replacement data is verified before the old copy is deleted.
+4. Node unreachability is not treated as data corruption.
+5. A recovered node remains `RECOVERING` until reconciliation succeeds.
+6. Failed repair/rebalance work is persisted and retriable.
+7. Concurrent version updates are protected by `X-Expected-Version`.
+8. Large object payloads remain on storage nodes rather than in PostgreSQL metadata.
+
+## Final validation
+
+CI compiles all control-plane packages, worker code, migrations, tests, and the integrated Part A storage package, then runs the full pytest suite on Python 3.11 and 3.12.
