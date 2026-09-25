@@ -144,7 +144,8 @@ async def test_failure_detector_progresses_suspect_to_unavailable_and_marks_repl
         )
         assert replica is not None and replica.status is ReplicaState.UNAVAILABLE
         assert node is not None and node.status is NodeState.UNAVAILABLE
-        assert node.last_heartbeat_at == base
+        assert node.last_heartbeat_at is not None
+        assert node.last_heartbeat_at.replace(tzinfo=timezone.utc) == base
 
 
 @pytest.mark.asyncio
@@ -155,7 +156,7 @@ async def test_failure_detector_recovers_unavailable_node_in_two_successful_prob
         nodes, transports = await build_nodes(tmp_path, stack)
         register_nodes(db_session, nodes)
 
-        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        base = datetime.now(timezone.utc) + timedelta(seconds=60)
         clock = [base]
         detector = FailureDetector(
             db_session,
@@ -201,7 +202,7 @@ async def test_repair_worker_automatically_restores_replication_factor(
         )
         write = await coordinator.write_object("worker.bin", b"background-repair")
 
-        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        base = datetime.now(timezone.utc) + timedelta(seconds=60)
         detector = FailureDetector(
             db_session,
             nodes,
