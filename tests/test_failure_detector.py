@@ -54,7 +54,9 @@ def test_failure_detector_recovers_fresh_heartbeat_to_healthy(db_session):
         unavailable_after_seconds=30,
     )
     changed = detector.evaluate(now=heartbeat + timedelta(seconds=1))
+    assert changed == {"node-recover": NodeState.RECOVERING}
 
+    changed = detector.evaluate(now=heartbeat + timedelta(seconds=2))
     assert changed == {"node-recover": NodeState.HEALTHY}
 
 
