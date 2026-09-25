@@ -16,6 +16,7 @@ class StorageNodeConfig:
     port: int
     data_dir: Path
     capacity_bytes: int
+    chunk_size_bytes: int
 
     @classmethod
     def from_env(cls) -> "StorageNodeConfig":
@@ -26,6 +27,10 @@ class StorageNodeConfig:
             os.getenv("VAULT_NODE_CAPACITY_BYTES", str(100 * 1024**3)),
             "VAULT_NODE_CAPACITY_BYTES",
         )
+        chunk_size_bytes = _positive_int(
+            os.getenv("VAULT_NODE_CHUNK_SIZE_BYTES", str(16 * 1024**2)),
+            "VAULT_NODE_CHUNK_SIZE_BYTES",
+        )
         data_dir = Path(os.getenv("VAULT_NODE_DATA_DIR", "./data/vault")).expanduser()
 
         if not node_id:
@@ -33,7 +38,14 @@ class StorageNodeConfig:
         if not host:
             raise ConfigurationError("VAULT_NODE_HOST must not be empty")
 
-        return cls(node_id=node_id, host=host, port=port, data_dir=data_dir, capacity_bytes=capacity_bytes)
+        return cls(
+            node_id=node_id,
+            host=host,
+            port=port,
+            data_dir=data_dir,
+            capacity_bytes=capacity_bytes,
+            chunk_size_bytes=chunk_size_bytes,
+        )
 
 
 def _positive_int(raw: str, name: str) -> int:
