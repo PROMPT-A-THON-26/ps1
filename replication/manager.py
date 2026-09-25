@@ -18,6 +18,7 @@ from common.constants import (
     VersionState,
 )
 from common.errors import InvalidState, ObjectNotFound, VaultError
+from common.settings import settings
 from metadata.manager import MetadataManager
 from metadata.models import Replica, StorageNode, Version
 from placement import PlacementManager, PlacementPolicy
@@ -41,6 +42,14 @@ class ReplicationPolicy:
     factor: int = DEFAULT_REPLICATION_FACTOR
     write_quorum: int = DEFAULT_WRITE_QUORUM
     read_quorum: int = DEFAULT_READ_QUORUM
+
+    @classmethod
+    def from_settings(cls) -> "ReplicationPolicy":
+        return cls(
+            factor=settings.replication_factor,
+            write_quorum=settings.write_quorum,
+            read_quorum=settings.read_quorum,
+        )
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -88,7 +97,7 @@ class ReplicationManager:
         client_factory: ClientFactory = StorageNodeClient,
     ) -> None:
         self.session = session
-        self.policy = policy or ReplicationPolicy()
+        self.policy = policy or ReplicationPolicy.from_settings()
         self.client_factory = client_factory
         self.metadata = MetadataManager(session)
         self.placement = PlacementManager(
