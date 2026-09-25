@@ -49,8 +49,9 @@ def _retry(task: Task, error: BaseException):
 
 
 def _job_payload(job) -> dict[str, object]:
+    job_id = getattr(job, "repair_id", None) or getattr(job, "rebalance_id", None)
     return {
-        "job_id": str(getattr(job, "repair_id", getattr(job, "rebalance_id"))),
+        "job_id": str(job_id),
         "status": job.status.value,
         "attempts": job.attempts,
     }
@@ -78,7 +79,7 @@ def repair_version(task: Task, version_id: str) -> dict[str, object]:
             "version_id": str(version_id),
             "jobs": [_job_payload(result) for result in results],
         }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError) as exc:
         if _retryable(exc):
             return _retry(task, exc)
         raise
@@ -208,18 +209,6 @@ def check_under_replicated_objects(task: Task) -> dict[str, object]:
         )
 
         for version_id in version_ids:
-            healthy_count = int(
-                session.scalar(
-                    select(Replica.replica_id)
-                    .where(
-                        Replica.version_id == version_id,
-                        Replica.status == ReplicaState.HEALTHY,
-                    )
-                    .limit(1)
-                )
-                is not None
-            )
-            del healthy_count  # actual count is computed by the manager for safety
             try:
                 results = _run(
                     RepairManager(
