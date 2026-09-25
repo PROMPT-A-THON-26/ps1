@@ -29,7 +29,7 @@ class ToggleTransport(httpx.AsyncBaseTransport):
         return await self.inner.handle_async_request(request)
 
     async def aclose(self) -> None:
-        await self.inner.aclose()
+        return await self.inner.aclose()
 
 
 async def build_nodes(tmp_path: Path, stack: AsyncExitStack):
@@ -73,6 +73,11 @@ def register_nodes(session, nodes) -> None:
         )
 
 
+def test_integrity_scanner_rejects_non_positive_batch_size(db_session):
+    with pytest.raises(ValueError):
+        IntegrityScanner(db_session, {}, max_versions_per_scan=0)
+
+
 @pytest.mark.asyncio
 async def test_integrity_scanner_detects_divergent_replica_without_promoting_it(
     db_session, tmp_path
@@ -93,9 +98,10 @@ async def test_integrity_scanner_detects_divergent_replica_without_promoting_it(
         )
         assert replica is not None
 
-        object_dir = tmp_path / "node-1" / "objects" / str(result.object_id) / str(result.version_id)
-        chunk = object_dir / "chunk-000000"
-        chunk.write_bytes(b"CORRUPTED")
+        object_dir = (
+            tmp_path / "node-1" / "objects" / str(result.object_id) / str(result.version_id)
+        )
+        (object_dir / "chunk-000000").write_bytes(b"CORRUPTED")
 
         scanner = IntegrityScanner(db_session, nodes)
         scan = await scanner.scan_once()
@@ -114,7 +120,7 @@ async def test_integrity_scanner_detects_divergent_replica_without_promoting_it(
         )
         assert replica is not None
         assert replica.status is ReplicaState.CORRUPTED
-        assert (await coordinator.read_object("integrity.bin")) == b"integrity-data"
+        assert await coordinator.read_object("integrity.bin") == b"integrity-data"
 
 
 @pytest.mark.asyncio
@@ -127,7 +133,9 @@ async def test_reliability_service_scans_corruption_then_repairs_it(db_session, 
         )
         result = await coordinator.write_object("auto-integrity.bin", b"auto-repair")
 
-        object_dir = tmp_path / "node-1" / "objects" / str(result.object_id) / str(result.version_id)
+        object_dir = (
+            tmp_path / "node-1" / "objects" / str(result.object_id) / str(result.version_id)
+        )
         (object_dir / "chunk-000000").write_bytes(b"BAD")
 
         detector = FailureDetector(db_session, nodes)
