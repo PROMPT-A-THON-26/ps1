@@ -10,7 +10,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from common.constants import NodeState, ObjectState, ReplicaState, VersionState
+from common.constants import NODE_STATE_TRANSITIONS, NodeState, ObjectState, ReplicaState, VersionState
 from common.errors import (
     ChecksumMismatch,
     InvalidState,
@@ -203,6 +203,32 @@ class MetadataManager:
             self.session.flush()
             return version
 
+    def transition_node_state(self, node_id: str, state: NodeState) -> StorageNode:
+        """Apply one canonical node lifecycle transition transactionally."""
+        if not isinstance(node_id, str) or not node_id.strip():
+            raise ValueError("node_id must be a non-empty string")
+        if not isinstance(state, NodeState):
+            raise ValueError("state must be a NodeState")
+        normalized_node_id = node_id.strip()
+        with self._transaction():
+            node = self.session.scalar(
+                select(StorageNode)
+                .where(StorageNode.node_id == normalized_node_id)
+                .with_for_update()
+            )
+            if node is None:
+                raise ObjectNotFound(normalized_node_id)
+            if state is node.status:
+                return node
+            if state not in NODE_STATE_TRANSITIONS.get(node.status, frozenset()):
+                raise InvalidState(
+                    f"Cannot transition node {normalized_node_id} from "
+                    f"{node.status} to {state}."
+                )
+            node.status = state
+            self.session.flush()
+            return node
+
     def create_replica(self, version_id: UUID, node_id: str) -> Replica:
         if not isinstance(node_id, str) or not node_id.strip():
             raise ValueError("node_id must be a non-empty string")
@@ -382,6 +408,63 @@ class MetadataManager:
             self.session.flush()
             return node
 
+    def process_node_heartbeat(
+        self,
+        node_id: str,
+        *,
+        capacity_bytes: Optional[int],
+        used_bytes: Optional[int],
+        heartbeat_at: datetime,
+    ) -> tuple[StorageNode, bool]:
+        """Record a heartbeat only if it is strictly newer than the stored one."""
+        if not isinstance(node_id, str) or not node_id.strip():
+            raise ValueError("node_id must be a non-empty string")
+        if capacity_bytes is not None and (
+            not isinstance(capacity_bytes, int) or isinstance(capacity_bytes, bool) or capacity_bytes < 0
+        ):
+            raise ValueError("capacity_bytes must be a non-negative integer")
+        if used_bytes is not None and (
+            not isinstance(used_bytes, int) or isinstance(used_bytes, bool) or used_bytes < 0
+        ):
+            raise ValueError("used_bytes must be a non-negative integer")
+        if not isinstance(heartbeat_at, datetime):
+            raise ValueError("heartbeat_at must be a datetime")
+        timestamp = heartbeat_at
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        else:
+            timestamp = timestamp.astimezone(timezone.utc)
+        normalized_node_id = node_id.strip()
+        with self._transaction():
+            node = self.session.scalar(
+                select(StorageNode)
+                .where(StorageNode.node_id == normalized_node_id)
+                .with_for_update()
+            )
+            if node is None:
+                raise ObjectNotFound(normalized_node_id)
+            if node.status is NodeState.REMOVED:
+                raise InvalidState(
+                    f"Removed node {normalized_node_id} must be registered again before heartbeat."
+                )
+            current = node.last_heartbeat_at
+            if current is not None:
+                if current.tzinfo is None:
+                    current = current.replace(tzinfo=timezone.utc)
+                else:
+                    current = current.astimezone(timezone.utc)
+                if timestamp <= current:
+                    return node, False
+            next_capacity = node.capacity_bytes if capacity_bytes is None else capacity_bytes
+            next_used = node.used_bytes if used_bytes is None else used_bytes
+            if next_used > next_capacity:
+                raise ValueError("used_bytes cannot exceed capacity_bytes")
+            node.capacity_bytes = next_capacity
+            node.used_bytes = next_used
+            node.last_heartbeat_at = timestamp
+            self.session.flush()
+            return node, True
+
     def update_node_heartbeat(
         self,
         node_id: str,
@@ -391,50 +474,26 @@ class MetadataManager:
         status: Optional[NodeState] = None,
         heartbeat_at: Optional[datetime] = None,
     ) -> StorageNode:
-        if not isinstance(node_id, str) or not node_id.strip():
-            raise ValueError("node_id must be a non-empty string")
-
-        now = heartbeat_at or datetime.now(timezone.utc)
-        if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
-
-        with self._transaction():
-            node = self.session.scalar(
-                select(StorageNode).where(
-                    StorageNode.node_id == node_id.strip()
-                ).with_for_update()
-            )
-            if node is None:
-                raise ObjectNotFound(node_id)
-
-            if capacity_bytes is not None:
-                if (
-                    not isinstance(capacity_bytes, int)
-                    or isinstance(capacity_bytes, bool)
-                    or capacity_bytes < 0
-                ):
-                    raise ValueError("capacity_bytes must be a non-negative integer")
-                node.capacity_bytes = capacity_bytes
-
-            if used_bytes is not None:
-                if (
-                    not isinstance(used_bytes, int)
-                    or isinstance(used_bytes, bool)
-                    or used_bytes < 0
-                ):
-                    raise ValueError("used_bytes must be a non-negative integer")
-                if used_bytes > node.capacity_bytes:
-                    raise ValueError("used_bytes cannot exceed capacity_bytes")
-                node.used_bytes = used_bytes
-
-            if status is not None:
-                if not isinstance(status, NodeState):
-                    raise ValueError("status must be a NodeState")
-                node.status = status
-
-            current_heartbeat = node.last_heartbeat_at
-            if current_heartbeat is None or now >= current_heartbeat:
-                node.last_heartbeat_at = now
-
-            self.session.flush()
-            return node
+        """Backward-compatible heartbeat update with monotonic timestamp handling."""
+        timestamp = heartbeat_at or datetime.now(timezone.utc)
+        node, accepted = self.process_node_heartbeat(
+            node_id,
+            capacity_bytes=capacity_bytes,
+            used_bytes=used_bytes,
+            heartbeat_at=timestamp,
+        )
+        if status is not None:
+            if not isinstance(status, NodeState):
+                raise ValueError("status must be a NodeState")
+            if accepted:
+                with self._transaction():
+                    node = self.session.scalar(
+                        select(StorageNode)
+                        .where(StorageNode.node_id == node.node_id)
+                        .with_for_update()
+                    )
+                    if node is None:
+                        raise ObjectNotFound(str(node_id))
+                    node.status = status
+                    self.session.flush()
+        return node
