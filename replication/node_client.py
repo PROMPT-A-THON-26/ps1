@@ -227,7 +227,7 @@ class StorageNodeClient:
         self,
         address: str | StorageNodeClientConfig,
         *,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.config = (
@@ -460,6 +460,11 @@ class StorageNodeClient:
             retry=True,
         )
         try:
+            if response.status_code == httpx.codes.NOT_FOUND:
+                # DELETE is idempotent: the desired state is already achieved
+                # when the object version is absent.
+                await response.aclose()
+                return
             await self._raise_for_response(response)
             if response.status_code != httpx.codes.NO_CONTENT:
                 raise self._protocol_status(
@@ -668,9 +673,16 @@ class StorageNodeClient:
         request_id = response.headers.get("X-Request-ID")
         detail = await self._response_json_or_text(response)
         try:
-            if response.status_code in {400, 422}:
+                if response.status_code in {400, 422}:
                 raise StorageNodeInvalidRequestError(
                     "Storage node rejected the request.",
+                    status_code=response.status_code,
+                    detail=detail,
+                    request_id=request_id,
+                )
+            if response.status_code in self.RETRYABLE_STATUS_CODES:
+                raise StorageNodeUnavailableError(
+                    f"Storage node returned transient HTTP {response.status_code}.",
                     status_code=response.status_code,
                     detail=detail,
                     request_id=request_id,
