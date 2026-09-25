@@ -285,13 +285,6 @@ class DistributedWriteCoordinator:
             self.manager.set_replica_state(replica.replica_id, ReplicaState.FAILED)
             raise
 
-        healthy_count = self.session.scalar(
-            select(Replica)
-            .where(
-                Replica.version_id == version_id,
-                Replica.status == ReplicaState.HEALTHY,
-            )
-        )
         healthy_count = len(
             list(
                 self.session.scalars(
@@ -338,12 +331,26 @@ class DistributedWriteCoordinator:
             return node_id, True
         except StorageNodeUnavailableError:
             await self._reconcile_or_fail(
-                client, replica_id, node_id, object_id, version_id, checksum, size_bytes
+                client,
+                replica_id,
+                node_id,
+                object_id,
+                version_id,
+                checksum,
+                size_bytes,
+                mark_unavailable=True,
             )
             return node_id, self._replica_is_healthy(replica_id)
         except StorageNodeClientError:
             await self._reconcile_or_fail(
-                client, replica_id, node_id, object_id, version_id, checksum, size_bytes
+                client,
+                replica_id,
+                node_id,
+                object_id,
+                version_id,
+                checksum,
+                size_bytes,
+                mark_unavailable=False,
             )
             return node_id, self._replica_is_healthy(replica_id)
         except Exception:
@@ -359,6 +366,8 @@ class DistributedWriteCoordinator:
         version_id: str,
         checksum: str,
         size_bytes: int,
+        *,
+        mark_unavailable: bool,
     ) -> None:
         try:
             verified = await client.verify_object(object_id, version_id)
@@ -373,12 +382,13 @@ class DistributedWriteCoordinator:
             pass
 
         self.manager.set_replica_state(replica_id, ReplicaState.FAILED)
-        try:
-            self.manager.update_node_heartbeat(
-                node_id, status=NodeState.UNAVAILABLE
-            )
-        except ObjectNotFound:
-            pass
+        if mark_unavailable:
+            try:
+                self.manager.update_node_heartbeat(
+                    node_id, status=NodeState.UNAVAILABLE
+                )
+            except ObjectNotFound:
+                pass
 
     def _replica_is_healthy(self, replica_id: UUID) -> bool:
         replica = self.session.scalar(
