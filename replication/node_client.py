@@ -18,6 +18,7 @@ from urllib.parse import quote, urlparse
 
 import httpx
 
+from common.config import get_settings
 from common.ids import new_request_id
 
 
@@ -230,6 +231,8 @@ class StorageNodeClient:
         timeout_seconds: float | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
+        if timeout_seconds is None and not isinstance(address, StorageNodeClientConfig):
+            timeout_seconds = get_settings().storage_request_timeout_seconds
         self.config = (
             address
             if isinstance(address, StorageNodeClientConfig)
