@@ -373,18 +373,24 @@ class RepairManager:
                     "Repair source verification does not match metadata."
                 )
 
-            try:
-                async with source_client.stream_object(
+            # The source is already verified. It is therefore safe to remove
+            # any provisional/corrupted bytes on the target before rebuilding it.
+            # DELETE is idempotent in the storage-node client (404 is treated as
+            # already absent), so this also makes retries safe.
+            await target_client.delete_object(
+                str(version.object_id),
+                str(version.version_id),
+            )
+
+            async with source_client.stream_object(
+                str(version.object_id),
+                str(version.version_id),
+            ) as source_response:
+                await target_client.put_object(
                     str(version.object_id),
                     str(version.version_id),
-                ) as source_response:
-                    await target_client.put_object(
-                        str(version.object_id),
-                        str(version.version_id),
-                        source_response.aiter_bytes(),
-                    )
-            except StorageObjectAlreadyExistsError:
-                pass
+                    source_response.aiter_bytes(),
+                )
 
             verified_target = await target_client.verify_object(
                 str(version.object_id),
