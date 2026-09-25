@@ -200,7 +200,7 @@ def test_verify_detects_corrupted_size_metadata(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
     result = engine.verify("obj-1", "ver-1")
     assert result.valid is False
-    assert any("chunk_count does not match size_bytes" in e for e in result.errors)
+    assert any("chunk 2 size mismatch" in e for e in result.errors)
 
 def test_verify_detects_extra_chunk(tmp_path):
     engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
@@ -223,3 +223,55 @@ def test_verify_detects_chunk_size_metadata_corruption(tmp_path):
     result = engine.verify("obj-1", "ver-1")
     assert result.valid is False
     assert any("chunk_count does not match size_bytes" in e for e in result.errors)
+
+
+def test_async_capacity_is_reserved_and_released_on_failure(tmp_path):
+    engine = StorageEngine(tmp_path, 8, chunk_size_bytes=4)
+
+    engine.write_bytes("existing", "ver-1", b"1234")
+
+    async def source():
+        yield b"5678"
+        yield b"9"
+
+    with pytest.raises(StorageFullError):
+        asyncio.run(engine.write_stream("new", "ver-1", source()))
+
+    assert not engine.exists("new", "ver-1")
+    assert engine.stats().used_bytes == 4
+    assert engine.stats().free_bytes == 4
+
+def test_failed_async_write_does_not_leave_staging_data(tmp_path):
+    engine = StorageEngine(tmp_path, 8, chunk_size_bytes=4)
+
+    async def source():
+        yield b"1234"
+        yield b"5678"
+        yield b"9"
+
+    with pytest.raises(StorageFullError):
+        asyncio.run(engine.write_stream("obj-1", "ver-1", source()))
+
+    assert list((tmp_path / "objects" / "obj-1").glob("*.upload")) == []
+    assert engine.stats().used_bytes == 0
+
+def test_stale_staging_upload_is_cleaned_on_engine_startup(tmp_path):
+    staging = tmp_path / "objects" / "obj-1" / ".ver-1.deadbeef.upload"
+    staging.mkdir(parents=True)
+    (staging / "chunk-000000").write_bytes(b"stale")
+
+    StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+
+    assert not staging.exists()
+
+def test_verify_handles_unreadable_metadata_as_invalid(tmp_path):
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"data")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata_path.write_text("{not-json")
+
+    result = engine.verify("obj-1", "ver-1")
+
+    assert result.valid is False
+    assert result.checksum is None
+    assert any("metadata is unreadable" in error for error in result.errors)
