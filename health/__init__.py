@@ -3,6 +3,7 @@
 from .failure_detector import FailureDetector, NodeTransition
 from .heartbeat import HeartbeatPayload, HeartbeatResult, HeartbeatService
 from .node_registry import NodeRegistry
+from recovery import PartitionRecoveryManager, RecoveryResult
 from .scheduler import HealthScheduler
 
 __all__ = [
@@ -12,5 +13,7 @@ __all__ = [
     "HeartbeatService",
     "HealthScheduler",
     "NodeRegistry",
+    "PartitionRecoveryManager",
+    "RecoveryResult",
     "NodeTransition",
 ]

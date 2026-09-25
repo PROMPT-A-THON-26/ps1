@@ -24,10 +24,10 @@ def build_heartbeat_router(
         response_model=HeartbeatResult,
         status_code=status.HTTP_200_OK,
     )
-    def heartbeat(payload: HeartbeatPayload) -> HeartbeatResult:
+    async def heartbeat(payload: HeartbeatPayload) -> HeartbeatResult:
         try:
             with session_factory() as session:
-                return HeartbeatService(session).ingest(payload)
+                return await HeartbeatService(session).ingest_and_recover(payload)
         except ObjectNotFound as exc:
             raise HTTPException(status_code=404, detail=exc.message) from exc
         except InvalidState as exc:
