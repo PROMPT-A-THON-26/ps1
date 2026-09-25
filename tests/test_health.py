@@ -83,7 +83,8 @@ def test_heartbeat_rejects_stale_packet_without_overwriting_state_or_capacity(db
     assert fresh.free_bytes == 1500
 
 
-def test_unavailable_node_requires_recovery_heartbeat_then_health(db_session):
+@pytest.mark.asyncio
+async def test_unavailable_node_requires_recovery_heartbeat_then_health(db_session):
     registry = NodeRegistry(db_session)
     registry.register(node_id="node-recovery", address="http://node-recovery:8001", capacity_bytes=1000)
     service = HeartbeatService(db_session)
@@ -99,7 +100,7 @@ def test_unavailable_node_requires_recovery_heartbeat_then_health(db_session):
     ))
     assert recovering.status is NodeState.RECOVERING
 
-    healthy = service.ingest(HeartbeatPayload(
+    healthy = await service.ingest_and_recover(HeartbeatPayload(
         node_id="node-recovery", capacity_bytes=1000, used_bytes=100,
         timestamp=BASE + timedelta(seconds=32)
     ))
