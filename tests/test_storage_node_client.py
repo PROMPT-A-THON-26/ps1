@@ -103,9 +103,12 @@ def build_mock_node() -> tuple[FastAPI, dict[tuple[str, str], bytes], dict[str, 
         return {
             "object_id": object_id,
             "version_id": version_id,
+            "valid": True,
             "size_bytes": len(data),
             "checksum": sha256(data).hexdigest(),
-            "verified": True,
+            "chunk_count": 1,
+            "corrupt_chunks": [],
+            "errors": [],
         }
 
     return app, objects, seen_request_ids
