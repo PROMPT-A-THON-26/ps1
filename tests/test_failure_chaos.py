@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 
 import pytest
@@ -304,6 +304,7 @@ def test_repair_failure_state_survives_process_restart(tmp_path):
             version_id=version.version_id,
             source_node_id="source",
             target_node_id="target",
+            reason="restart-test",
             status=JobStatus.PENDING,
             attempts=1,
             last_error="simulated restart-safe failure",
