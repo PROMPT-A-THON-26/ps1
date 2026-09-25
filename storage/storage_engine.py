@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import shutil
@@ -174,6 +175,37 @@ class StorageEngine:
                     if not data:
                         break
                     yield data
+
+    def verify(self, object_id: str, version_id: str) -> tuple[int, str]:
+        """Stream stored chunks through SHA-256 and return actual size/checksum.
+
+        The object is never loaded into memory as a whole. The filesystem lock is
+        held for the verification pass so a concurrent local delete cannot remove
+        a chunk between metadata discovery and checksum calculation.
+        """
+        with self._lock:
+            metadata = self._read_metadata(object_id, version_id)
+            chunk_count = int(metadata["chunk_count"])
+            version_dir = self.object_path(object_id, version_id)
+            hasher = hashlib.sha256()
+            size = 0
+
+            for index in range(chunk_count):
+                chunk_path = version_dir / self._chunk_name(index)
+                try:
+                    with chunk_path.open("rb") as handle:
+                        while True:
+                            data = handle.read(self.chunk_size_bytes)
+                            if not data:
+                                break
+                            hasher.update(data)
+                            size += len(data)
+                except OSError as exc:
+                    raise StorageError(
+                        f"Object data is unreadable: {object_id}/{version_id}"
+                    ) from exc
+
+            return size, hasher.hexdigest()
 
     def delete(self, object_id: str, version_id: str) -> None:
         with self._lock:
