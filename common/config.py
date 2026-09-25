@@ -16,16 +16,21 @@ from common.constants import (
 )
 
 
-def _int(name: str, default: int, *, minimum: int = 0) -> int:
-    raw = os.getenv(name)
+def _read(name: str, legacy: str | None = None) -> str | None:
+    value = os.getenv(name)
+    return value if value is not None else (os.getenv(legacy) if legacy else None)
+
+
+def _int(name: str, default: int, *, minimum: int = 0, legacy: str | None = None) -> int:
+    raw = _read(name, legacy)
     value = default if raw is None or not raw.strip() else int(raw)
     if value < minimum:
         raise ValueError(f"{name} must be >= {minimum}")
     return value
 
 
-def _float(name: str, default: float, *, minimum: float = 0.0) -> float:
-    raw = os.getenv(name)
+def _float(name: str, default: float, *, minimum: float = 0.0, legacy: str | None = None) -> float:
+    raw = _read(name, legacy)
     value = default if raw is None or not raw.strip() else float(raw)
     if value < minimum:
         raise ValueError(f"{name} must be >= {minimum}")
@@ -65,11 +70,13 @@ class VaultSettings:
             "VAULT_SUSPECT_AFTER_SECONDS",
             DEFAULT_SUSPECT_AFTER_SECONDS,
             minimum=0.001,
+            legacy="SUSPECT_AFTER_SECONDS",
         )
         unavailable = _float(
             "VAULT_UNAVAILABLE_AFTER_SECONDS",
             DEFAULT_UNAVAILABLE_AFTER_SECONDS,
             minimum=suspect + 0.001,
+            legacy="UNAVAILABLE_AFTER_SECONDS",
         )
 
         return cls(
@@ -81,6 +88,7 @@ class VaultSettings:
                 "VAULT_HEARTBEAT_INTERVAL_SECONDS",
                 DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
                 minimum=0.001,
+                legacy="HEARTBEAT_INTERVAL_SECONDS",
             ),
             suspect_after_seconds=suspect,
             unavailable_after_seconds=unavailable,
@@ -88,6 +96,7 @@ class VaultSettings:
                 "VAULT_MAX_CONCURRENT_JOBS",
                 DEFAULT_MAX_PARALLEL_REPAIRS,
                 minimum=1,
+                legacy="MAX_PARALLEL_REPAIRS",
             ),
             max_attempts=_int("VAULT_MAX_ATTEMPTS", 5, minimum=1),
             initial_backoff_seconds=_float(
