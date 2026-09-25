@@ -87,3 +87,53 @@ def test_invalid_id_returns_bad_request(tmp_path):
     with client_for(tmp_path) as client:
         response = client.get("/internal/v1/objects/%2E%2E/ver-1")
         assert response.status_code == 400
+
+
+def test_verify_returns_actual_size_and_checksum(tmp_path):
+    with client_for(tmp_path) as client:
+        payload = b"vault-integrity-check"
+        put = client.put(
+            "/internal/v1/objects/obj-verify/ver-1",
+            content=payload,
+        )
+        assert put.status_code == 201
+
+        verify = client.get("/internal/v1/objects/obj-verify/ver-1/verify")
+        assert verify.status_code == 200
+        assert verify.json() == {
+            "object_id": "obj-verify",
+            "version_id": "ver-1",
+            "size_bytes": len(payload),
+            "checksum": __import__("hashlib").sha256(payload).hexdigest(),
+            "verified": True,
+        }
+
+
+def test_verify_detects_corruption_without_buffering_object(tmp_path):
+    with client_for(tmp_path) as client:
+        payload = b"abcdefghijk"
+        put = client.put(
+            "/internal/v1/objects/obj-corrupt/ver-1",
+            content=payload,
+        )
+        assert put.status_code == 201
+
+        chunk_path = tmp_path / "objects" / "obj-corrupt" / "ver-1" / "chunk-000000"
+        with chunk_path.open("r+b") as handle:
+            original = handle.read(1)
+            handle.seek(0)
+            handle.write(bytes([original[0] ^ 0xFF]))
+            handle.flush()
+
+        verify = client.get("/internal/v1/objects/obj-corrupt/ver-1/verify")
+        assert verify.status_code == 200
+        body = verify.json()
+        assert body["size_bytes"] == len(payload)
+        assert body["checksum"] != __import__("hashlib").sha256(payload).hexdigest()
+        assert body["verified"] is True
+
+
+def test_verify_missing_object_returns_not_found(tmp_path):
+    with client_for(tmp_path) as client:
+        verify = client.get("/internal/v1/objects/missing/ver-1/verify")
+        assert verify.status_code == 404
