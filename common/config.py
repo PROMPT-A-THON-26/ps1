@@ -58,9 +58,9 @@ class VaultSettings:
 
     @classmethod
     def from_env(cls) -> "VaultSettings":
-        factor = _int("VAULT_REPLICATION_FACTOR", DEFAULT_REPLICATION_FACTOR, minimum=1)
-        write_quorum = _int("VAULT_WRITE_QUORUM", DEFAULT_WRITE_QUORUM, minimum=1)
-        read_quorum = _int("VAULT_READ_QUORUM", DEFAULT_READ_QUORUM, minimum=1)
+        factor = _int("VAULT_REPLICATION_FACTOR", DEFAULT_REPLICATION_FACTOR, minimum=1, legacy="REPLICATION_FACTOR")
+        write_quorum = _int("VAULT_WRITE_QUORUM", DEFAULT_WRITE_QUORUM, minimum=1, legacy="WRITE_QUORUM")
+        read_quorum = _int("VAULT_READ_QUORUM", DEFAULT_READ_QUORUM, minimum=1, legacy="READ_QUORUM")
         if write_quorum > factor:
             raise ValueError("VAULT_WRITE_QUORUM must not exceed VAULT_REPLICATION_FACTOR")
         if read_quorum > factor:
