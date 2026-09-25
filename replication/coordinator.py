@@ -85,7 +85,9 @@ class DistributedWriteCoordinator:
 
         checksum = hashlib.sha256(data).hexdigest()
         size_bytes = len(data)
-        obj = self.manager.create_object(name)
+        obj = self.manager.get_object(name)
+        if obj is None:
+            obj = self.manager.create_object(name)
         version = self.manager.create_version(
             obj.object_id,
             size_bytes=size_bytes,
