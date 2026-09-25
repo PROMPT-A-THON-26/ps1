@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from common.config import get_settings
 from common.constants import ErrorCode, JobStatus, NodeState, ReplicaState, VersionState
 from common.errors import InvalidState, ObjectNotFound, VaultError
 from metadata.manager import MetadataManager
@@ -40,8 +41,8 @@ class RebalanceManager:
         session: Session,
         *,
         client_factory=StorageNodeClient,
-        replication_factor: int = 3,
-        max_attempts: int = 5,
+        replication_factor: int | None = None,
+        max_attempts: int | None = None,
     ) -> None:
         if (
             not isinstance(replication_factor, int)
