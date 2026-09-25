@@ -14,6 +14,7 @@ from common.errors import ObjectNotFound, VaultError
 from common.ids import new_request_id
 from replication.node_client import StorageNodeClient, StorageNodeClientError
 
+from .admin import AdminService, IntegrityRequest, RepairRequest, RebalanceRequest, dispatch_to_payload
 from .service import GatewayService
 
 
@@ -274,6 +275,114 @@ def build_gateway_router(
                 status_code=status.HTTP_204_NO_CONTENT,
                 headers={"X-Request-ID": request_id},
             )
+        except VaultError as exc:
+            return _error_response(exc, request_id)
+
+    @router.post("/admin/repair", status_code=status.HTTP_202_ACCEPTED)
+    def admin_repair(request: Request, payload: RepairRequest) -> JSONResponse:
+        request_id = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).enqueue_repair(payload)
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content=dispatch_to_payload(result),
+                headers={"X-Request-ID": request_id},
+            )
+        except VaultError as exc:
+            return _error_response(exc, request_id)
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": {
+                        "code": "INVALID_REQUEST",
+                        "message": str(exc),
+                        "request_id": request_id,
+                    }
+                },
+                headers={"X-Request-ID": request_id},
+            )
+
+    @router.get("/admin/repair/{repair_id}")
+    def admin_repair_status(repair_id: str, request: Request) -> JSONResponse:
+        request_id = _request_id(request)
+        try:
+            with session_factory() as session:
+                payload = AdminService(session).job_status(repair_id, kind="repair")
+            return JSONResponse(payload, headers={"X-Request-ID": request_id})
+        except VaultError as exc:
+            return _error_response(exc, request_id)
+
+    @router.post("/admin/integrity/check", status_code=status.HTTP_202_ACCEPTED)
+    def admin_integrity_check(request: Request, payload: IntegrityRequest) -> JSONResponse:
+        request_id = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).enqueue_integrity(payload)
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content=dispatch_to_payload(result),
+                headers={"X-Request-ID": request_id},
+            )
+        except VaultError as exc:
+            return _error_response(exc, request_id)
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": {
+                        "code": "INVALID_REQUEST",
+                        "message": str(exc),
+                        "request_id": request_id,
+                    }
+                },
+                headers={"X-Request-ID": request_id},
+            )
+
+    @router.get("/admin/integrity/check/{job_id}")
+    def admin_integrity_status(job_id: str, request: Request) -> JSONResponse:
+        request_id = _request_id(request)
+        try:
+            with session_factory() as session:
+                payload = AdminService(session).integrity_status(job_id)
+            return JSONResponse(payload, headers={"X-Request-ID": request_id})
+        except VaultError as exc:
+            return _error_response(exc, request_id)
+
+    @router.post("/admin/rebalance", status_code=status.HTTP_202_ACCEPTED)
+    def admin_rebalance(request: Request, payload: RebalanceRequest) -> JSONResponse:
+        request_id = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).enqueue_rebalance(payload)
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content=dispatch_to_payload(result),
+                headers={"X-Request-ID": request_id},
+            )
+        except VaultError as exc:
+            return _error_response(exc, request_id)
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": {
+                        "code": "INVALID_REQUEST",
+                        "message": str(exc),
+                        "request_id": request_id,
+                    }
+                },
+                headers={"X-Request-ID": request_id},
+            )
+
+    @router.get("/admin/rebalance/{job_id}")
+    def admin_rebalance_status(job_id: str, request: Request) -> JSONResponse:
+        request_id = _request_id(request)
+        try:
+            with session_factory() as session:
+                payload = AdminService(session).job_status(job_id, kind="rebalance")
+            return JSONResponse(payload, headers={"X-Request-ID": request_id})
         except VaultError as exc:
             return _error_response(exc, request_id)
 
