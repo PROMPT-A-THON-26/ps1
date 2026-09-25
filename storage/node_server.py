@@ -27,7 +27,6 @@ class StatsResponse(BaseModel):
     capacity_bytes: int
     used_bytes: int
     free_bytes: int
-    chunk_size_bytes: int
 
 
 config = StorageNodeConfig.from_env()
@@ -60,7 +59,6 @@ def stats() -> StatsResponse:
         capacity_bytes=current.capacity_bytes,
         used_bytes=current.used_bytes,
         free_bytes=current.free_bytes,
-        chunk_size_bytes=engine.chunk_size_bytes,
     )
 
 
