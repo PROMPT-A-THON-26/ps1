@@ -96,11 +96,10 @@ class PartitionReconciler:
                 .order_by(Version.created_at, Version.version_number)
             )
         )
-        return tuple(
-            await asyncio.gather(
-                *(self.reconcile_version(version.version_id) for version in versions)
-            )
-        )
+        results: list[ReconciliationResult] = []
+        for version in versions:
+            results.append(await self.reconcile_version(version.version_id))
+        return tuple(results)
 
     async def _check_replica(
         self,
