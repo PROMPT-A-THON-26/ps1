@@ -105,94 +105,97 @@ class StorageEngine:
     ) -> int:
         """Consume an async request stream without buffering the full object."""
         self._validate_ids(object_id, version_id)
+
         with self._lock:
             self._ensure_new_object(object_id, version_id)
             staging_dir = self._create_staging_dir(object_id, version_id)
 
         size = 0
-            chunk_index = 0
-            chunk_written = 0
-            chunk_handle = None
-            chunk_digests: list[str] = []
-            object_digest = hashlib.sha256()
-            chunk_digest = hashlib.sha256()
-            reserved_bytes = 0
+        chunk_index = 0
+        chunk_written = 0
+        chunk_handle = None
+        chunk_digests: list[str] = []
+        object_digest = hashlib.sha256()
+        chunk_digest = hashlib.sha256()
+        reserved_bytes = 0
 
-            try:
-                async for incoming in chunks:
-                    if not isinstance(incoming, bytes):
-                        raise TypeError("request stream must yield bytes")
-                    if not incoming:
-                        continue
+        try:
+            async for incoming in chunks:
+                if not isinstance(incoming, bytes):
+                    raise TypeError("request stream must yield bytes")
+                if not incoming:
+                    continue
 
-                    offset = 0
-                    while offset < len(incoming):
-                        if chunk_handle is None:
-                            chunk_path = staging_dir / self._chunk_name(chunk_index)
-                            chunk_handle = chunk_path.open("xb")
-                            chunk_written = 0
-                            chunk_digest = hashlib.sha256()
+                offset = 0
+                while offset < len(incoming):
+                    if chunk_handle is None:
+                        chunk_path = staging_dir / self._chunk_name(chunk_index)
+                        chunk_handle = chunk_path.open("xb")
+                        chunk_written = 0
+                        chunk_digest = hashlib.sha256()
 
-                        remaining = self.chunk_size_bytes - chunk_written
-                        piece = incoming[offset : offset + remaining]
+                    remaining = self.chunk_size_bytes - chunk_written
+                    piece = incoming[offset : offset + remaining]
 
-                        with self._lock:
-                            self._reserve_capacity(len(piece))
-                            reserved_bytes += len(piece)
+                    with self._lock:
+                        self._reserve_capacity(len(piece))
+                        reserved_bytes += len(piece)
 
-                        written = chunk_handle.write(piece)
-                        if written != len(piece):
-                            raise OSError(
-                                f"Short write: expected={len(piece)}, written={written}"
-                            )
+                    written = chunk_handle.write(piece)
+                    if written != len(piece):
+                        raise OSError(
+                            f"Short write: expected={len(piece)}, written={written}"
+                        )
 
-                        chunk_digest.update(piece)
-                        object_digest.update(piece)
-                        chunk_written += len(piece)
-                        size += len(piece)
-                        offset += len(piece)
+                    chunk_digest.update(piece)
+                    object_digest.update(piece)
+                    chunk_written += len(piece)
+                    size += len(piece)
+                    offset += len(piece)
 
-                        if chunk_written == self.chunk_size_bytes:
-                            chunk_handle.flush()
-                            os.fsync(chunk_handle.fileno())
-                            chunk_handle.close()
-                            chunk_handle = None
-                            chunk_digests.append(chunk_digest.hexdigest())
-                            chunk_index += 1
-
-                if chunk_handle is not None:
-                    chunk_handle.flush()
-                    os.fsync(chunk_handle.fileno())
-                    chunk_handle.close()
-                    chunk_handle = None
-                    chunk_digests.append(chunk_digest.hexdigest())
-                    chunk_index += 1
-
-                metadata = {
-                    "object_id": object_id,
-                    "version_id": version_id,
-                    "size_bytes": size,
-                    "chunk_size_bytes": self.chunk_size_bytes,
-                    "chunk_count": chunk_index,
-                    "checksum": object_digest.hexdigest(),
-                    "chunk_checksums": chunk_digests,
-                }
-                self._write_metadata(staging_dir, metadata)
-                self._publish_staging(object_id, version_id, staging_dir)
-                with self._lock:
-                    self._release_capacity(reserved_bytes)
-                reserved_bytes = 0
-                return size
-            except Exception:
-                if chunk_handle is not None:
-                    try:
+                    if chunk_written == self.chunk_size_bytes:
+                        chunk_handle.flush()
+                        os.fsync(chunk_handle.fileno())
                         chunk_handle.close()
-                    except OSError:
-                        pass
-                self._remove_tree(staging_dir)
-                with self._lock:
-                    self._release_capacity(reserved_bytes)
-                raise
+                        chunk_handle = None
+                        chunk_digests.append(chunk_digest.hexdigest())
+                        chunk_index += 1
+
+            if chunk_handle is not None:
+                chunk_handle.flush()
+                os.fsync(chunk_handle.fileno())
+                chunk_handle.close()
+                chunk_handle = None
+                chunk_digests.append(chunk_digest.hexdigest())
+                chunk_index += 1
+
+            metadata = {
+                "object_id": object_id,
+                "version_id": version_id,
+                "size_bytes": size,
+                "chunk_size_bytes": self.chunk_size_bytes,
+                "chunk_count": chunk_index,
+                "checksum": object_digest.hexdigest(),
+                "chunk_checksums": chunk_digests,
+            }
+            self._write_metadata(staging_dir, metadata)
+            self._publish_staging(object_id, version_id, staging_dir)
+
+            with self._lock:
+                self._release_capacity(reserved_bytes)
+            reserved_bytes = 0
+            return size
+        except Exception:
+            if chunk_handle is not None:
+                try:
+                    chunk_handle.close()
+                except OSError:
+                    pass
+            self._remove_tree(staging_dir)
+
+            with self._lock:
+                self._release_capacity(reserved_bytes)
+            raise
 
     def read_bytes(self, object_id: str, version_id: str) -> bytes:
         return b"".join(self.iter_chunks(object_id, version_id))
