@@ -159,9 +159,10 @@ async def test_node_failure_repair_restores_rf_without_deleting_other_sources(db
     second = detector.scan(now=BASE + timedelta(seconds=30))
     assert second and second[0].current is NodeState.UNAVAILABLE
 
-    metadata.set_replica_state(failed.replica_id, ReplicaState.UNAVAILABLE)
+    repair_ids = second[0].repair_ids
+    assert len(repair_ids) == 1
     repair = RepairManager(db_session, client_factory=ChaosClient)
-    job = repair.schedule_for_version(version.version_id, replication_factor=3)
+    job = db_session.get(RepairJob, repair_ids[0])
     assert job is not None
     assert job.target_node_id == "node-d"
 

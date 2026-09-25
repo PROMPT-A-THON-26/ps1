@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from typing import Callable
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -13,6 +14,8 @@ from sqlalchemy.orm import Session
 from common.errors import ObjectNotFound, VaultError
 from common.ids import new_request_id
 from replication.node_client import StorageNodeClient, StorageNodeClientError
+
+from .admin_service import AdminService, IntegrityRequest, RebalanceRequest, RepairRequest
 
 from .service import GatewayService
 
@@ -276,5 +279,78 @@ def build_gateway_router(
             )
         except VaultError as exc:
             return _error_response(exc, request_id)
+
+
+    @router.post("/admin/repair", status_code=status.HTTP_202_ACCEPTED)
+    def admin_create_repair(payload: RepairRequest, request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).create_repair(payload)
+            return JSONResponse(status_code=202, content=result, headers={"X-Request-ID": rid})
+        except VaultError as exc:
+            return _error_response(exc, rid)
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=422,
+                content={"error": {"code": "INVALID_REQUEST", "message": str(exc), "request_id": rid}},
+                headers={"X-Request-ID": rid},
+            )
+
+    @router.get("/admin/repair/{repair_id}")
+    def admin_get_repair(repair_id: UUID, request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).get_repair(repair_id)
+            return JSONResponse(result, headers={"X-Request-ID": rid})
+        except VaultError as exc:
+            return _error_response(exc, rid)
+
+    @router.post("/admin/integrity/check", status_code=status.HTTP_202_ACCEPTED)
+    def admin_create_integrity(payload: IntegrityRequest, request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).create_integrity(payload)
+            return JSONResponse(status_code=202, content=result, headers={"X-Request-ID": rid})
+        except VaultError as exc:
+            return _error_response(exc, rid)
+
+    @router.get("/admin/integrity/check/{job_id}")
+    def admin_get_integrity(job_id: UUID, request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).get_integrity(job_id)
+            return JSONResponse(result, headers={"X-Request-ID": rid})
+        except VaultError as exc:
+            return _error_response(exc, rid)
+
+    @router.post("/admin/rebalance", status_code=status.HTTP_202_ACCEPTED)
+    def admin_create_rebalance(payload: RebalanceRequest, request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).create_rebalance(payload)
+            return JSONResponse(status_code=202, content=result, headers={"X-Request-ID": rid})
+        except VaultError as exc:
+            return _error_response(exc, rid)
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=422,
+                content={"error": {"code": "INVALID_REQUEST", "message": str(exc), "request_id": rid}},
+                headers={"X-Request-ID": rid},
+            )
+
+    @router.get("/admin/rebalance/{job_id}")
+    def admin_get_rebalance(job_id: UUID, request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        try:
+            with session_factory() as session:
+                result = AdminService(session).get_rebalance(job_id)
+            return JSONResponse(result, headers={"X-Request-ID": rid})
+        except VaultError as exc:
+            return _error_response(exc, rid)
 
     return router

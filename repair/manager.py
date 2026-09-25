@@ -121,17 +121,19 @@ class RepairManager:
             )
         return candidates[0]
 
-    def _active_job_exists(self, version_id: UUID, target_node_id: str) -> bool:
-        return (
-            self.session.scalar(
-                select(RepairJob.repair_id).where(
-                    RepairJob.version_id == version_id,
-                    RepairJob.target_node_id == target_node_id,
-                    RepairJob.status.in_((JobStatus.PENDING, JobStatus.RUNNING)),
-                )
+    def _active_job(self, version_id: UUID, target_node_id: str) -> RepairJob | None:
+        return self.session.scalar(
+            select(RepairJob)
+            .where(
+                RepairJob.version_id == version_id,
+                RepairJob.target_node_id == target_node_id,
+                RepairJob.status.in_((JobStatus.PENDING, JobStatus.RUNNING)),
             )
-            is not None
+            .with_for_update()
         )
+
+    def _active_job_exists(self, version_id: UUID, target_node_id: str) -> bool:
+        return self._active_job(version_id, target_node_id) is not None
 
     def create_job(
         self,
@@ -153,15 +155,9 @@ class RepairManager:
                     "source and target may be the same node only for a corrupted replica repair"
                 )
 
-        if self._active_job_exists(version_id, target_node_id):
-            raise VaultError(
-                code=ErrorCode.REPAIR_IN_PROGRESS,
-                message=(
-                    f"Repair for version {version_id} on node {target_node_id} "
-                    "is already in progress."
-                ),
-                status_code=409,
-            )
+        active = self._active_job(version_id, target_node_id)
+        if active is not None:
+            return active
 
         source = self.session.scalar(
             select(StorageNode).where(StorageNode.node_id == source_node_id)
