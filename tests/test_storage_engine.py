@@ -393,3 +393,23 @@ def test_objects_directory_symlink_is_rejected(tmp_path):
 
     with pytest.raises(StorageError):
         StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+
+def test_stale_staging_symlink_is_cleaned_safely(tmp_path):
+    objects = tmp_path / "objects"
+    object_dir = objects / "obj-1"
+    object_dir.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "keep.txt"
+    target.write_text("must remain")
+
+    link = object_dir / ".ver-1.deadbeef.upload"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are not available")
+
+    StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+
+    assert not link.exists()
+    assert target.read_text() == "must remain"
