@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from common.constants import NodeState
+from common.settings import settings
 from common.errors import InvalidState
 from metadata.manager import MetadataManager
 from metadata.models import StorageNode
@@ -72,12 +73,12 @@ class HeartbeatService:
         session: Session,
         *,
         recovery_manager_factory=PartitionRecoveryManager,
-        replication_factor: int = 3,
+        replication_factor: int | None = None,
     ) -> None:
         self.session = session
         self.manager = MetadataManager(session)
         self.recovery_manager_factory = recovery_manager_factory
-        self.replication_factor = replication_factor
+        self.replication_factor = settings.replication_factor if replication_factor is None else replication_factor
 
     def _result(self, node) -> HeartbeatResult:
         return HeartbeatResult(
