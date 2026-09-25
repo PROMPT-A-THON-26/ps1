@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from common.constants import NodeState, ObjectState, ReplicaState, VersionState
+from common.constants import JobStatus, NodeState, ObjectState, ReplicaState, VersionState
 from common.errors import (
     ChecksumMismatch,
     InvalidState,
@@ -21,7 +21,7 @@ from common.errors import (
 )
 from common.ids import new_uuid
 
-from .models import Object, Replica, StorageNode, Version
+from .models import Object, RepairJob, Replica, StorageNode, Version
 
 
 def _validate_checksum(checksum: str) -> str:
@@ -415,6 +415,152 @@ class MetadataManager:
             self.session.add(node)
             self.session.flush()
             return node
+
+    def set_node_status(self, node_id: str, status: NodeState) -> StorageNode:
+        """Update node state without changing the last successful heartbeat."""
+        if not isinstance(node_id, str) or not node_id.strip():
+            raise ValueError("node_id must be a non-empty string")
+        if not isinstance(status, NodeState):
+            raise ValueError("status must be a NodeState")
+
+        with self._transaction():
+            node = self.session.scalar(
+                select(StorageNode)
+                .where(StorageNode.node_id == node_id.strip())
+                .with_for_update()
+            )
+            if node is None:
+                raise ObjectNotFound(node_id)
+            node.status = status
+            self.session.flush()
+            return node
+
+    def mark_node_replicas_unavailable(self, node_id: str) -> int:
+        """Mark healthy replicas on a failed node unavailable without touching other states."""
+        if not isinstance(node_id, str) or not node_id.strip():
+            raise ValueError("node_id must be a non-empty string")
+
+        with self._transaction():
+            replicas = list(
+                self.session.scalars(
+                    select(Replica)
+                    .where(
+                        Replica.node_id == node_id.strip(),
+                        Replica.status == ReplicaState.HEALTHY,
+                    )
+                    .with_for_update()
+                )
+            )
+            for replica in replicas:
+                replica.status = ReplicaState.UNAVAILABLE
+            self.session.flush()
+            return len(replicas)
+
+    def create_repair_job(
+        self,
+        *,
+        version_id: UUID,
+        failed_node_id: str,
+        source_node_id: str,
+        target_node_id: str,
+        reason: str,
+    ) -> RepairJob:
+        """Create one durable repair job after validating referenced entities."""
+        node_ids = (failed_node_id, source_node_id, target_node_id)
+        if any(not isinstance(value, str) or not value.strip() for value in node_ids):
+            raise ValueError("repair job node IDs must be non-empty strings")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("reason must be a non-empty string")
+
+        with self._transaction():
+            version = self.session.scalar(
+                select(Version).where(Version.version_id == version_id)
+            )
+            if version is None:
+                raise ObjectNotFound(str(version_id))
+
+            for node_id in node_ids:
+                if self.session.scalar(
+                    select(StorageNode).where(StorageNode.node_id == node_id.strip())
+                ) is None:
+                    raise ObjectNotFound(node_id)
+
+            job = RepairJob(
+                version_id=version_id,
+                failed_node_id=failed_node_id.strip(),
+                source_node_id=source_node_id.strip(),
+                target_node_id=target_node_id.strip(),
+                reason=reason.strip(),
+                status=JobStatus.PENDING,
+                attempts=0,
+            )
+            self.session.add(job)
+            self.session.flush()
+            return job
+
+    def get_repair_job(self, repair_id: UUID) -> RepairJob:
+        job = self.session.scalar(
+            select(RepairJob).where(RepairJob.repair_id == repair_id)
+        )
+        if job is None:
+            raise ObjectNotFound(str(repair_id))
+        return job
+
+    def claim_repair_job(self, repair_id: UUID) -> RepairJob:
+        with self._transaction():
+            job = self.session.scalar(
+                select(RepairJob)
+                .where(RepairJob.repair_id == repair_id)
+                .with_for_update()
+            )
+            if job is None:
+                raise ObjectNotFound(str(repair_id))
+            if job.status is not JobStatus.PENDING:
+                raise InvalidState(
+                    f"Repair job {repair_id} is {job.status}, not PENDING."
+                )
+            job.status = JobStatus.RUNNING
+            job.attempts += 1
+            self.session.flush()
+            return job
+
+    def complete_repair_job(self, repair_id: UUID) -> RepairJob:
+        with self._transaction():
+            job = self.session.scalar(
+                select(RepairJob)
+                .where(RepairJob.repair_id == repair_id)
+                .with_for_update()
+            )
+            if job is None:
+                raise ObjectNotFound(str(repair_id))
+            if job.status is not JobStatus.RUNNING:
+                raise InvalidState(
+                    f"Repair job {repair_id} is {job.status}, not RUNNING."
+                )
+            job.status = JobStatus.SUCCEEDED
+            job.last_error = None
+            self.session.flush()
+            return job
+
+    def fail_repair_job(self, repair_id: UUID, error: str) -> RepairJob:
+        if not isinstance(error, str) or not error.strip():
+            raise ValueError("error must be a non-empty string")
+        with self._transaction():
+            job = self.session.scalar(
+                select(RepairJob)
+                .where(RepairJob.repair_id == repair_id)
+                .with_for_update()
+            )
+            if job is None:
+                raise ObjectNotFound(str(repair_id))
+            if job.status is not JobStatus.RUNNING:
+                raise InvalidState(
+                    f"Repair job {repair_id} is {job.status}, not RUNNING."
+                )
+            job.status = JobStatus.FAILED
+            job.last_error = error.strip()
+            self.session.flush()
+            return job
 
     def update_node_heartbeat(
         self,
