@@ -77,10 +77,11 @@ def build_mock_node() -> tuple[FastAPI, dict[tuple[str, str], bytes]]:
         return Response(status_code=204)
 
     @app.get("/internal/v1/objects/{object_id}/{version_id}/verify")
-    async def verify_object(object_id: str, version_id: str) -> Response | dict[str, object]:
+    async def verify_object(object_id: str, version_id: str) -> dict[str, object]:
         data = objects.get((object_id, version_id))
         if data is None:
-            return Response(status_code=404, content=b"missing")
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="missing")
         return {
             "object_id": object_id,
             "version_id": version_id,
