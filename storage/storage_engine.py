@@ -752,7 +752,11 @@ class StorageEngine:
 
     @staticmethod
     def _remove_tree(path: Path) -> None:
-        if path.is_dir():
+        # Never follow a symlink during cleanup. A symlink pretending to be a
+        # staging directory must be removed as a link, not traversed.
+        if path.is_symlink():
+            path.unlink()
+        elif path.is_dir():
             shutil.rmtree(path)
         elif path.exists():
             path.unlink()
