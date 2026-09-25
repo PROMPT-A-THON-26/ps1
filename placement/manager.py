@@ -38,7 +38,7 @@ class PlacementManager:
         policy: PlacementPolicy | None = None,
     ) -> None:
         self.session = session
-        self.policy = policy or PlacementPolicy()
+        self.policy = policy or PlacementPolicy.from_settings()
 
     @staticmethod
     def _validate_version_id(version_id: UUID) -> None:
