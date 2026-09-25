@@ -1609,7 +1609,7 @@ The integration gate currently covers:
 - heartbeat-based SUSPECT/UNAVAILABLE/RECOVERING failure detection;
 - memory-safe distributed object streaming.
 
-The integrated branch currently has **105 automated tests passing in CI**.
+The integrated branch currently has **106 automated tests passing in CI**.
 
 Current verification chain:
 
