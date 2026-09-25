@@ -15,6 +15,7 @@ class StorageNodeConfig:
     host: str
     port: int
     data_dir: Path
+    sqlite_path: Path
     capacity_bytes: int
     chunk_size_bytes: int
 
@@ -32,6 +33,12 @@ class StorageNodeConfig:
             "VAULT_NODE_CHUNK_SIZE_BYTES",
         )
         data_dir = Path(os.getenv("VAULT_NODE_DATA_DIR", "./data/vault")).expanduser()
+        sqlite_path = Path(
+            os.getenv(
+                "VAULT_NODE_SQLITE_PATH",
+                str(data_dir / "node_state.sqlite3"),
+            )
+        ).expanduser()
 
         if not node_id:
             raise ConfigurationError("VAULT_NODE_ID must not be empty")
@@ -43,6 +50,7 @@ class StorageNodeConfig:
             host=host,
             port=port,
             data_dir=data_dir,
+            sqlite_path=sqlite_path,
             capacity_bytes=capacity_bytes,
             chunk_size_bytes=chunk_size_bytes,
         )
