@@ -4,15 +4,11 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from .config import StorageNodeConfig
-from .storage_engine import (
-    ObjectAlreadyExistsError,
-    ObjectNotFoundError,
-    StorageEngine,
-    StorageFullError,
-)
+from .storage_engine import ObjectAlreadyExistsError, ObjectNotFoundError, StorageEngine, StorageFullError
 
 
 class HealthResponse(BaseModel):
@@ -37,11 +33,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(
-    title="Vault Storage Node",
-    version="0.1.0",
-    lifespan=lifespan,
-)
+app = FastAPI(title="Vault Storage Node", version="0.1.0", lifespan=lifespan)
 
 
 @app.get("/internal/v1/health", response_model=HealthResponse)
@@ -52,12 +44,7 @@ def health() -> HealthResponse:
 @app.get("/internal/v1/stats", response_model=StatsResponse)
 def stats() -> StatsResponse:
     current = engine.stats()
-    return StatsResponse(
-        node_id=config.node_id,
-        capacity_bytes=current.capacity_bytes,
-        used_bytes=current.used_bytes,
-        free_bytes=current.free_bytes,
-    )
+    return StatsResponse(node_id=config.node_id, capacity_bytes=current.capacity_bytes, used_bytes=current.used_bytes, free_bytes=current.free_bytes)
 
 
 @app.head("/internal/v1/objects/{object_id}/{version_id}")
@@ -78,7 +65,7 @@ def get_object(object_id: str, version_id: str) -> Response:
 
 
 @app.put("/internal/v1/objects/{object_id}/{version_id}", status_code=status.HTTP_201_CREATED)
-def put_object(object_id: str, version_id: str, data: bytes) -> Response:
+def put_object(object_id: str, version_id: str, data: bytes) -> JSONResponse:
     try:
         size = engine.write_bytes(object_id, version_id, data)
     except ObjectAlreadyExistsError as exc:
@@ -87,11 +74,7 @@ def put_object(object_id: str, version_id: str, data: bytes) -> Response:
         raise HTTPException(status_code=status.HTTP_507_INSUFFICIENT_STORAGE, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return Response(
-        content=f'{{"object_id":"{object_id}","version_id":"{version_id}","size_bytes":{size}}}',
-        media_type="application/json",
-        status_code=status.HTTP_201_CREATED,
-    )
+    return JSONResponse(content={"object_id": object_id, "version_id": version_id, "size_bytes": size}, status_code=status.HTTP_201_CREATED)
 
 
 @app.delete("/internal/v1/objects/{object_id}/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
