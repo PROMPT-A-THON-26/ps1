@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from common.constants import (
+from common.config import get_settings\nfrom common.constants import (
     DEFAULT_READ_QUORUM,
     DEFAULT_REPLICATION_FACTOR,
     DEFAULT_WRITE_QUORUM,
@@ -88,7 +88,7 @@ class ReplicationManager:
         client_factory: ClientFactory = StorageNodeClient,
     ) -> None:
         self.session = session
-        self.policy = policy or ReplicationPolicy()
+        self.policy = policy or ReplicationPolicy.from_settings()
         self.client_factory = client_factory
         self.metadata = MetadataManager(session)
         self.placement = PlacementManager(
