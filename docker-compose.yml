@@ -54,6 +54,18 @@ services:
     volumes:
       - vault_node_01_data:/data/vault
       - vault_node_01_state:/var/lib/vault
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status'] in ('healthy','draining') else 1)"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
   vault-node-02:
@@ -73,6 +85,18 @@ services:
     volumes:
       - vault_node_02_data:/data/vault
       - vault_node_02_state:/var/lib/vault
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status'] in ('healthy','draining') else 1)"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
   vault-node-03:
@@ -92,6 +116,18 @@ services:
     volumes:
       - vault_node_03_data:/data/vault
       - vault_node_03_state:/var/lib/vault
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status'] in ('healthy','draining') else 1)"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
   vault-node-04:
@@ -111,6 +147,18 @@ services:
     volumes:
       - vault_node_04_data:/data/vault
       - vault_node_04_state:/var/lib/vault
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status'] in ('healthy','draining') else 1)"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
   vault-worker:
@@ -137,13 +185,13 @@ services:
       mongodb:
         condition: service_healthy
       vault-node-01:
-        condition: service_started
+        condition: service_healthy
       vault-node-02:
-        condition: service_started
+        condition: service_healthy
       vault-node-03:
-        condition: service_started
+        condition: service_healthy
       vault-node-04:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
