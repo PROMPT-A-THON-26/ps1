@@ -14,7 +14,7 @@ async def _verify_remote(
     base_url: str,
     object_id: str,
     version_id: str,
-) -> None:
+) -> tuple[int, str]:
     url = (
         f"{base_url.rstrip('/')}/internal/v1/objects/"
         f"{object_id}/{version_id}/verify"
@@ -33,6 +33,22 @@ async def _verify_remote(
     if body.get("valid") is not True:
         errors = body.get("errors") or ["remote object failed integrity verification"]
         raise ReplicaOperationError("; ".join(str(error) for error in errors))
+
+    size_bytes = body.get("size_bytes")
+    checksum = body.get("checksum")
+    if (
+        isinstance(size_bytes, bool)
+        or not isinstance(size_bytes, int)
+        or size_bytes < 0
+        or not isinstance(checksum, str)
+        or len(checksum) != 64
+        or checksum.lower() != checksum
+        or any(character not in "0123456789abcdef" for character in checksum)
+    ):
+        raise ReplicaOperationError(
+            "verification endpoint returned invalid size_bytes/checksum"
+        )
+    return size_bytes, checksum
 
 
 async def stream_replica(
@@ -79,7 +95,9 @@ async def copy_replica(
             yield chunk
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        await _verify_remote(client, source_url, object_id, version_id)
+        source_size, source_checksum = await _verify_remote(
+            client, source_url, object_id, version_id
+        )
         try:
             response = await client.put(destination, content=source_stream())
         except httpx.HTTPError as exc:
@@ -99,7 +117,13 @@ async def copy_replica(
             raise ReplicaOperationError("destination node returned an invalid replica response") from exc
 
         try:
-            await _verify_remote(client, destination_url, object_id, version_id)
+            destination_size, destination_checksum = await _verify_remote(
+                client, destination_url, object_id, version_id
+            )
+            if destination_size != source_size or destination_checksum != source_checksum:
+                raise ReplicaOperationError(
+                    "destination replica does not match source checksum/size"
+                )
         except ReplicaOperationError:
             try:
                 await client.delete(destination)
