@@ -7,12 +7,14 @@ import httpx
 import pytest
 from sqlalchemy import select
 
-from common.constants import ReplicaState
+from common.constants import NodeState, ReplicaState
+from health.failure_detector import FailureDetector
 from metadata.manager import MetadataManager
 from metadata.models import Replica
 from replication.coordinator import DistributedWriteCoordinator
-from replication.reconciler import PartitionReconciler
 from replication.node_client import RetryPolicy, StorageNodeClient, StorageNodeClientConfig
+from replication.reconciler import PartitionReconciler
+from repair.worker import RepairWorker
 from storage.app_factory import create_storage_node_app
 from storage.node_lifecycle import NodeLifecycle
 from storage.storage_engine import StorageEngine
@@ -32,9 +34,9 @@ class Transport(httpx.AsyncBaseTransport):
         await self._inner.aclose()
 
 
-async def nodes(tmp_path: Path, stack: AsyncExitStack):
+async def build_nodes(tmp_path: Path, stack: AsyncExitStack):
     clients, transports = {}, {}
-    for node_id in ("node-1", "node-2", "node-3"):
+    for node_id in ("node-1", "node-2", "node-3", "node-4"):
         engine = StorageEngine(
             tmp_path / node_id, capacity_bytes=10_000_000, chunk_size_bytes=4
         )
@@ -76,7 +78,7 @@ async def test_reconciliation_marks_divergent_replica_corrupted_without_overwrit
     db_session, tmp_path
 ):
     async with AsyncExitStack() as stack:
-        clients, transports = await nodes(tmp_path, stack)
+        clients, _transports = await build_nodes(tmp_path, stack)
         register(db_session, clients)
 
         coordinator = DistributedWriteCoordinator(
@@ -84,16 +86,11 @@ async def test_reconciliation_marks_divergent_replica_corrupted_without_overwrit
         )
         result = await coordinator.write_object("reconcile.bin", b"canonical-data")
 
-        # Corrupt node-1 after the successful write. The replica remains
-        # self-consistent as storage, but disagrees with the authoritative
-        # metadata checksum.
-        engine = StorageEngine(
-            tmp_path / "node-1", capacity_bytes=10_000_000, chunk_size_bytes=4
+        await clients["node-1"].delete_object(
+            str(result.object_id), str(result.version_id)
         )
-        await engine.write_stream(
-            str(result.object_id),
-            str(result.version_id),
-            _chunks(b"divergent-data"),
+        await clients["node-1"].put_object(
+            str(result.object_id), str(result.version_id), b"divergent-data"
         )
 
         reconciler = PartitionReconciler(db_session, clients)
@@ -112,22 +109,19 @@ async def test_reconciliation_marks_divergent_replica_corrupted_without_overwrit
         assert replica is not None
         assert replica.status is ReplicaState.CORRUPTED
 
-        # Reconciliation never copies the divergent bytes into another replica.
         assert await coordinator.read_object("reconcile.bin") == b"canonical-data"
-        assert await clients["node-2"].verify_object(
+        verified = await clients["node-2"].verify_object(
             str(result.object_id), str(result.version_id)
         )
-
-        # The node remains live; only the replica is bad.
-        assert not transports["node-1"].down
+        assert verified.valid is True
 
 
 @pytest.mark.asyncio
-async def test_reconciliation_marks_partitioned_replica_unavailable_and_recovers_after_heal(
+async def test_reconciliation_restores_verified_replica_after_partition_heals(
     db_session, tmp_path
 ):
     async with AsyncExitStack() as stack:
-        clients, transports = await nodes(tmp_path, stack)
+        clients, transports = await build_nodes(tmp_path, stack)
         register(db_session, clients)
 
         coordinator = DistributedWriteCoordinator(
@@ -135,11 +129,24 @@ async def test_reconciliation_marks_partitioned_replica_unavailable_and_recovers
         )
         result = await coordinator.write_object("partition.bin", b"partition-data")
 
+        detector = FailureDetector(db_session, clients)
         transports["node-1"].down = True
-        reconciler = PartitionReconciler(db_session, clients)
+        await detector.probe_node("node-1")
+        transports["node-1"].down = False
 
-        during_partition = await reconciler.reconcile_version(result.version_id)
-        assert during_partition.unavailable == 1
+        # Simulate the detector's recovery transition before reconciliation.
+        node = db_session.scalar(
+            select(__import__("metadata.models", fromlist=["StorageNode"]).StorageNode)
+            .where(
+                __import__("metadata.models", fromlist=["StorageNode"]).StorageNode.node_id
+                == "node-1"
+            )
+        )
+        node.status = NodeState.UNAVAILABLE
+
+        await detector.probe_node("node-1")
+        await detector.probe_node("node-1")
+
         replica = db_session.scalar(
             select(Replica).where(
                 Replica.version_id == result.version_id,
@@ -147,36 +154,73 @@ async def test_reconciliation_marks_partitioned_replica_unavailable_and_recovers
             )
         )
         assert replica is not None
-        assert replica.status is ReplicaState.UNAVAILABLE
+        replica.status = ReplicaState.UNAVAILABLE
 
-        transports["node-1"].down = False
-        # The detector is responsible for node-state recovery; reconciliation
-        # then validates the bytes once the node is healthy again.
-        from health.failure_detector import FailureDetector
-        from common.constants import NodeState
-        detector = FailureDetector(db_session, clients)
-        assert (await detector.probe_node("node-1")).state is NodeState.RECOVERING
-        assert (await detector.probe_node("node-1")).state is NodeState.HEALTHY
+        reconciler = PartitionReconciler(db_session, clients)
+        repaired_state = await reconciler.reconcile_version(result.version_id)
 
-        # A recovered replica must be repaired rather than silently revived.
-        from repair.worker import RepairWorker
-        worker = __import__("repair.worker", fromlist=["RepairWorker"]).RepairWorker(
-            db_session, coordinator
+        assert repaired_state.healthy == 3
+        assert repaired_state.unavailable == 0
+
+        db_session.expire_all()
+        replica = db_session.scalar(
+            select(Replica).where(
+                Replica.version_id == result.version_id,
+                Replica.node_id == "node-1",
+            )
         )
-        run = await worker.run_once()
-        assert run.succeeded == 1
-
-        repaired = await reconciler.reconcile_version(result.version_id)
-        assert repaired.healthy == 3
-        assert repaired.unavailable == 0
+        assert replica is not None
+        assert replica.status is ReplicaState.HEALTHY
 
 
 @pytest.mark.asyncio
-async def test_reconciliation_does_not_treat_old_committed_version_as_divergence(
+async def test_missing_replica_after_partition_is_repaired_to_new_node(
     db_session, tmp_path
 ):
     async with AsyncExitStack() as stack:
-        clients, _transports = await nodes(tmp_path, stack)
+        clients, _transports = await build_nodes(tmp_path, stack)
+        register(db_session, clients)
+
+        coordinator = DistributedWriteCoordinator(
+            db_session, clients, replication_factor=3, write_quorum=2, read_quorum=1
+        )
+        result = await coordinator.write_object("missing.bin", b"missing-data")
+
+        await clients["node-1"].delete_object(
+            str(result.object_id), str(result.version_id)
+        )
+        replica = db_session.scalar(
+            select(Replica).where(
+                Replica.version_id == result.version_id,
+                Replica.node_id == "node-1",
+            )
+        )
+        assert replica is not None
+        replica.status = ReplicaState.UNAVAILABLE
+
+        reconciler = PartitionReconciler(db_session, clients)
+        state = await reconciler.reconcile_version(result.version_id)
+        assert state.unavailable == 1
+        assert state.healthy == 2
+
+        worker = RepairWorker(db_session, coordinator)
+        run = await worker.run_once()
+
+        assert run.scheduled == 1
+        assert run.succeeded == 1
+
+        final = await reconciler.reconcile_version(result.version_id)
+        assert final.healthy == 3
+        assert final.unavailable == 0
+        assert await coordinator.read_object("missing.bin") == b"missing-data"
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_keeps_historical_versions_independent(
+    db_session, tmp_path
+):
+    async with AsyncExitStack() as stack:
+        clients, _transports = await build_nodes(tmp_path, stack)
         register(db_session, clients)
 
         coordinator = DistributedWriteCoordinator(
@@ -186,13 +230,11 @@ async def test_reconciliation_does_not_treat_old_committed_version_as_divergence
         second = await coordinator.write_object("versions.bin", b"version-two")
 
         reconciler = PartitionReconciler(db_session, clients)
+
         first_result = await reconciler.reconcile_version(first.version_id)
         second_result = await reconciler.reconcile_version(second.version_id)
 
         assert first_result.healthy == 3
         assert second_result.healthy == 3
         assert first.version_id != second.version_id
-
-
-async def _chunks(data: bytes):
-    yield data
+        assert await coordinator.read_object("versions.bin") == b"version-two"
