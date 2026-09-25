@@ -1,84 +1,74 @@
 # Vault Part C — Frontend
 
-Part C is a dependency-light, judge-facing resilience cockpit built with plain HTML, CSS and vanilla JavaScript.
+Part C is the judge-facing resilience cockpit built with plain HTML, CSS and vanilla JavaScript.
 
-## Why it stands out
+## End-to-end mode
 
-The first screen explains a distributed-storage failure story instead of presenting a generic CRUD dashboard:
-
-- replica topology and capacity pressure are visible immediately
-- resilience score, durability policy and failure-domain health share one state model
-- the Resilience Drill demonstrates detect → isolate → repair → verify as a safe local simulation
-- the command palette gives judges a fast way to move through the system
-- live mode uses the documented Part B public REST contract and never fabricates unsupported backend behavior
-
-## Views
-
-Overview, Nodes, Objects, Repairs, Integrity, Rebalance, Events and Policies.
-
-## Local preview
-
-From repository root:
-
-    python -m http.server 5173 --directory frontend
-
-Open:
+On MASTER, live API mode is the default:
 
     http://localhost:5173
 
-No npm install and no framework are required.
+The frontend connects automatically to:
 
-## Live Part B integration
+    http://localhost:8000/api/v1
 
-Default mode is safe mock mode:
+Use:
 
-    const CONFIG = window.VAULT_CONFIG || { mode: "mock", baseUrl: "/api/v1" };
+    http://localhost:5173/?mode=mock
 
-For a quick live preview without editing the bundle, open:
+for the safe local simulation.
 
-    http://localhost:5173/?mode=api&baseUrl=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fv1
+## One-command full stack
 
-Live mode uses:
+From repository root:
 
-- GET /health
-- GET /nodes
-- GET /objects
-- GET /objects/{name}/metadata
-- GET /objects/{name}/versions
-- PUT /objects/{name}
-- POST /admin/repair
-- POST /admin/integrity/check
-- POST /admin/rebalance
-- GET /admin/repair/{repair_id}
-- GET /admin/integrity/check/{job_id}
-- GET /admin/rebalance/{job_id}
+    docker compose up --build
 
-The frontend polls accepted admin jobs and refreshes normalized state when a job reaches a terminal state.
+Then open:
 
-Node drain/resume is intentionally demo-only because the documented Part B public contract does not expose a corresponding endpoint.
+    http://localhost:5173
 
-## Error handling
+The full stack is:
 
-API errors use the Part B shape:
+    browser
+      ↓
+    Part C frontend
+      ↓
+    FastAPI gateway (:8000)
+      ↓
+    PostgreSQL + Redis
+      ↓
+    Celery control-plane worker
+      ↓
+    four Vault storage nodes (:9001–:9004)
 
-    error.code
-    error.message
-    error.request_id
+## Live API contract
 
-The frontend adds an X-Request-ID to API calls and surfaces failures through live toasts.
+The frontend consumes:
 
-## Accessibility
+- GET /api/v1/health
+- GET /api/v1/nodes
+- GET /api/v1/objects
+- GET /api/v1/objects/{name}/metadata
+- GET /api/v1/objects/{name}/versions
+- PUT /api/v1/objects/{name}
+- POST /api/v1/admin/repair
+- GET /api/v1/admin/repair/{repair_id}
+- POST /api/v1/admin/integrity/check
+- GET /api/v1/admin/integrity/check/{job_id}
+- POST /api/v1/admin/rebalance
+- GET /api/v1/admin/rebalance/{job_id}
 
-The layout uses semantic sections, labeled navigation, labeled search fields, live status regions, keyboard-focus styles, a modal dialog and an interactive command palette.
+Node drain/resume remains demo-only because no corresponding public Part B endpoint exists.
 
 ## Verification
 
-Run:
+Frontend-only:
 
     python frontend/tests/verify_frontend.py
-
-The repository CI also runs:
-
     node --check frontend/js/app.js
 
-alongside the existing Python and integration test suite.
+Full stack:
+
+    docker compose config --quiet
+    docker compose up --build
