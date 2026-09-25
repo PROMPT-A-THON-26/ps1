@@ -1677,4 +1677,114 @@ The system should not merely store copies. It should know:
 - when repair is complete;
 - and whether the repaired data is actually correct.
 
+That is the core of Vault.## 39. Current Project Status
+
+The audited Vault storage data plane and control plane have been extended through the reliability milestones on dedicated feature branches.
+
+### Verified reliability milestones
+
+```text
+Integrated replication
+        |
+        v
+Failure detection
+        |
+        v
+Automatic repair worker
+        |
+        v
+Network partition detection
+        |
+        v
+Partition reconciliation
+        |
+        v
+Automatic rebalancing
+        |
+        v
+Automatic integrity scanning
+        |
+        v
+Automatic corruption repair
+        |
+        v
+Docker multi-node reliability runtime
+```
+
+Current implementation includes:
+
+- quorum-based replicated writes and read failover;
+- canonical PostgreSQL object/version/replica metadata;
+- verified storage-node client contracts;
+- node health, SUSPECT, UNAVAILABLE, RECOVERING, and DRAINING handling;
+- automatic under-replication repair with durable repair jobs;
+- partition reconciliation using committed version checksum/size as the source of truth;
+- corruption detection that distinguishes verified integrity failures from network unavailability;
+- automatic integrity scanning before repair;
+- safe rebalancing using copy -> verify -> metadata update -> delete;
+- target-capacity reservation during rebalance planning;
+- durable rebalance jobs and failure cleanup;
+- a runnable reliability worker combining detection, integrity scanning, repair, and rebalancing;
+- a four-storage-node Docker Compose development topology;
+- dedicated local SQLite state for every storage node;
+- PostgreSQL and MongoDB service foundations;
+- CI gates for Python compilation, Docker Compose configuration, Docker image builds, and the complete Pytest suite.
+
+### Runtime topology
+
+```text
+PostgreSQL
+MongoDB
+   |
+   +-----------------------+
+   |                       |
+   v                       v
+Vault Reliability      Storage Node 01
+Worker                Storage Node 02
+   |                  Storage Node 03
+   |                  Storage Node 04
+   +-----------------------+
+            |
+            v
+Detection -> Integrity -> Repair -> Rebalance
+```
+
+### Running the distributed development cluster
+
+```bash
+docker compose up --build
+```
+
+The storage nodes expose host ports 9001 through 9004. The reliability worker connects to all four nodes and the PostgreSQL metadata service.
+
+### Verification policy
+
+A change is not considered complete until:
+
+1. the full Python test suite passes;
+2. Python compilation passes;
+3. Docker Compose configuration validates;
+4. the relevant Docker images build successfully;
+5. the reliability workflows have dedicated failure/integrity tests.
+
+The current repository intentionally keeps Part C/frontend work separate from these backend reliability branches.
+
+# 40. Project Philosophy
+
+Vault is being built around one central principle:
+
+> **Data should survive failures without the system losing track of what is valid.**
+
+The system should not merely store copies. It should know:
+
+- what data exists;
+- which version is current;
+- where replicas are;
+- which replicas are healthy;
+- which nodes are available;
+- what has failed;
+- what needs repair;
+- when repair is complete;
+- and whether the repaired data is actually correct.
+
 That is the core of Vault.
