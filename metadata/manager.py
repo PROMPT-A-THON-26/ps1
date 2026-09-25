@@ -349,6 +349,53 @@ class MetadataManager:
             self.session.flush()
             return replica
 
+    def record_replica_verification(
+        self,
+        replica_id: UUID,
+        *,
+        checksum: str,
+        size_bytes: int,
+    ) -> Replica:
+        """Persist a successful integrity verification for an already-healthy replica."""
+        actual = _validate_checksum(checksum)
+        if (
+            not isinstance(size_bytes, int)
+            or isinstance(size_bytes, bool)
+            or size_bytes < 0
+        ):
+            raise ValueError("size_bytes must be a non-negative integer")
+
+        with self._transaction():
+            replica = self.session.scalar(
+                select(Replica).where(Replica.replica_id == replica_id).with_for_update()
+            )
+            if replica is None:
+                raise ObjectNotFound(str(replica_id))
+
+            version = self.session.scalar(
+                select(Version).where(Version.version_id == replica.version_id)
+            )
+            if version is None:
+                raise ObjectNotFound(str(replica.version_id))
+
+            if replica.status is not ReplicaState.HEALTHY:
+                raise InvalidState(
+                    f"Replica {replica.replica_id} is {replica.status}; "
+                    "integrity verification requires HEALTHY state."
+                )
+            if actual != version.checksum:
+                raise ChecksumMismatch(version.checksum, actual)
+            if size_bytes != version.size_bytes:
+                raise InvalidState(
+                    f"Replica size mismatch: expected {version.size_bytes}, got {size_bytes}."
+                )
+
+            replica.checksum = actual
+            replica.size_bytes = size_bytes
+            replica.last_verified_at = datetime.now(timezone.utc)
+            self.session.flush()
+            return replica
+
     def mark_replica_healthy(
         self,
         replica_id: UUID,
