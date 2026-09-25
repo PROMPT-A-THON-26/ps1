@@ -280,4 +280,3 @@ async def test_existing_object_write_creates_next_version(db_session, tmp_path):
         )
         assert [version.version_number for version in versions] == [1, 2]
         assert all(version.state is VersionState.COMMITTED for version in versions)
-\n
