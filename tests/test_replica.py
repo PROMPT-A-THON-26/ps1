@@ -103,7 +103,7 @@ def test_copy_replica_streams_and_verifies_source_and_destination(monkeypatch):
         if request.method == "PUT":
             body = await request.aread()
             assert body == payload
-            return httpx.Response(201, json={"object_id": "obj", "version_id": "ver", "size_bytes": len(body)})
+            return httpx.Response(201, json={"object_id": "obj", "version_id": "ver", "size_bytes": len(b"source-data")})
         raise AssertionError(request.method)
 
     transport = httpx.MockTransport(handler)
@@ -257,4 +257,4 @@ def test_copy_replica_quotes_object_and_version_identifiers(monkeypatch):
             "version id",
         )
     ) == 4
-    assert any(request.url.path == "/internal/v1/objects/object%20id/version%20id" for request in requests)
+    assert any(request.url.raw_path.startswith(b"/internal/v1/objects/object%20id/version%20id") for request in requests)
