@@ -481,8 +481,11 @@ class StorageNodeClient:
         version_id: str,
         *,
         request_id: str | None = None,
+        raise_on_invalid: bool = True,
     ) -> VerifiedObject:
-        """Verify stored bytes and return their measured checksum/size."""
+        """Verify stored bytes and return measured checksum/size."""
+        if type(raise_on_invalid) is not bool:
+            raise TypeError("raise_on_invalid must be a bool")
         self._validate_identifier(object_id, "object_id")
         self._validate_identifier(version_id, "version_id")
         rid = self._request_id(request_id)
@@ -544,8 +547,13 @@ class StorageNodeClient:
                     detail=payload,
                     request_id=response.headers.get("X-Request-ID", rid),
                 )
-            # VERIFY invalid=true/false is an integrity result, not a transport
-            # error. IntegrityManager owns the CORRUPTED state transition.
+            if not result.valid and raise_on_invalid:
+                raise StorageNodeIntegrityError(
+                    "Storage node reported that stored data failed integrity verification.",
+                    status_code=response.status_code,
+                    detail=payload,
+                    request_id=response.headers.get("X-Request-ID", rid),
+                )
             return result
         finally:
             await response.aclose()
