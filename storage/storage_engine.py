@@ -70,6 +70,7 @@ class StorageEngine:
         self.chunk_size_bytes = chunk_size_bytes
         self._lock = threading.RLock()
         self._reserved_bytes = 0
+        self._inflight_objects: set[tuple[str, str]] = set()
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._cleanup_staging_directories()
@@ -109,6 +110,7 @@ class StorageEngine:
         with self._lock:
             self._ensure_new_object(object_id, version_id)
             staging_dir = self._create_staging_dir(object_id, version_id)
+            self._inflight_objects.add((object_id, version_id))
 
         size = 0
         chunk_index = 0
@@ -183,6 +185,7 @@ class StorageEngine:
 
             with self._lock:
                 self._release_capacity(reserved_bytes)
+                self._inflight_objects.discard((object_id, version_id))
             reserved_bytes = 0
             return size
         except Exception:
@@ -195,6 +198,7 @@ class StorageEngine:
 
             with self._lock:
                 self._release_capacity(reserved_bytes)
+                self._inflight_objects.discard((object_id, version_id))
             raise
 
     def read_bytes(self, object_id: str, version_id: str) -> bytes:
@@ -465,6 +469,7 @@ class StorageEngine:
         with self._lock:
             self._ensure_new_object(object_id, version_id)
             staging_dir = self._create_staging_dir(object_id, version_id)
+            self._inflight_objects.add((object_id, version_id))
 
             size = 0
             chunk_index = 0
@@ -518,15 +523,18 @@ class StorageEngine:
                 self._write_metadata(staging_dir, metadata)
                 self._publish_staging(object_id, version_id, staging_dir)
                 self._release_capacity(reserved_bytes)
+                self._inflight_objects.discard((object_id, version_id))
                 reserved_bytes = 0
                 return size
             except Exception:
                 self._remove_tree(staging_dir)
                 self._release_capacity(reserved_bytes)
+                self._inflight_objects.discard((object_id, version_id))
                 raise
 
     def _ensure_new_object(self, object_id: str, version_id: str) -> None:
-        if self.exists(object_id, version_id):
+        key = (object_id, version_id)
+        if key in self._inflight_objects or self.exists(object_id, version_id):
             raise ObjectAlreadyExistsError(
                 f"Object version already exists: {object_id}/{version_id}"
             )
