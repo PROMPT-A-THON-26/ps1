@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from common.errors import ObjectNotFound, VaultError
 from common.ids import new_request_id
-from replication.node_client import StorageNodeClientError
+from replication.node_client import StorageNodeClient, StorageNodeClientError
 
 from .service import GatewayService
 
