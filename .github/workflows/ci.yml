@@ -125,5 +125,11 @@ jobs:
         if: always()
         run: docker compose down -v
 
+      - name: Verify Part-C frontend structure
+        run: python frontend/tests/verify_frontend.py
+
+      - name: Validate Part-C JavaScript syntax
+        run: node --check frontend/js/app.js
+
       - name: Run tests
         run: python -m pytest -q
