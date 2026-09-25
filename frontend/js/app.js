@@ -46,6 +46,21 @@
   const state = { view:"overview", nodeFilter:"all", objectFilter:"all", eventFilter:"all", selectedObject:null };
   const $ = (s,r=document) => r.querySelector(s);
   const $$ = (s,r=document) => Array.from(r.querySelectorAll(s));
+  const formatBytes = bytes => {
+    if (!Number.isFinite(bytes) || bytes <= 0) return "—";
+    const units=["B","KB","MB","GB","TB"]; let i=0, value=bytes;
+    while(value >= 1024 && i < units.length-1){ value/=1024; i++; }
+    return (value >= 100 ? value.toFixed(0) : value.toFixed(1))+" "+units[i];
+  };
+  const formatTimestamp = value => {
+    if (!value) return "—";
+    const date=new Date(value); return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  };
+  const formatHeartbeat = value => {
+    if (!value) return "—";
+    const age=Math.max(0,Math.round((Date.now()-new Date(value).getTime())/1000));
+    return Number.isFinite(age) ? age+"s ago" : "—";
+  };
   const escapeHtml = v => String(v).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]);
 
   const API = {
@@ -60,14 +75,43 @@
       if(!response.ok){const e=body.error || {}; const err=new Error(e.message || "API request failed"); err.code=e.code || "INTERNAL_ERROR"; err.requestId=e.request_id || requestId; throw err;}
       return body;
     },
+    async get(path) {
+      return this.request(path);
+    },
     async action(name,payload) {
       if(this.mode === "mock") return {job_id:name + "-" + Date.now(),status:"RUNNING",payload:payload || null};
       const paths={repair:"/admin/repair",integrity:"/admin/integrity/check",rebalance:"/admin/rebalance"};
-      return this.request(paths[name],{method:"POST",body:payload ? JSON.stringify(payload) : undefined,headers:payload ? {"Content-Type":"application/json"} : undefined});
+      return this.request(paths[name],{method:"POST",body:JSON.stringify(payload || {}),headers:{"Content-Type":"application/json"}});
     },
     async upload(file) {
       if(this.mode === "mock") return {object_id:"obj_"+Math.random().toString(16).slice(2,8),version_id:"v1"};
-      const form=new FormData(); form.append("file",file); return this.request("/objects",{method:"POST",body:form});
+      const objectName=file.name.replace(/\\/g,"/").split("/").pop() || "upload";
+      return this.request("/objects/"+encodeURIComponent(objectName),{method:"PUT",body:file,headers:{"Content-Type":file.type || "application/octet-stream"}});
+    },
+    async sync() {
+      if(this.mode !== "api") return;
+      const [health,nodes,objects] = await Promise.all([
+        this.get("/health"),
+        this.get("/nodes"),
+        this.get("/objects")
+      ]);
+      DATA.nodes = Array.isArray(nodes) ? nodes.map(n => {
+        const capacity=Number(n.capacity_bytes || 0), used=Number(n.used_bytes || 0);
+        const percent=capacity ? Math.round((used/capacity)*100) : 0;
+        return {
+          id:n.node_id, status:n.status === "HEALTHY" ? "healthy" : "attention",
+          capacity:formatBytes(capacity), used:formatBytes(used), percent,
+          objects:0, heartbeat:formatHeartbeat(n.last_heartbeat_at), lifecycle:n.status || "UNKNOWN"
+        };
+      }) : DATA.nodes;
+      DATA.objects = Array.isArray(objects) ? objects.map(o => ({
+        id:o.name || o.object_id, size:"—", version:o.current_version_id ? "current" : "—",
+        replicas:"—", checksum:"—", status:o.state === "ACTIVE" ? "healthy" : "attention",
+        updated:formatTimestamp(o.updated_at), type:"object", created:formatTimestamp(o.created_at),
+        currentVersionId:o.current_version_id, replicaRows:[]
+      })) : DATA.objects;
+      DATA.dashboard.objects = DATA.objects.length;
+      DATA.liveHealth = health;
     }
   };
 
@@ -87,7 +131,23 @@
 
   async function runAction(name){
     try {
-      await API.action(name);
+      let payload=null;
+      if(CONFIG.mode === "api"){
+        const selected=DATA.objects.find(o=>o.id===state.selectedObject);
+        const versionId=selected?.currentVersionId;
+        if((name==="repair" || name==="rebalance") && !versionId){
+          throw new Error("Select an object with a current version before starting this operation.");
+        }
+        if(name==="repair") payload={version_id:versionId,reason:"admin-request"};
+        if(name==="integrity") payload={version_id:versionId || undefined};
+        if(name==="rebalance"){
+          const node=DATA.nodes.find(n=>n.status==="attention") || DATA.nodes[0];
+          const target=DATA.nodes.find(n=>n.id!==node?.id && n.percent < 60);
+          if(!node || !target) throw new Error("No safe source/target node pair is available.");
+          payload={version_id:versionId,source_node_id:node.id,target_node_id:target.id};
+        }
+      }
+      await API.action(name,payload);
       const title = name === "integrity" ? "Integrity scan started" : name === "repair" ? "Repair pass started" : "Rebalance started";
       toast(title, "The request is running through the demo control-plane boundary.");
       setTimeout(() => {
@@ -120,13 +180,23 @@
     const nav=e.target.closest("[data-view]");if(nav){showView(nav.dataset.view);return}
     const action=e.target.closest("[data-action]");if(action){const a=action.dataset.action;if(a==="upload")openModal();if(a==="close-modal")closeModal();if(a==="upload-file")await uploadFile();if(a==="integrity"){showView("integrity");runAction("integrity")}if(a==="repair"){showView("repairs");runAction("repair")}if(a==="rebalance"){showView("rebalance");runAction("rebalance")}if(a==="refresh"){renderAll();toast("Telemetry refreshed","All dashboard views are synchronized.")}if(a==="clear-events"){DATA.events=[];renderAll();toast("Demo alerts cleared","Local event history was cleared.")}}
     const obj=e.target.closest("[data-object]");if(obj){state.selectedObject=obj.dataset.object;showView("objects")}
-    const node=e.target.closest("[data-node]");if(node){const n=DATA.nodes.find(x=>x.id===node.dataset.node);if(n){n.lifecycle=node.dataset.nodeAction==="drain"?"DRAINING":"HEALTHY";n.status=n.lifecycle==="DRAINING"?"attention":"healthy";}renderNodes();toast(n.id,n.lifecycle==="DRAINING"?"Node is now draining.":"Node resumed and accepts writes.")}
+    const node=e.target.closest("[data-node]");if(node){
+      const n=DATA.nodes.find(x=>x.id===node.dataset.node);
+      if(!n) return;
+      n.lifecycle=node.dataset.nodeAction==="drain"?"DRAINING":"HEALTHY";
+      n.status=n.lifecycle==="DRAINING"?"attention":"healthy";
+      renderNodes();
+      toast(n.id,n.lifecycle==="DRAINING"?"Node is now draining.":"Node resumed and accepts writes.")
+    }
   });
   document.addEventListener("input",e=>{if(e.target.id==="node-search")renderNodes();if(e.target.id==="object-search")renderObjects()});
   $("#node-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("nodeFilter",b.dataset.filter)});
   $("#object-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("objectFilter",b.dataset.filter)});
   $("#event-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("eventFilter",b.dataset.filter)});
-  $("#refresh").addEventListener("click",()=>{renderAll();toast("Refreshed","Vault telemetry is current.")});
+  $("#refresh").addEventListener("click",async()=>{
+    try { await API.sync(); renderAll(); toast("Refreshed",CONFIG.mode==="api"?"Live Vault telemetry synchronized.":"Demo telemetry refreshed."); }
+    catch(error){ renderAll(); toast("Refresh failed",error.message); }
+  });
   const drop = document.querySelector(".drop");
   $("#file-input").addEventListener("change",()=>{const f=$("#file-input").files[0];$("#file-name").textContent=f?f.name+" · "+(f.size/1048576).toFixed(2)+" MB":"No file selected";$("#upload-btn").disabled=!f});
   ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.style.borderColor="rgba(91,188,255,.65)"}));
@@ -135,6 +205,10 @@
   $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
   document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 
+  API.sync().then(()=>renderAll()).catch(error=>{
+    if(CONFIG.mode==="api") toast("API unavailable",error.message);
+    renderAll();
+  });
   renderAll();
   const hash=location.hash.slice(1);showView(["overview","nodes","objects","repairs","integrity","rebalance","events","policies"].includes(hash)?hash:"overview");
   window.VaultFrontend={API,DATA,state,showView};
