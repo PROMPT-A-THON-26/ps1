@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterable, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+import json
 from typing import Any
 from urllib.parse import quote
 
@@ -445,10 +446,11 @@ class StorageNodeClient:
 
     @staticmethod
     async def _response_json_or_text(response: httpx.Response) -> Any:
+        content = await response.aread()
         try:
-            return response.json()
-        except ValueError:
-            return await StorageNodeClient._response_text(response)
+            return json.loads(content)
+        except (TypeError, ValueError):
+            return content.decode("utf-8", errors="replace")
 
     @staticmethod
     async def _response_text(response: httpx.Response) -> str:
@@ -504,6 +506,8 @@ class StorageNodeClient:
 
     @staticmethod
     def _object_path(object_id: str, version_id: str) -> str:
+        StorageNodeClient._validate_identifier(object_id, "object_id")
+        StorageNodeClient._validate_identifier(version_id, "version_id")
         return (
             "/internal/v1/objects/"
             f"{quote(object_id, safe='')}/"
@@ -517,7 +521,7 @@ class StorageNodeClient:
             or not value
             or value in {".", ".."}
             or "/" in value
-            or "\\" in value
+            or "\" in value
             or "\x00" in value
         ):
             raise ValueError(f"Invalid {field_name}")
