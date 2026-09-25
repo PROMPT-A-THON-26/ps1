@@ -8,6 +8,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from metadata import models  # noqa: F401
+from common.settings import settings
 from metadata.database import Base, normalize_database_url
 
 config = context.config
@@ -18,7 +19,7 @@ target_metadata = Base.metadata
 
 
 def _database_url() -> str:
-    return normalize_database_url(config.get_main_option("sqlalchemy.url"))
+    return normalize_database_url(settings.database_url or config.get_main_option("sqlalchemy.url"))
 
 
 def run_migrations_offline() -> None:
