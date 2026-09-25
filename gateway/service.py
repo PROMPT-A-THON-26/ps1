@@ -278,6 +278,9 @@ class GatewayService:
                     message="Replication completed without a committed version.",
                     status_code=500,
                 )
+            # The request session is intentionally not auto-committing. Persist
+            # the successful metadata transaction before returning the response.
+            self.session.commit()
             return {
                 "object_id": str(obj.object_id),
                 "name": obj.name,
@@ -363,6 +366,8 @@ class GatewayService:
             )
 
         self.metadata.transition_object_state(obj.object_id, ObjectState.DELETED)
+        # Persist the final lifecycle transition before the request session closes.
+        self.session.commit()
         return {"name": obj.name, "state": ObjectState.DELETED.value, "deleted_replicas": deleted}
 
     async def preflight_read_target(
