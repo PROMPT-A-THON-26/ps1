@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Iterator, Optional
+from urllib.parse import urlparse
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -356,6 +357,16 @@ class MetadataManager:
             raise ValueError("status must be a NodeState")
 
         normalized_address = address.strip().rstrip("/")
+        parsed = urlparse(normalized_address)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("address must be an absolute http(s) URL")
+
+        normalized_node_id = None
+        if node_id is not None:
+            normalized_node_id = node_id.strip()
+            if not normalized_node_id:
+                raise ValueError("node_id must be a non-empty string")
+
         with self._transaction():
             existing = self.session.scalar(
                 select(StorageNode)
@@ -363,13 +374,20 @@ class MetadataManager:
                 .with_for_update()
             )
             if existing is not None:
-                if node_id is not None and existing.node_id != node_id.strip():
+                if normalized_node_id is not None and existing.node_id != normalized_node_id:
                     raise ObjectAlreadyExists(normalized_address)
                 return existing
 
-            normalized_node_id = node_id.strip() if node_id is not None else new_uuid().hex
-            if not normalized_node_id:
-                raise ValueError("node_id must be a non-empty string")
+            if normalized_node_id is not None:
+                existing_by_id = self.session.scalar(
+                    select(StorageNode)
+                    .where(StorageNode.node_id == normalized_node_id)
+                    .with_for_update()
+                )
+                if existing_by_id is not None:
+                    raise ObjectAlreadyExists(normalized_node_id)
+            else:
+                normalized_node_id = new_uuid().hex
 
             node = StorageNode(
                 node_id=normalized_node_id,
@@ -431,6 +449,9 @@ class MetadataManager:
                 if not isinstance(status, NodeState):
                     raise ValueError("status must be a NodeState")
                 node.status = status
+
+            if node.used_bytes > node.capacity_bytes:
+                raise ValueError("used_bytes cannot exceed capacity_bytes")
 
             current_heartbeat = node.last_heartbeat_at
             if current_heartbeat is None or now >= current_heartbeat:
