@@ -54,7 +54,8 @@
       const headers = new Headers(options.headers || {});
       const requestId = options.requestId || "req_" + Math.random().toString(16).slice(2,10);
       headers.set("Accept","application/json"); headers.set("X-Request-ID",requestId);
-      const response = await fetch(new URL(path,this.baseUrl,location.origin),{...options,headers,redirect:"error"});
+      const base = new URL(this.baseUrl, location.origin).toString().replace(/\/$/,"");
+      const response = await fetch(new URL(path,base),{...options,headers,redirect:"error"});
       const body = await response.json().catch(() => ({}));
       if(!response.ok){const e=body.error || {}; const err=new Error(e.message || "API request failed"); err.code=e.code || "INTERNAL_ERROR"; err.requestId=e.request_id || requestId; throw err;}
       return body;
@@ -94,14 +95,18 @@
     const nav=e.target.closest("[data-view]");if(nav){showView(nav.dataset.view);return}
     const action=e.target.closest("[data-action]");if(action){const a=action.dataset.action;if(a==="upload")openModal();if(a==="close-modal")closeModal();if(a==="upload-file")await uploadFile();if(a==="integrity"){showView("integrity");runAction("integrity")}if(a==="repair"){showView("repairs");runAction("repair")}if(a==="rebalance"){showView("rebalance");runAction("rebalance")}if(a==="refresh"){renderAll();toast("Telemetry refreshed","All dashboard views are synchronized.")}if(a==="clear-events"){DATA.events=[];renderAll();toast("Demo alerts cleared","Local event history was cleared.")}}
     const obj=e.target.closest("[data-object]");if(obj){state.selectedObject=obj.dataset.object;showView("objects")}
-    const node=e.target.closest("[data-node]");if(node){const n=DATA.nodes.find(x=>x.id===node.dataset.node);if(n)n.lifecycle=node.dataset.nodeAction==="drain"?"DRAINING":"HEALTHY";renderNodes();toast(n.id,n.lifecycle==="DRAINING"?"Node is now draining.":"Node resumed and accepts writes.")}
+    const node=e.target.closest("[data-node]");if(node){const n=DATA.nodes.find(x=>x.id===node.dataset.node);if(n){n.lifecycle=node.dataset.nodeAction==="drain"?"DRAINING":"HEALTHY";n.status=n.lifecycle==="DRAINING"?"attention":"healthy";}renderNodes();toast(n.id,n.lifecycle==="DRAINING"?"Node is now draining.":"Node resumed and accepts writes.")}
   });
   document.addEventListener("input",e=>{if(e.target.id==="node-search")renderNodes();if(e.target.id==="object-search")renderObjects()});
   $("#node-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("nodeFilter",b.dataset.filter)});
   $("#object-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("objectFilter",b.dataset.filter)});
   $("#event-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("eventFilter",b.dataset.filter)});
   $("#refresh").addEventListener("click",()=>{renderAll();toast("Refreshed","Vault telemetry is current.")});
+  const drop = document.querySelector(".drop");
   $("#file-input").addEventListener("change",()=>{const f=$("#file-input").files[0];$("#file-name").textContent=f?f.name+" · "+(f.size/1048576).toFixed(2)+" MB":"No file selected";$("#upload-btn").disabled=!f});
+  ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.style.borderColor="rgba(91,188,255,.65)"}));
+  ["dragleave","drop"].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.style.borderColor=""}));
+  drop.addEventListener("drop",e=>{const file=e.dataTransfer.files[0];if(!file)return;const input=$("#file-input");const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;$("#file-name").textContent=file.name+" · "+(file.size/1048576).toFixed(2)+" MB";$("#upload-btn").disabled=false});
   $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
   document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 
