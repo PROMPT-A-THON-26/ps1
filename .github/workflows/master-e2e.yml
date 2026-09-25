@@ -23,6 +23,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Backend unit and integration tests
+        run: |
+          pytest -q
+
       - name: Frontend verification
         run: |
           python frontend/tests/verify_frontend.py
