@@ -10,7 +10,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from common.constants import NODE_STATE_TRANSITIONS, NodeState, ObjectState, ReplicaState, VersionState
+from common.constants import OBJECT_STATE_TRANSITIONS, NODE_STATE_TRANSITIONS, NodeState, ObjectState, ReplicaState, VersionState
 from common.errors import (
     ChecksumMismatch,
     InvalidState,
@@ -200,6 +200,44 @@ class MetadataManager:
             version.committed_at = datetime.now(timezone.utc)
             obj.current_version_id = version.version_id
             obj.state = ObjectState.ACTIVE
+            self.session.flush()
+            return version
+
+    def transition_object_state(self, object_id: UUID, state: ObjectState) -> Object:
+        """Apply one canonical object lifecycle transition transactionally."""
+        if not isinstance(object_id, UUID):
+            raise ValueError("object_id must be a UUID")
+        if not isinstance(state, ObjectState):
+            raise ValueError("state must be an ObjectState")
+        with self._transaction():
+            obj = self.session.scalar(
+                select(Object).where(Object.object_id == object_id).with_for_update()
+            )
+            if obj is None:
+                raise ObjectNotFound(str(object_id))
+            if state is obj.state:
+                return obj
+            if state not in OBJECT_STATE_TRANSITIONS.get(obj.state, frozenset()):
+                raise InvalidState(
+                    f"Cannot transition object {object_id} from {obj.state} to {state}."
+                )
+            obj.state = state
+            self.session.flush()
+            return obj
+
+    def fail_version(self, version_id: UUID) -> Version:
+        """Mark a provisional version FAILED without exposing it as current."""
+        if not isinstance(version_id, UUID):
+            raise ValueError("version_id must be a UUID")
+        with self._transaction():
+            version = self.session.scalar(
+                select(Version).where(Version.version_id == version_id).with_for_update()
+            )
+            if version is None:
+                raise ObjectNotFound(str(version_id))
+            if version.state is VersionState.COMMITTED:
+                raise InvalidState(f"Version {version_id} is already COMMITTED.")
+            version.state = VersionState.FAILED
             self.session.flush()
             return version
 
