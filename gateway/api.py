@@ -75,7 +75,7 @@ def build_gateway_router(
         try:
             with session_factory() as session:
                 payload = GatewayService(session).object_metadata(name)
-            return JSONResponse(payload, headers={"X-Request-ID": request_id})
+            return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
         except VaultError as exc:
             return _error_response(exc, request_id)
 
@@ -85,7 +85,7 @@ def build_gateway_router(
         try:
             with session_factory() as session:
                 payload = GatewayService(session).versions(name)
-            return JSONResponse(payload, headers={"X-Request-ID": request_id})
+            return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
         except VaultError as exc:
             return _error_response(exc, request_id)
 
@@ -196,7 +196,7 @@ def build_gateway_router(
                 }
                 for node in GatewayService(session).list_nodes()
             ]
-        return JSONResponse(payload, headers={"X-Request-ID": request_id})
+        return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
 
     @router.get("/nodes/{node_id}")
     def get_node(node_id: str, request: Request) -> JSONResponse:
@@ -213,7 +213,7 @@ def build_gateway_router(
                     "free_bytes": node.free_bytes,
                     "last_heartbeat_at": node.last_heartbeat_at,
                 }
-            return JSONResponse(payload, headers={"X-Request-ID": request_id})
+            return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
         except VaultError as exc:
             return _error_response(exc, request_id)
 
