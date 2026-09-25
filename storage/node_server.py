@@ -81,7 +81,7 @@ def stats(request: Request) -> JSONResponse:
 
 
 @app.head("/internal/v1/objects/{object_id}/{version_id}")
-def head_object(object_id: str, version_id: str) -> Response:
+def head_object(object_id: str, version_id: str, request: Request) -> Response:
     try:
         size = engine.object_size(object_id, version_id)
     except ValueError as exc:
@@ -94,11 +94,16 @@ def head_object(object_id: str, version_id: str) -> Response:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    return Response(headers={"Content-Length": str(size)})
+    return Response(
+        headers={
+            "Content-Length": str(size),
+            **_request_id_headers(request),
+        }
+    )
 
 
 @app.get("/internal/v1/objects/{object_id}/{version_id}")
-def get_object(object_id: str, version_id: str) -> StreamingResponse:
+def get_object(object_id: str, version_id: str, request: Request) -> StreamingResponse:
     try:
         size = engine.object_size(object_id, version_id)
         chunks = engine.iter_chunks(object_id, version_id)
@@ -116,7 +121,10 @@ def get_object(object_id: str, version_id: str) -> StreamingResponse:
     return StreamingResponse(
         chunks,
         media_type="application/octet-stream",
-        headers={"Content-Length": str(size)},
+        headers={
+            "Content-Length": str(size),
+            **_request_id_headers(request),
+        },
     )
 
 
@@ -189,7 +197,6 @@ def delete_object(object_id: str, version_id: str, request: Request) -> Response
 def verify_object(object_id: str, version_id: str, request: Request) -> JSONResponse:
     try:
         result = engine.verify(object_id, version_id)
-        size = engine.object_size(object_id, version_id)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -209,7 +216,7 @@ def verify_object(object_id: str, version_id: str, request: Request) -> JSONResp
     body = VerifyResponse(
         object_id=result.object_id,
         version_id=result.version_id,
-        size_bytes=size,
+        size_bytes=result.size_bytes,
         checksum=result.checksum,
         verified=True,
         valid=result.valid,
