@@ -3,7 +3,7 @@
 > Fault-Tolerant Distributed Object Storage System
 
 **Repository:** `PROMPT-A-THON-26/ps1`  
-**Status:** Architecture and implementation planning  
+**Status:** B1-B14 control plane implementation complete  
 **Problem Domain:** Distributed systems / object storage / fault tolerance
 
 ---
@@ -1670,3 +1670,62 @@ Part A's storage-node implementation is integrated under `storage/` and is exerc
 B13 covers node failure and repair, checksum corruption, network isolation/recovery, conditional concurrent writes, and persistence of job failure state across process restart.
 
 The final integration branch is intended as the handoff candidate; no feature work is considered complete until its GitHub Actions matrix passes on Python 3.11 and 3.12.
+
+
+---
+
+# 41. Part B Completion Status
+
+The B1-B14 control-plane milestones are implemented, with the final reliability requirements wired into the runtime:
+
+- durable object/version/replica/node metadata and lifecycle state machines;
+- placement, quorum-aware replication, gateway object CRUD, version concurrency, and storage-node integration;
+- heartbeat/failure detection with automatic durable repair scheduling;
+- verified integrity scanning with persistent integrity jobs and corruption-triggered repair;
+- partition recovery and explicit recovered-node reconciliation;
+- safe rebalancing and node draining with copy/verify-before-delete ordering;
+- Celery + Redis background tasks with retry/backoff and bounded worker concurrency;
+- administrative repair, integrity, and rebalancing APIs;
+- Alembic migrations for the complete metadata schema;
+- automated tests for worker registration, automatic repair, admin APIs, and migration upgrade/downgrade.
+
+### Background worker
+
+Run the worker with:
+
+`celery -A worker.celery_app:celery_app worker --loglevel=INFO`
+
+Run the scheduler with:
+
+`celery -A worker.celery_app:celery_app beat --loglevel=INFO`
+
+Canonical tasks are:
+
+`repair_version`, `verify_replica`, `scan_node`, `check_under_replicated_objects`, `rebalance_node`, `migrate_replica`, `process_node_health`
+
+The periodic scheduler covers node health, under-replication, and integrity scanning.
+
+### Administrative API
+
+`POST /api/v1/admin/repair`  
+`GET  /api/v1/admin/repair/{repair_id}`
+
+`POST /api/v1/admin/integrity/check`  
+`GET  /api/v1/admin/integrity/check/{job_id}`
+
+`POST /api/v1/admin/rebalance`  
+`GET  /api/v1/admin/rebalance/{job_id}`
+
+### Database migrations
+
+Run:
+
+`alembic upgrade head`
+
+The initial migration creates the objects, versions, replicas, storage_nodes, repair_jobs, integrity_jobs, and rebalance_jobs tables with their required keys, indexes, and constraints.
+
+### Reliability invariants
+
+A replica is not marked `HEALTHY` before successful storage and verification. Repair and rebalancing verify a healthy source and verify the replacement before deleting an old copy. Temporary node unreachability is not classified as corruption, and recovered nodes remain `RECOVERING` until reconciliation succeeds. Background job state is persisted in PostgreSQL so interrupted repair, integrity, and rebalancing work can be retried.
+
+CI compiles the complete control-plane, worker, migration, storage, and test packages and runs the test suite on Python 3.11 and 3.12.
