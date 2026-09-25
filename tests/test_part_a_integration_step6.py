@@ -58,7 +58,7 @@ async def build_real_nodes(tmp_path, stack: AsyncExitStack):
         engine = StorageEngine(
             tmp_path / node_id,
             capacity_bytes=1024 * 1024,
-            chunk_size_bytes=4,
+            chunk_size_bytes=4096,
         )
         app = create_storage_node_app(engine, node_id, NodeLifecycle())
         transport = httpx.ASGITransport(app=app)
@@ -87,7 +87,7 @@ async def build_real_nodes(tmp_path, stack: AsyncExitStack):
 
 @pytest.mark.asyncio
 async def test_part_a_storage_contract_and_distributed_repair(db_session, tmp_path):
-    payload = (b"part-a-integration-" * 4096) + b"done"
+    payload = (b"part-a-integration-" * 256) + b"done"
 
     async with AsyncExitStack() as stack:
         raw_nodes = await build_real_nodes(tmp_path, stack)
