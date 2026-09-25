@@ -35,6 +35,17 @@ class NodeState(StrEnum):
     DRAINING = "DRAINING"
     REMOVED = "REMOVED"
 
+# Canonical node lifecycle transitions. Same-state writes are treated as no-ops.
+NODE_STATE_TRANSITIONS = {
+    NodeState.JOINING: frozenset({NodeState.HEALTHY}),
+    NodeState.HEALTHY: frozenset({NodeState.SUSPECT, NodeState.DRAINING}),
+    NodeState.SUSPECT: frozenset({NodeState.HEALTHY, NodeState.UNAVAILABLE}),
+    NodeState.UNAVAILABLE: frozenset({NodeState.RECOVERING}),
+    NodeState.RECOVERING: frozenset({NodeState.HEALTHY, NodeState.SUSPECT}),
+    NodeState.DRAINING: frozenset({NodeState.REMOVED}),
+    NodeState.REMOVED: frozenset(),
+}
+
 
 class JobStatus(StrEnum):
     PENDING = "PENDING"
