@@ -6,6 +6,7 @@ from storage.storage_engine import StorageEngine
 
 def client_for(tmp_path):
     node_server.engine = StorageEngine(tmp_path, 1024 * 1024, chunk_size_bytes=4)
+    node_server.lifecycle.resume()
     return TestClient(node_server.app)
 
 
@@ -16,6 +17,7 @@ def test_health(tmp_path):
         assert response.json() == {
             "status": "healthy",
             "node_id": node_server.config.node_id,
+            "accepting_writes": True,
         }
 
 
@@ -27,6 +29,63 @@ def test_stats(tmp_path):
         assert body["node_id"] == node_server.config.node_id
         assert body["capacity_bytes"] == 1024 * 1024
         assert body["used_bytes"] >= 0
+
+
+def test_node_can_drain_and_resume(tmp_path):
+    with client_for(tmp_path) as client:
+        drained = client.post("/internal/v1/lifecycle/drain")
+        assert drained.status_code == 200
+        assert drained.json() == {
+            "status": "draining",
+            "node_id": node_server.config.node_id,
+            "accepting_writes": False,
+        }
+
+        health = client.get("/internal/v1/health")
+        assert health.json()["status"] == "draining"
+        assert health.json()["accepting_writes"] is False
+
+        rejected = client.put(
+            "/internal/v1/objects/drain-test/ver-1",
+            content=b"must-not-write",
+        )
+        assert rejected.status_code == 503
+        assert not node_server.engine.exists("drain-test", "ver-1")
+
+        resumed = client.post("/internal/v1/lifecycle/resume")
+        assert resumed.status_code == 200
+        assert resumed.json() == {
+            "status": "healthy",
+            "node_id": node_server.config.node_id,
+            "accepting_writes": True,
+        }
+
+        accepted = client.put(
+            "/internal/v1/objects/drain-test/ver-1",
+            content=b"write-after-resume",
+        )
+        assert accepted.status_code == 201
+
+
+def test_drain_does_not_block_reads_or_deletes(tmp_path):
+    with client_for(tmp_path) as client:
+        payload = b"existing-data"
+        assert (
+            client.put(
+                "/internal/v1/objects/obj-test/ver-1",
+                content=payload,
+            ).status_code
+            == 201
+        )
+
+        assert client.post("/internal/v1/lifecycle/drain").status_code == 200
+
+        get = client.get("/internal/v1/objects/obj-test/ver-1")
+        assert get.status_code == 200
+        assert get.content == payload
+
+        delete = client.delete("/internal/v1/objects/obj-test/ver-1")
+        assert delete.status_code == 204
 
 
 def test_object_lifecycle(tmp_path):
@@ -92,7 +151,13 @@ def test_invalid_id_returns_bad_request(tmp_path):
 def test_verify_endpoint_detects_corruption(tmp_path):
     with client_for(tmp_path) as client:
         payload = b"abcdefghij"
-        assert client.put("/internal/v1/objects/obj-1/ver-1", content=payload).status_code == 201
+        assert (
+            client.put(
+                "/internal/v1/objects/obj-1/ver-1",
+                content=payload,
+            ).status_code
+            == 201
+        )
         version_dir = tmp_path / "objects" / "obj-1" / "ver-1"
         (version_dir / "chunk-000001").write_bytes(b"XXXX")
         response = client.get("/internal/v1/objects/obj-1/ver-1/verify")
@@ -100,6 +165,7 @@ def test_verify_endpoint_detects_corruption(tmp_path):
         body = response.json()
         assert body["valid"] is False
         assert 1 in body["corrupt_chunks"]
+
 
 def test_verify_endpoint_missing_object(tmp_path):
     with client_for(tmp_path) as client:
@@ -109,10 +175,19 @@ def test_verify_endpoint_missing_object(tmp_path):
 
 def test_verify_endpoint_reports_corrupt_metadata(tmp_path):
     import json
+
     with client_for(tmp_path) as client:
         payload = b"abcdefgh"
-        assert client.put("/internal/v1/objects/obj-1/ver-1", content=payload).status_code == 201
-        metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+        assert (
+            client.put(
+                "/internal/v1/objects/obj-1/ver-1",
+                content=payload,
+            ).status_code
+            == 201
+        )
+        metadata_path = (
+            tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+        )
         metadata = json.loads(metadata_path.read_text())
         metadata["checksum"] = "0" * 64
         metadata_path.write_text(json.dumps(metadata))
@@ -122,7 +197,10 @@ def test_verify_endpoint_reports_corrupt_metadata(tmp_path):
         assert body["valid"] is False
         assert "object checksum mismatch" in body["errors"]
 
+
 def test_verify_endpoint_rejects_invalid_id(tmp_path):
     with client_for(tmp_path) as client:
-        response = client.get("/internal/v1/objects/%2E%2E/ver-1/verify")
+        response = client.get(
+            "/internal/v1/objects/%2E%2E/ver-1/verify"
+        )
         assert response.status_code == 400
