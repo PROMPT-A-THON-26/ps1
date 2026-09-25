@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+from common.ids import new_request_id
+
 from .node_lifecycle import NodeLifecycle, NodeLifecycleState
 from .storage_engine import (
     ObjectAlreadyExistsError,
@@ -49,9 +51,21 @@ def create_storage_node_app(
     node_id: str,
     lifecycle: NodeLifecycle,
 ) -> FastAPI:
-    """Create an isolated storage-node ASGI app for multi-node integration tests."""
+    """Create an isolated storage-node app using the canonical Part-A handlers."""
 
     app = FastAPI(title="Vault Storage Node", version="0.1.0")
+
+    @app.middleware("http")
+    async def add_request_id(request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID", "").strip()
+        if not request_id:
+            request_id = new_request_id()
+        elif len(request_id) > 128:
+            request_id = request_id[:128]
+
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
 
     @app.get("/internal/v1/health", response_model=HealthResponse)
     def health() -> HealthResponse:
