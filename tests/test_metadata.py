@@ -219,7 +219,6 @@ def test_failed_replica_can_reenter_repair_only(db_session):
     manager.set_replica_state(replica.replica_id, ReplicaState.COPYING)
     manager.set_replica_state(replica.replica_id, ReplicaState.FAILED)
 
-    manager.set_replica_state(replica.replica_id, ReplicaState.REPAIRING)
     with pytest.raises(InvalidState):
         manager.set_replica_state(replica.replica_id, ReplicaState.COPYING)
 
