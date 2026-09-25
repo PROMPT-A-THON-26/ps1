@@ -131,6 +131,10 @@ class DistributedWriteCoordinator:
         )
 
     async def read_object(self, name: str) -> bytes:
+        return b"".join([chunk async for chunk in self.stream_object(name)])
+
+    async def stream_object(self, name: str) -> AsyncIterable[bytes]:
+        """Stream the current version without buffering the full object in RAM."""
         obj = self.manager.get_object(name)
         if obj is None:
             raise ObjectNotFound(name)
@@ -172,21 +176,23 @@ class DistributedWriteCoordinator:
                 ):
                     raise StorageNodeIntegrityError("Replica does not match metadata.")
 
+                digest = hashlib.sha256()
+                streamed_size = 0
                 async with client.stream_object(
                     str(obj.object_id), str(version.version_id)
                 ) as response:
-                    payload = b"".join([chunk async for chunk in response.aiter_bytes()])
+                    async for chunk in response.aiter_bytes():
+                        streamed_size += len(chunk)
+                        digest.update(chunk)
+                        yield chunk
 
-                if (
-                    len(payload) != version.size_bytes
-                    or hashlib.sha256(payload).hexdigest() != version.checksum
-                ):
+                if streamed_size != version.size_bytes or digest.hexdigest() != version.checksum:
                     raise StorageNodeIntegrityError("Retrieved bytes failed checksum validation.")
 
                 successful += 1
                 if successful >= self.read_quorum:
                     await self._enqueue_repairs(version, failed_replica_ids)
-                    return payload
+                    return
             except StorageNodeIntegrityError:
                 self.manager.set_replica_state(replica.replica_id, ReplicaState.CORRUPTED)
                 failed_replica_ids.append(replica.replica_id)
