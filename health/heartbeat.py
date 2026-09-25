@@ -6,13 +6,13 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from common.constants import NodeState, ReplicaState, VersionState
+from common.constants import NodeState
 from common.errors import InvalidState
 from metadata.manager import MetadataManager
-from metadata.models import Replica, StorageNode, Version
+from metadata.models import StorageNode
 from recovery import PartitionRecoveryManager
 
 
@@ -79,18 +79,6 @@ class HeartbeatService:
         self.recovery_manager_factory = recovery_manager_factory
         self.replication_factor = replication_factor
 
-    def _has_committed_replicas(self, node_id: str) -> bool:
-        count = self.session.scalar(
-            select(func.count(Replica.replica_id))
-            .join(Version, Version.version_id == Replica.version_id)
-            .where(
-                Replica.node_id == node_id,
-                Version.state == VersionState.COMMITTED,
-                Replica.status != ReplicaState.FAILED,
-            )
-        )
-        return bool(count)
-
     def _result(self, node) -> HeartbeatResult:
         return HeartbeatResult(
             node_id=node.node_id,
@@ -122,17 +110,8 @@ class HeartbeatService:
                     node.node_id,
                     NodeState.RECOVERING,
                 )
-                if not self._has_committed_replicas(node.node_id):
-                    node = self.manager.transition_node_state(
-                        node.node_id,
-                        NodeState.HEALTHY,
-                    )
             elif node.status is NodeState.RECOVERING:
-                if not self._has_committed_replicas(node.node_id):
-                    node = self.manager.transition_node_state(
-                        node.node_id,
-                        NodeState.HEALTHY,
-                    )
+                pass
             elif node.status is NodeState.REMOVED:
                 raise InvalidState(
                     f"Removed node {node.node_id} must be registered again before heartbeat."
