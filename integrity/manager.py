@@ -121,6 +121,7 @@ class IntegrityManager:
             measured = await client.verify_object(
                 str(version.object_id),
                 str(version.version_id),
+                raise_on_invalid=False,
             )
 
             expected_checksum = (replica.checksum or version.checksum).lower()
