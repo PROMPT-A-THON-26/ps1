@@ -10,6 +10,8 @@ from typing import Callable, TypeVar
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+from common.settings import settings
+
 T = TypeVar("T")
 
 
@@ -35,9 +37,7 @@ def build_engine(database_url: str, *, echo: bool = False):
     )
 
 
-DATABASE_URL = normalize_database_url(
-    os.getenv("DATABASE_URL", "sqlite:///./vault.db")
-)
+DATABASE_URL = normalize_database_url(settings.database_url)
 engine = build_engine(DATABASE_URL, echo=os.getenv("SQL_ECHO", "0") == "1")
 SessionLocal = sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
 
