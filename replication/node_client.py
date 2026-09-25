@@ -521,7 +521,7 @@ class StorageNodeClient:
             or not value
             or value in {".", ".."}
             or "/" in value
-            or "\" in value
+            or "\\" in value
             or "\x00" in value
         ):
             raise ValueError(f"Invalid {field_name}")
