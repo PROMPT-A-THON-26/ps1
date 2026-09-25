@@ -37,6 +37,7 @@ def _env_float(name: str, default: float, *, minimum: float = 0.0) -> float:
 
 @dataclass(frozen=True, slots=True)
 class VaultSettings:
+    database_url: str = "sqlite:///./vault.db"
     replication_factor: int = DEFAULT_REPLICATION_FACTOR
     write_quorum: int = DEFAULT_WRITE_QUORUM
     read_quorum: int = DEFAULT_READ_QUORUM
@@ -84,6 +85,7 @@ class VaultSettings:
             raise ValueError("CELERY_BROKER_URL and CELERY_RESULT_BACKEND must not be empty")
 
         return cls(
+            database_url=os.getenv("DATABASE_URL", defaults.database_url),
             replication_factor=factor,
             write_quorum=write_quorum,
             read_quorum=read_quorum,
