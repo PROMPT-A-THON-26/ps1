@@ -65,6 +65,12 @@ class FakeClient:
         from replication.node_client import StoredObject
         return StoredObject(object_id, version_id, len(body))
 
+    async def delete_object(self, object_id: str, version_id: str, **kwargs):
+        if self.node_id in self.fail_nodes:
+            from replication.node_client import StorageNodeUnavailableError
+            raise StorageNodeUnavailableError("unavailable")
+        self.storage.pop((self.node_id, object_id, version_id), None)
+
     async def aclose(self):
         return None
 
