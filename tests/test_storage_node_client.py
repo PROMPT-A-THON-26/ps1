@@ -17,6 +17,7 @@ from replication.node_client import (
     StorageObjectAlreadyExistsError,
     StorageObjectNotFoundError,
     StorageNodeInvalidRequestError,
+    StorageNodeIntegrityError,
     StorageNodeProtocolError,
 )
 
@@ -140,6 +141,7 @@ async def test_storage_node_client_full_contract(no_delay_retry_policy: RetryPol
 
             verified = await node.verify_object("obj-1", "ver-1", request_id="req-test-verify")
             assert verified.verified is True
+            assert verified.valid is True
             assert verified.size_bytes == len(payload)
             assert verified.checksum == sha256(payload).hexdigest()
 
@@ -231,6 +233,37 @@ async def test_protocol_error_on_success_with_malformed_payload(no_delay_retry_p
         async with StorageNodeClient(config, client=transport_client) as node:
             with pytest.raises(StorageNodeProtocolError):
                 await node.put_object("obj", "ver", b"x")
+
+
+@pytest.mark.asyncio
+async def test_verify_surfaces_reported_corruption(no_delay_retry_policy: RetryPolicy) -> None:
+    app = FastAPI()
+
+    @app.get("/internal/v1/objects/{object_id}/{version_id}/verify")
+    async def verify(object_id: str, version_id: str) -> dict[str, object]:
+        return {
+            "object_id": object_id,
+            "version_id": version_id,
+            "size_bytes": 4,
+            "checksum": "a" * 64,
+            "verified": True,
+            "valid": False,
+            "corrupt_chunks": [1],
+            "errors": ["chunk 1 checksum mismatch"],
+        }
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as transport_client:
+        config = StorageNodeClientConfig(
+            "http://testserver",
+            retry_policy=no_delay_retry_policy,
+        )
+        async with StorageNodeClient(config, client=transport_client) as node:
+            with pytest.raises(StorageNodeIntegrityError) as exc_info:
+                await node.verify_object("obj", "ver")
+            assert exc_info.value.detail["corrupt_chunks"] == [1]
 
 
 @pytest.mark.asyncio
