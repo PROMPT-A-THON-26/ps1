@@ -1757,6 +1757,27 @@ docker compose up --build
 
 The storage nodes expose host ports 9001 through 9004. The reliability worker connects to all four nodes and the PostgreSQL metadata service.
 
+### Step 5 — Failure Detection and Recovery
+
+Step 5 validates the failure/recovery control flow with deterministic scenarios:
+
+- healthy -> suspect -> unavailable transitions from missed health heartbeats;
+- healthy replica metadata is marked unavailable when a node crosses the failure threshold;
+- node recovery requires consecutive healthy probes;
+- repair worker replaces a failed replica and restores the configured replication factor;
+- replacement data is streamed from a verified source and persisted as a successful repair job.
+
+### Step 6 — Part-A Integration
+
+Step 6 validates the control plane directly against the real Part-A storage-node ASGI implementation:
+
+- storage-node health/stats/PUT/GET/HEAD/VERIFY/DELETE contract;
+- distributed quorum write through real storage engines;
+- read-back through real storage nodes;
+- simulated node failure at the control-plane boundary;
+- automatic replacement replica creation through the real HTTP client path;
+- final checksum and size verification on the real replacement replicas.
+
 ### Verification policy
 
 A change is not considered complete until:
