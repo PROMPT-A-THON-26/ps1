@@ -176,3 +176,50 @@ def test_empty_object_has_sha256_checksum(tmp_path):
     result = engine.verify("obj-1", "ver-1")
     assert result.valid is True
     assert result.checksum == hashlib.sha256(b"").hexdigest()
+
+
+def test_verify_detects_corrupted_metadata_checksum(tmp_path):
+    import json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"abcdefghij")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["checksum"] = "0" * 64
+    metadata_path.write_text(json.dumps(metadata))
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert "object checksum mismatch" in result.errors
+
+def test_verify_detects_corrupted_size_metadata(tmp_path):
+    import json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"abcdefghij")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["size_bytes"] = 9
+    metadata_path.write_text(json.dumps(metadata))
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert any("chunk_count does not match size_bytes" in e for e in result.errors)
+
+def test_verify_detects_extra_chunk(tmp_path):
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"abcdefgh")
+    version_dir = tmp_path / "objects" / "obj-1" / "ver-1"
+    (version_dir / "chunk-000002").write_bytes(b"ZZZZ")
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert 2 in result.corrupt_chunks
+    assert "unexpected chunk chunk-000002" in result.errors
+
+def test_verify_detects_chunk_size_metadata_corruption(tmp_path):
+    import json
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"abcdefgh")
+    metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    metadata["chunk_size_bytes"] = 3
+    metadata_path.write_text(json.dumps(metadata))
+    result = engine.verify("obj-1", "ver-1")
+    assert result.valid is False
+    assert any("chunk_count does not match size_bytes" in e for e in result.errors)
