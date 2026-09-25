@@ -8,7 +8,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from .config import StorageNodeConfig
-from .storage_engine import ObjectAlreadyExistsError, ObjectNotFoundError, StorageEngine, StorageFullError
+from .storage_engine import (
+    ObjectAlreadyExistsError,
+    ObjectNotFoundError,
+    StorageEngine,
+    StorageFullError,
+)
 
 
 class HealthResponse(BaseModel):
@@ -44,14 +49,27 @@ def health() -> HealthResponse:
 @app.get("/internal/v1/stats", response_model=StatsResponse)
 def stats() -> StatsResponse:
     current = engine.stats()
-    return StatsResponse(node_id=config.node_id, capacity_bytes=current.capacity_bytes, used_bytes=current.used_bytes, free_bytes=current.free_bytes)
+    return StatsResponse(
+        node_id=config.node_id,
+        capacity_bytes=current.capacity_bytes,
+        used_bytes=current.used_bytes,
+        free_bytes=current.free_bytes,
+    )
 
 
 @app.head("/internal/v1/objects/{object_id}/{version_id}")
 def head_object(object_id: str, version_id: str) -> Response:
-    if not engine.exists(object_id, version_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object version not found")
-    path = engine.object_path(object_id, version_id)
+    try:
+        path = engine.object_path(object_id, version_id)
+        if not path.is_file():
+            raise ObjectNotFoundError(
+                f"Object version not found: {object_id}/{version_id}"
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ObjectNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
     return Response(headers={"Content-Length": str(path.stat().st_size)})
 
 
@@ -59,28 +77,46 @@ def head_object(object_id: str, version_id: str) -> Response:
 def get_object(object_id: str, version_id: str) -> Response:
     try:
         data = engine.read_bytes(object_id, version_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ObjectNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return Response(content=data, media_type="application/octet-stream")
 
 
-@app.put("/internal/v1/objects/{object_id}/{version_id}", status_code=status.HTTP_201_CREATED)
+@app.put(
+    "/internal/v1/objects/{object_id}/{version_id}",
+    status_code=status.HTTP_201_CREATED,
+)
 def put_object(object_id: str, version_id: str, data: bytes) -> JSONResponse:
     try:
         size = engine.write_bytes(object_id, version_id, data)
     except ObjectAlreadyExistsError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except StorageFullError as exc:
-        raise HTTPException(status_code=status.HTTP_507_INSUFFICIENT_STORAGE, detail=str(exc)) from exc
-    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
+            detail=str(exc),
+        ) from exc
+    except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return JSONResponse(content={"object_id": object_id, "version_id": version_id, "size_bytes": size}, status_code=status.HTTP_201_CREATED)
+
+    return JSONResponse(
+        content={
+            "object_id": object_id,
+            "version_id": version_id,
+            "size_bytes": size,
+        },
+        status_code=status.HTTP_201_CREATED,
+    )
 
 
 @app.delete("/internal/v1/objects/{object_id}/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_object(object_id: str, version_id: str) -> Response:
     try:
         engine.delete(object_id, version_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ObjectNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
