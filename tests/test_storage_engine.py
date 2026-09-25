@@ -1,4 +1,4 @@
-from storage.storage_engine import ObjectAlreadyExistsError, ObjectNotFoundError, StorageEngine
+from storage.storage_engine import ObjectAlreadyExistsError, ObjectNotFoundError, StorageEngine, StorageFullError
 
 
 def test_write_read_exists_delete(tmp_path):
@@ -6,9 +6,16 @@ def test_write_read_exists_delete(tmp_path):
     assert engine.write_bytes("obj-1", "ver-1", b"hello") == 5
     assert engine.exists("obj-1", "ver-1")
     assert engine.read_bytes("obj-1", "ver-1") == b"hello"
-
     engine.delete("obj-1", "ver-1")
     assert not engine.exists("obj-1", "ver-1")
+
+
+def test_multiple_versions_share_object_directory(tmp_path):
+    engine = StorageEngine(tmp_path, 1024)
+    engine.write_bytes("obj-1", "ver-1", b"one")
+    engine.write_bytes("obj-1", "ver-2", b"two")
+    assert engine.read_bytes("obj-1", "ver-1") == b"one"
+    assert engine.read_bytes("obj-1", "ver-2") == b"two"
 
 
 def test_duplicate_write_is_rejected(tmp_path):
@@ -24,10 +31,7 @@ def test_duplicate_write_is_rejected(tmp_path):
 
 def test_missing_read_and_delete_are_rejected(tmp_path):
     engine = StorageEngine(tmp_path, 1024)
-    for operation in (
-        lambda: engine.read_bytes("obj-1", "ver-1"),
-        lambda: engine.delete("obj-1", "ver-1"),
-    ):
+    for operation in (lambda: engine.read_bytes("obj-1", "ver-1"), lambda: engine.delete("obj-1", "ver-1")):
         try:
             operation()
         except ObjectNotFoundError:
@@ -45,3 +49,13 @@ def test_path_traversal_is_rejected(tmp_path):
             pass
         else:
             raise AssertionError("path traversal must be rejected")
+
+
+def test_capacity_is_enforced(tmp_path):
+    engine = StorageEngine(tmp_path, 4)
+    try:
+        engine.write_bytes("obj-1", "ver-1", b"12345")
+    except StorageFullError:
+        pass
+    else:
+        raise AssertionError("writes beyond configured capacity must be rejected")
