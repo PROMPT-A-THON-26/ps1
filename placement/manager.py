@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from common.constants import DEFAULT_REPLICATION_FACTOR, ErrorCode, NodeState
+from common.settings import settings
 from common.errors import VaultError
 from metadata.models import Replica, StorageNode
 
@@ -18,6 +19,10 @@ class PlacementPolicy:
     """Replication placement policy supplied by application configuration."""
 
     replication_factor: int = DEFAULT_REPLICATION_FACTOR
+
+    @classmethod
+    def from_settings(cls) -> "PlacementPolicy":
+        return cls(replication_factor=settings.replication_factor)
 
     def __post_init__(self) -> None:
         if (
@@ -38,7 +43,7 @@ class PlacementManager:
         policy: PlacementPolicy | None = None,
     ) -> None:
         self.session = session
-        self.policy = policy or PlacementPolicy()
+        self.policy = policy or PlacementPolicy.from_settings()
 
     @staticmethod
     def _validate_version_id(version_id: UUID) -> None:
