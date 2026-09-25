@@ -85,7 +85,32 @@
   function renderAll(){if(state.view==="nodes")renderNodes();if(state.view==="objects")renderObjects();if(state.view==="repairs")renderRepairs();if(state.view==="integrity")renderIntegrity();if(state.view==="rebalance")renderRebalance();if(state.view==="events")renderEvents();renderTimeline();$("#objects-kpi").textContent=DATA.dashboard.objects.toLocaleString();$("#api-badge").textContent=CONFIG.mode==="mock"?"MOCK MODE":"LIVE API"}
   function setFilter(group,value){state[group]=value;const box=$("#"+(group==="nodeFilter"?"node-filters":group==="objectFilter"?"object-filters":"event-filters"));$$("button",box).forEach(b=>b.classList.toggle("active",b.dataset.filter===value));renderAll()}
 
-  async function runAction(name){try{await API.action(name);toast(name==="integrity"?"Integrity scan started":name==="repair"?"Repair pass started":"Rebalance started","The request is running through the demo control-plane boundary.");setTimeout(()=>{if(name==="integrity"){DATA.events.unshift({type:"success",icon:"✓",title:"Integrity scan completed",body:"Demo scan verified the protected replica set.",relative:"just now")}if(name==="repair"){DATA.repairs.unshift({id:"repair-"+Date.now().toString().slice(-3),object:"obj_demo",source:"node-01",target:"node-03",progress:100,status:"COMPLETED",eta:"—",note:"Demo repair completed after independent verification"});DATA.events.unshift({type:"success",icon:"↻",title:"Replica repaired",body:"Durability floor restored by an independently verified copy.",relative:"just now")}if(name==="rebalance"){const n=DATA.nodes.find(x=>x.id==="node-04");if(n){n.percent=74;n.used="370 GB"}DATA.events.unshift({type:"success",icon:"⇄",title:"Rebalance completed",body:"Verified data moved away from node-04.",relative:"just now")}renderAll();toast("Operation completed","The cluster view has been updated.")},900)}catch(e){toast("Operation failed",e.message)}}
+  async function runAction(name){
+    try {
+      await API.action(name);
+      const title = name === "integrity" ? "Integrity scan started" : name === "repair" ? "Repair pass started" : "Rebalance started";
+      toast(title, "The request is running through the demo control-plane boundary.");
+      setTimeout(() => {
+        if (name === "integrity") {
+          DATA.events.unshift({type:"success",icon:"✓",title:"Integrity scan completed",body:"Demo scan verified the protected replica set.",relative:"just now"});
+        } else if (name === "repair") {
+          DATA.repairs.unshift({id:"repair-"+Date.now().toString().slice(-3),object:"obj_demo",source:"node-01",target:"node-03",progress:100,status:"COMPLETED",eta:"—",note:"Demo repair completed after independent verification"});
+          DATA.events.unshift({type:"success",icon:"↻",title:"Replica repaired",body:"Durability floor restored by an independently verified copy.",relative:"just now"});
+        } else if (name === "rebalance") {
+          const node = DATA.nodes.find(item => item.id === "node-04");
+          if (node) {
+            node.percent = 74;
+            node.used = "370 GB";
+          }
+          DATA.events.unshift({type:"success",icon:"⇄",title:"Rebalance completed",body:"Verified data moved away from node-04.",relative:"just now"});
+        }
+        renderAll();
+        toast("Operation completed", "The cluster view has been updated.");
+      }, 900);
+    } catch (error) {
+      toast("Operation failed", error.message);
+    }
+  }
 
   function openModal(){const m=$("#modal");m.classList.add("open");m.setAttribute("aria-hidden","false");setTimeout(()=>$("#file-input").focus(),20)}
   function closeModal(){const m=$("#modal");m.classList.remove("open");m.setAttribute("aria-hidden","true");$("#progress-wrap").hidden=true;$("#progress-bar").style.width="0%";$("#progress-value").textContent="0%";$("#file-name").textContent="No file selected";$("#upload-btn").disabled=true;$("#file-input").value=""}
