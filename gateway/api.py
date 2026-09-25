@@ -86,7 +86,7 @@ def build_gateway_router(
             return _error_response(exc, request_id)
 
     @router.get("/objects/{name}")
-    async def get_object(name: str, request: Request) -> StreamingResponse | JSONResponse:
+    async def get_object(name: str, request: Request) -> Response:
         request_id = _request_id(request)
         try:
             with session_factory() as session:
