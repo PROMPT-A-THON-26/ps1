@@ -1,0 +1,19 @@
+services:
+  vault-node-01:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      VAULT_NODE_ID: node-01
+      VAULT_NODE_HOST: 0.0.0.0
+      VAULT_NODE_PORT: 9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      VAULT_NODE_DATA_DIR: /data/vault
+    ports:
+      - "9001:9001"
+    volumes:
+      - vault_node_01_data:/data/vault
+    restart: unless-stopped
+
+volumes:
+  vault_node_01_data:
