@@ -157,6 +157,7 @@ class DistributedWriteCoordinator:
             raise InsufficientReplicas(self.read_quorum, len(replicas))
 
         successful = 0
+        failed_replica_ids: list[UUID] = []
         for replica in replicas:
             client = self.nodes.get(replica.node_id)
             if client is None:
@@ -184,16 +185,20 @@ class DistributedWriteCoordinator:
 
                 successful += 1
                 if successful >= self.read_quorum:
+                    await self._enqueue_repairs(version, failed_replica_ids)
                     return payload
             except StorageNodeIntegrityError:
                 self.manager.set_replica_state(replica.replica_id, ReplicaState.CORRUPTED)
+                failed_replica_ids.append(replica.replica_id)
             except StorageNodeUnavailableError:
                 self.manager.set_replica_state(replica.replica_id, ReplicaState.UNAVAILABLE)
                 self.manager.update_node_heartbeat(
                     replica.node_id, status=NodeState.UNAVAILABLE
                 )
+                failed_replica_ids.append(replica.replica_id)
             except StorageNodeClientError:
                 self.manager.set_replica_state(replica.replica_id, ReplicaState.STALE)
+                failed_replica_ids.append(replica.replica_id)
 
         raise InsufficientReplicas(self.read_quorum, successful)
 
@@ -241,11 +246,28 @@ class DistributedWriteCoordinator:
             raise InsufficientReplicas(self.replication_factor, len(healthy))
 
         source = healthy[0]
-        target_node_id = candidates[0]
-        source_client = self.nodes[source.node_id]
+        job = self.manager.create_repair_job(
+            version_id,
+            source_node_id=source.node_id,
+            target_node_id=candidates[0],
+            reason=f"replace unavailable replica {failed_node_id}",
+        )
+        job = self.manager.claim_repair_job(job.repair_id)
+        target_node_id = job.target_node_id
+        source_client = self.nodes[job.source_node_id]
         target_client = self.nodes[target_node_id]
 
-        replica = self.manager.create_replica(version_id, target_node_id)
+        existing_target_replica = self.session.scalar(
+            select(Replica).where(
+                Replica.version_id == version_id,
+                Replica.node_id == target_node_id,
+            )
+        )
+        replica = (
+            existing_target_replica
+            if existing_target_replica is not None
+            else self.manager.create_replica(version_id, target_node_id)
+        )
         self.manager.set_replica_state(replica.replica_id, ReplicaState.COPYING)
 
         try:
@@ -277,16 +299,23 @@ class DistributedWriteCoordinator:
                 checksum=verified.checksum,
                 size_bytes=verified.size_bytes,
             )
-        except StorageNodeUnavailableError:
+        except StorageNodeUnavailableError as exc:
             self.manager.set_replica_state(replica.replica_id, ReplicaState.FAILED)
             self.manager.update_node_heartbeat(
                 target_node_id, status=NodeState.UNAVAILABLE
             )
+            self.manager.fail_repair_job(job.repair_id, str(exc))
             raise
-        except StorageNodeClientError:
+        except StorageNodeClientError as exc:
             self.manager.set_replica_state(replica.replica_id, ReplicaState.FAILED)
+            self.manager.fail_repair_job(job.repair_id, str(exc))
+            raise
+        except Exception as exc:
+            self.manager.set_replica_state(replica.replica_id, ReplicaState.FAILED)
+            self.manager.fail_repair_job(job.repair_id, str(exc))
             raise
 
+        self.manager.complete_repair_job(job.repair_id)
         healthy_count = len(
             list(
                 self.session.scalars(
@@ -306,6 +335,38 @@ class DistributedWriteCoordinator:
             target_node_id=target_node_id,
             healthy_replica_count=healthy_count,
         )
+
+    async def _enqueue_repairs(
+        self,
+        version: Version,
+        failed_replica_ids: list[UUID],
+    ) -> None:
+        if not failed_replica_ids:
+            return
+        replicas = list(
+            self.session.scalars(
+                select(Replica).where(Replica.version_id == version.version_id)
+            )
+        )
+        healthy = [replica for replica in replicas if replica.status is ReplicaState.HEALTHY]
+        if not healthy:
+            return
+        targets = await self._healthy_candidates(
+            version.size_bytes,
+            exclude={replica.node_id for replica in replicas},
+        )
+        if not targets:
+            return
+        source = healthy[0].node_id
+        for index, _replica_id in enumerate(failed_replica_ids):
+            if index >= len(targets):
+                break
+            self.manager.create_repair_job(
+                version.version_id,
+                source_node_id=source,
+                target_node_id=targets[index],
+                reason="read-path detected an unhealthy replica",
+            )
 
     async def _write_one(
         self,
