@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
-
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
