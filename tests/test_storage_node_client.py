@@ -160,12 +160,13 @@ async def test_storage_node_error_mapping() -> None:
     app = FastAPI()
 
     @app.get("/internal/v1/objects/{object_id}/{version_id}")
-    async def missing(_: str, __: str) -> Response:
+    async def missing(object_id: str, version_id: str) -> Response:
+        del object_id, version_id
         return Response(status_code=404, content=b"missing")
 
     @app.put("/internal/v1/objects/{object_id}/{version_id}")
-    async def existing(_: str, __: str, request: Request) -> Response:
-        del request
+    async def existing(object_id: str, version_id: str, request: Request) -> Response:
+        del object_id, version_id, request
         return Response(status_code=409, content=b"exists")
 
     @app.put("/internal/v1/objects/capacity/version")
