@@ -96,7 +96,7 @@ async def test_failure_detector_progresses_suspect_to_unavailable_and_marks_repl
         )
         write = await coordinator.write_object("detector.bin", b"detector-test")
 
-        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        base = datetime.now(timezone.utc) + timedelta(seconds=60)
         clock = [base]
         detector = FailureDetector(
             db_session,
