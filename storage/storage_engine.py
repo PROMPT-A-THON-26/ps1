@@ -199,7 +199,7 @@ class StorageEngine:
             used_bytes = sum(
                 path.stat().st_size
                 for path in self.data_dir.rglob("*")
-                if path.is_file()
+                if path.is_file() and path.name.startswith(self.CHUNK_PREFIX)
             )
             free_bytes = min(max(self.capacity_bytes - used_bytes, 0), usage.free)
             return StorageStats(
