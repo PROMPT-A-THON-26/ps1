@@ -47,3 +47,20 @@ def test_lifecycle_state_persists_in_sqlite(tmp_path: Path):
 
     second.detach_store()
     store.close()
+
+def test_invalid_persisted_lifecycle_state_fails_closed(tmp_path: Path):
+    db_path = tmp_path / "node_state.sqlite3"
+    store = SQLiteNodeStateStore(db_path)
+    store.set_state("invalid-state")
+    store.close()
+
+    lifecycle = NodeLifecycle()
+    store = SQLiteNodeStateStore(db_path)
+    lifecycle.attach_store(store, restore=True)
+
+    assert lifecycle.state is NodeLifecycleState.DRAINING
+    assert lifecycle.accepting_writes is False
+    assert store.get_state() == NodeLifecycleState.DRAINING.value
+
+    lifecycle.detach_store()
+    store.close()
