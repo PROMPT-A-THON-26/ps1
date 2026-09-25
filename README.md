@@ -123,8 +123,11 @@ The same architecture will handle corruption, temporary node unreachability, and
                           |
                           v
                  +-------------------+
-                 |     PostgreSQL    |
-                 |     Metadata      |
+                 |   Database Tier   |
+                 |                   |
+                 | PostgreSQL        |
+                 | MongoDB           |
+                 | Node SQLite       |
                  +---------+---------+
                            |
                            v
@@ -171,11 +174,15 @@ The same architecture will handle corruption, temporary node unreachability, and
 - which objects require repair;
 - how data should be rebalanced.
 
-### 5.2 PostgreSQL stores metadata, not large object payloads
+### 5.2 Use each database for the role it is suited to
 
-PostgreSQL tracks objects, versions, replicas, nodes, states, checksums, and timestamps.
+**PostgreSQL** is the authoritative relational database for objects, versions, replicas, nodes, policies, and transactional metadata.
 
-The actual object data remains on storage nodes.
+**MongoDB** stores flexible document-oriented operational data such as audit records, repair/integrity events, and other extensible event documents.
+
+**SQLite** is local to each storage node and stores lightweight durable node state, including the lifecycle state used by Part A.
+
+The actual object bytes remain on storage nodes; none of these databases stores the large object payloads.
 
 ### 5.3 Never claim a replica is healthy before verification
 
@@ -217,7 +224,9 @@ Every important fault-tolerance feature should have a reproducible failure test.
 |---|---|
 | Language | Python |
 | Public API | FastAPI |
-| Metadata database | PostgreSQL |
+| Relational metadata database | PostgreSQL |
+| Document/event database | MongoDB |
+| Local node-state database | SQLite |
 | Background jobs | Celery |
 | Broker | Redis |
 | Storage | Local filesystem per storage-node container |
@@ -253,6 +262,11 @@ ps1/
 |   +-- node_server.py
 |   +-- storage_engine.py
 |   +-- checksum.py
+|   +-- node_state.py
+|
++-- database/
+|   +-- settings.py
+|   +-- clients.py
 |
 +-- replication/
 |   +-- replica_manager.py
@@ -1183,11 +1197,12 @@ Nodes can be deliberately stopped or isolated to reproduce failures.
 - Large-file tests.
 - Disk-space checks.
 
-## Phase 3 — Metadata
+## Phase 3 — Metadata and database layer
 
-- PostgreSQL.
-- Models.
-- Migrations.
+- PostgreSQL authoritative metadata.
+- MongoDB operational/event documents.
+- SQLite local node state.
+- Models and migrations where applicable.
 - Constraints.
 - Transactions.
 - Metadata manager.
