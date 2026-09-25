@@ -1590,74 +1590,172 @@ No team member should silently change shared schemas, API contracts, state names
 
 # 39. Current Project Status
 
-The audited storage data plane and control-plane foundation have now been integrated on:
+Part A — the data plane/storage-node layer — has completed its reliability hardening gate on:
 
-`feature/integrated-distributed-reliability`
+feature/part-a-final-hardening
 
-The integration gate currently covers:
+### Part-A capability coverage
 
-- quorum-based replicated writes;
-- metadata-backed replica state;
-- storage-node HTTP client integration;
-- read failover across healthy replicas;
-- node failure simulation;
-- automatic replacement-replica repair;
-- end-to-end checksum and size verification;
-- corruption detection with healthy-replica failover;
-- write-quorum failure and version abort handling.
+~~~text
+A1  Storage-node foundation
+ |
+ v
+A2  Atomic object-storage hardening
+ |
+ v
+A3  Streaming + chunking
+ |
+ v
+A4  SHA-256 integrity verification
+ |
+ v
+A5  Replica copy operations
+ |
+ v
+A6  Node lifecycle + health
+ |
+ v
+Step 1  Network-partition detection
+ |
+ v
+Step 2  Partition reconciliation
+ |
+ v
+Step 3  Automatic rebalancing
+ |
+ v
+Step 4  Automatic integrity scan + repair
+ |
+ v
+Step 5  Failure/recovery scenarios
+ |
+ v
+Step 6  Real Part-A/control-plane integration
+ |
+ v
+Final Part-A hardening gate
+~~~
 
-The integrated branch currently has **101 automated tests passing in CI**.
+The audited Part-A surface now covers:
 
-Current verification chain:
+- atomic and crash-conscious local object writes;
+- immutable object versions with strict identifier validation;
+- bounded streaming uploads and downloads;
+- configurable chunking without loading whole objects into memory;
+- exact capacity accounting and in-flight write reservations;
+- SHA-256 object and per-chunk integrity metadata;
+- integrity verification for missing, extra, malformed, modified, or corrupt chunks;
+- safe cleanup of failed/stale staging data and symlink-safe cleanup;
+- concurrent duplicate-write protection;
+- storage-node health, statistics, drain/resume lifecycle, and durable SQLite node state;
+- canonical internal PUT/GET/HEAD/DELETE/VERIFY contracts;
+- request-ID propagation for distributed traceability;
+- replica streaming with source verification and destination checksum/size verification;
+- safe handling of ambiguous destination PUT failures;
+- strict replica response validation and URL-safe object/version identifiers;
+- Docker-ready four-node storage topology with readiness healthchecks;
+- isolated node data volumes and isolated durable node-state volumes;
+- real multi-node Docker smoke coverage in CI.
 
-```text
-Client intent
-    |
-    v
-MetadataManager
-    |
-    v
-DistributedWriteCoordinator
-    |
-    +--------------------+
-    |                    |
-    v                    v
-StorageNodeClient   PostgreSQL metadata
-    |
-    v
-Storage Node API
-    |
-    v
-Chunked filesystem + SHA-256
-```
+### Reliability/control-plane integration
 
-The next major control-plane milestones are:
+Part A is validated against the control plane through the real storage-node implementation. The integrated reliability flow is:
 
-```text
-Integrated replication
-        |
-        v
-Failure detector
-        |
-        v
-Background repair workers
-        |
-        v
-Network-partition reconciliation
-        |
-        v
+~~~text
+Distributed write
+      |
+      v
+Verified storage replicas
+      |
+      v
+Failure detection
+      |
+      v
+Integrity classification
+      |
+      v
+Automatic repair
+      |
+      v
 Rebalancing
-        |
-        v
-Full Docker multi-node deployment
-        |
-        v
-Frontend / demonstration
-```
+~~~
 
-The repository should not claim full production fault tolerance until these remaining distributed workflows have their own automated tests.
+The current backend foundation also includes PostgreSQL metadata, MongoDB operational-document infrastructure, the reliability worker, failure detection, partition reconciliation, automatic repair, integrity scanning, and rebalancing.
 
----
+### Final CI verification
+
+Final Part-A hardening CI:
+
+- Run #281
+- Workflow ID: 36197111228
+- Commit: 24a371a74d515d0c09dd2717ee47f768fe0e9520
+- 138 passed, 1 warning
+- Python compilation: passed
+- Docker Compose validation: passed
+- Four storage-node Docker image builds: passed
+- Four-node Docker startup/readiness smoke test: passed
+- Real PUT -> VERIFY -> GET -> DELETE -> 404 smoke flow: passed
+- Full Pytest suite: passed
+
+The remaining warning is the existing Starlette/AnyIO deprecation warning; it does not fail the build.
+
+### Hackathon demonstration topology
+
+~~~text
+                    +-------------------+
+                    |   Vault Control   |
+                    |  / Reliability   |
+                    +---------+---------+
+                              |
+              +---------------+---------------+
+              |               |               |
+              v               v               v
+         +---------+     +---------+     +---------+
+         | Node 01 |     | Node 02 |     | Node 03 |
+         | 10 GiB  |     | 10 GiB  |     | 10 GiB  |
+         +---------+     +---------+     +---------+
+                              |
+                              v
+                         +---------+
+                         | Node 04 |
+                         | 10 GiB  |
+                         +---------+
+
+        Detection -> Integrity -> Repair -> Rebalance
+~~~
+
+The fourth node provides spare placement capacity for repair and rebalancing demonstrations.
+
+### Git/branch status
+
+The final hardening work is isolated in draft PR #23:
+
+https://github.com/PROMPT-A-THON-26/ps1/pull/23
+
+Nothing from this audit has been merged into main.
+
+Part C/frontend work remains separate.
+
+### Definition of Done for Part A
+
+Part A is considered complete for the current hackathon backend scope when its implementation and automated gates cover:
+
+- object storage;
+- large-object streaming;
+- chunking;
+- integrity verification;
+- replica copy and verification;
+- node lifecycle;
+- node health and statistics;
+- controlled node draining;
+- failure detection;
+- partition handling;
+- repair;
+- rebalancing;
+- real control-plane integration;
+- reproducible failure tests;
+- four-node Docker deployment;
+- full CI verification.
 
 # 40. Project Philosophy
 
