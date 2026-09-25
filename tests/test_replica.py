@@ -177,7 +177,7 @@ def test_copy_replica_rejects_self_consistent_wrong_destination(monkeypatch):
 
         if request.method == "PUT":
             await request.aread()
-            return httpx.Response(201, json={"size_bytes": len(b"WRONG!!!")})
+            return httpx.Response(201, json={"object_id": "obj", "version_id": "ver", "size_bytes": len(b"WRONG!!!")})
 
         if request.method == "GET" and request.url.host == "destination":
             return httpx.Response(
@@ -209,3 +209,52 @@ def test_copy_replica_rejects_self_consistent_wrong_destination(monkeypatch):
         run(copy_replica("http://source", "http://destination", "obj", "ver"))
 
     assert deleted == ["/internal/v1/objects/obj/ver"]
+
+
+def test_copy_replica_quotes_object_and_version_identifiers(monkeypatch):
+    requests = []
+
+    async def handler(request):
+        requests.append(request)
+        if request.method == "GET" and request.url.path.endswith("/verify"):
+            return httpx.Response(
+                200,
+                json={
+                    "valid": True,
+                    "size_bytes": 4,
+                    "checksum": hashlib.sha256(b"data").hexdigest(),
+                    "errors": [],
+                },
+            )
+        if request.method == "GET":
+            return httpx.Response(200, content=b"data")
+        if request.method == "PUT":
+            body = await request.aread()
+            return httpx.Response(
+                201,
+                json={
+                    "object_id": "object id",
+                    "version_id": "version id",
+                    "size_bytes": len(body),
+                },
+            )
+        raise AssertionError(request.method)
+
+    transport = httpx.MockTransport(handler)
+    original = httpx.AsyncClient
+
+    def factory(*args, **kwargs):
+        kwargs["transport"] = transport
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr("storage.replica.httpx.AsyncClient", factory)
+
+    assert run(
+        copy_replica(
+            "http://source",
+            "http://destination",
+            "object id",
+            "version id",
+        )
+    ) == 4
+    assert any(request.url.path == "/internal/v1/objects/object%20id/version%20id" for request in requests)
