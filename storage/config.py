@@ -32,11 +32,13 @@ class StorageNodeConfig:
             os.getenv("VAULT_NODE_CHUNK_SIZE_BYTES", str(16 * 1024**2)),
             "VAULT_NODE_CHUNK_SIZE_BYTES",
         )
-        data_dir = Path(os.getenv("VAULT_NODE_DATA_DIR", "./data/vault")).expanduser()
+        data_dir = Path(
+            os.getenv("VAULT_NODE_DATA_DIR", "./data/vault")
+        ).expanduser()
         sqlite_path = Path(
             os.getenv(
                 "VAULT_NODE_SQLITE_PATH",
-                str(data_dir / "node_state.sqlite3"),
+                str(data_dir.parent / "vault-state" / "node_state.sqlite3"),
             )
         ).expanduser()
 
