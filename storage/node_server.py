@@ -29,6 +29,14 @@ class StatsResponse(BaseModel):
     free_bytes: int
 
 
+class VerifyResponse(BaseModel):
+    object_id: str
+    version_id: str
+    size_bytes: int
+    checksum: str
+    verified: bool = True
+
+
 config = StorageNodeConfig.from_env()
 engine = StorageEngine(
     config.data_dir,
@@ -87,6 +95,32 @@ def get_object(object_id: str, version_id: str) -> StreamingResponse:
         chunks,
         media_type="application/octet-stream",
         headers={"Content-Length": str(size)},
+    )
+
+
+@app.get(
+    "/internal/v1/objects/{object_id}/{version_id}/verify",
+    response_model=VerifyResponse,
+)
+def verify_object(object_id: str, version_id: str) -> VerifyResponse:
+    try:
+        size, checksum = engine.verify(object_id, version_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ObjectNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except StorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    return VerifyResponse(
+        object_id=object_id,
+        version_id=version_id,
+        size_bytes=size,
+        checksum=checksum,
+        verified=True,
     )
 
 
