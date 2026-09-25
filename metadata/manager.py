@@ -335,6 +335,9 @@ class MetadataManager:
                 ReplicaState.FAILED: set(),
             }
 
+            if replica.status is state:
+                return replica
+
             if state not in allowed.get(replica.status, set()):
                 raise InvalidState(
                     f"Cannot transition replica from {replica.status} to {state}."
