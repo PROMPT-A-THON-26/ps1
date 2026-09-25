@@ -185,6 +185,7 @@ class ReplicationManager:
         payload_factory: PayloadFactory,
         replication_factor: int | None = None,
         write_quorum: int | None = None,
+        expected_current_version: int | None = None,
     ) -> ReplicationResult:
         """Replicate a prepared version and commit only after WQ is verified."""
         if not callable(payload_factory):
@@ -198,6 +199,14 @@ class ReplicationManager:
             raise ValueError("write_quorum must be a positive integer")
         if quorum > factor:
             raise ValueError("write_quorum must not exceed replication_factor")
+        if expected_current_version is not None and (
+            not isinstance(expected_current_version, int)
+            or isinstance(expected_current_version, bool)
+            or expected_current_version < 0
+        ):
+            raise ValueError(
+                "expected_current_version must be a non-negative integer or None"
+            )
 
         version = self._get_version(version_id)
         nodes = self.placement.select_nodes(
@@ -221,8 +230,9 @@ class ReplicationManager:
         healthy = tuple(item.node_id for item in results if item.verified)
         failed = tuple(item.node_id for item in results if not item.verified)
         if len(healthy) < quorum:
+            self.metadata.fail_version(version_id)
             raise VaultError(
-                code=ErrorCode.NODE_UNAVAILABLE,
+                code=ErrorCode.INSUFFICIENT_REPLICAS,
                 message=(
                     f"Write quorum {quorum} was not reached for version {version_id}; "
                     f"only {len(healthy)} replica(s) were verified."
@@ -230,7 +240,10 @@ class ReplicationManager:
                 status_code=503,
             )
 
-        self.metadata.commit_version(version_id)
+        self.metadata.commit_version(
+            version_id,
+            expected_current_version=expected_current_version,
+        )
         return ReplicationResult(
             version_id=version_id,
             selected_node_ids=tuple(node.node_id for node in nodes),
