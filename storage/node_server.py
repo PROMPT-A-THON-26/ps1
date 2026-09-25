@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from .config import StorageNodeConfig
 from .node_lifecycle import NodeLifecycle, NodeLifecycleState
+from .node_state import SQLiteNodeStateStore
 from .storage_engine import (
     ObjectAlreadyExistsError,
     ObjectNotFoundError,
@@ -20,13 +21,20 @@ from .storage_engine import (
 config = StorageNodeConfig.from_env()
 engine = StorageEngine(config.data_dir, config.capacity_bytes, config.chunk_size_bytes)
 lifecycle = NodeLifecycle()
+node_state_store: SQLiteNodeStateStore | None = None
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    global node_state_store
+
     config.data_dir.mkdir(parents=True, exist_ok=True)
-    lifecycle.resume()
+    node_state_store = SQLiteNodeStateStore(config.sqlite_path)
+    lifecycle.attach_store(node_state_store, restore=True)
     yield
+    lifecycle.detach_store()
+    node_state_store.close()
+    node_state_store = None
 
 
 app = FastAPI(title="Vault Storage Node", version="0.1.0", lifespan=lifespan)
