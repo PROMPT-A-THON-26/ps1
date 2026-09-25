@@ -42,7 +42,9 @@ class NodeLifecycle:
                     try:
                         self._state = NodeLifecycleState(persisted)
                     except ValueError:
-                        self._state = NodeLifecycleState.HEALTHY
+                        # Fail closed if durable state is corrupted. A node must
+                        # not silently resume writes after an ambiguous restart.
+                        self._state = NodeLifecycleState.DRAINING
                         store.set_state(self._state.value)
                 else:
                     store.set_state(self._state.value)
