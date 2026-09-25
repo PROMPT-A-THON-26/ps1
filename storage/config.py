@@ -23,7 +23,7 @@ class StorageNodeConfig:
     def from_env(cls) -> "StorageNodeConfig":
         node_id = os.getenv("VAULT_NODE_ID", "node-01").strip()
         host = os.getenv("VAULT_NODE_HOST", "0.0.0.0").strip()
-        port = _positive_int(os.getenv("VAULT_NODE_PORT", "9001"), "VAULT_NODE_PORT")
+        port = _port_int(os.getenv("VAULT_NODE_PORT", "9001"), "VAULT_NODE_PORT")
         capacity_bytes = _positive_int(
             os.getenv("VAULT_NODE_CAPACITY_BYTES", str(100 * 1024**3)),
             "VAULT_NODE_CAPACITY_BYTES",
@@ -44,8 +44,13 @@ class StorageNodeConfig:
 
         if not node_id:
             raise ConfigurationError("VAULT_NODE_ID must not be empty")
+        if node_id in {".", ".."} or "/" in node_id or "\\" in node_id or "\x00" in node_id:
+            raise ConfigurationError("VAULT_NODE_ID contains an invalid path character")
         if not host:
             raise ConfigurationError("VAULT_NODE_HOST must not be empty")
+        if sqlite_path.exists() and sqlite_path.is_dir():
+            raise ConfigurationError("VAULT_NODE_SQLITE_PATH must point to a file")
+        _validate_state_path_isolated(data_dir, sqlite_path)
 
         return cls(
             node_id=node_id,
@@ -58,6 +63,16 @@ class StorageNodeConfig:
         )
 
 
+def _port_int(raw: str, name: str) -> int:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError(f"{name} must be an integer") from exc
+    if not 1 <= value <= 65535:
+        raise ConfigurationError(f"{name} must be between 1 and 65535")
+    return value
+
+
 def _positive_int(raw: str, name: str) -> int:
     try:
         value = int(raw)
@@ -66,3 +81,15 @@ def _positive_int(raw: str, name: str) -> int:
     if value <= 0:
         raise ConfigurationError(f"{name} must be greater than zero")
     return value
+
+
+def _validate_state_path_isolated(data_dir: Path, sqlite_path: Path) -> None:
+    data_root = data_dir.resolve()
+    state_path = sqlite_path.resolve()
+    try:
+        state_path.relative_to(data_root)
+    except ValueError:
+        return
+    raise ConfigurationError(
+        "VAULT_NODE_SQLITE_PATH must live outside VAULT_NODE_DATA_DIR"
+    )
