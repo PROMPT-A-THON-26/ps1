@@ -28,7 +28,102 @@ jobs:
         run: docker compose config --quiet
 
       - name: Build Docker images
-        run: docker compose build --quiet vault-node-01 vault-worker
+        run: docker compose build --quiet vault-node-01 vault-node-02 vault-node-03 vault-node-04 vault-worker
+
+      - name: Start Part-A storage-node topology
+        run: docker compose up -d vault-node-01 vault-node-02 vault-node-03 vault-node-04
+
+      - name: Smoke test real Part-A Docker nodes
+        run: |
+          python - <<'PY'
+          import json
+          import time
+          import urllib.error
+          import urllib.request
+
+          nodes = {
+              "node-01": 9001,
+              "node-02": 9002,
+              "node-03": 9003,
+              "node-04": 9004,
+          }
+
+          def request(method, port, path, *, data=None, headers=None):
+              request = urllib.request.Request(
+                  f"http://127.0.0.1:{port}{path}",
+                  data=data,
+                  headers=headers or {},
+                  method=method,
+              )
+              with urllib.request.urlopen(request, timeout=5) as response:
+                  body = response.read()
+                  return response.status, dict(response.headers), body
+
+          deadline = time.time() + 90
+          while time.time() < deadline:
+              ready = True
+              for node_id, port in nodes.items():
+                  try:
+                      status, _, body = request("GET", port, "/internal/v1/health")
+                      payload = json.loads(body)
+                      if status != 200 or payload["node_id"] != node_id:
+                          ready = False
+                          break
+                  except (OSError, urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+                      ready = False
+                      break
+              if ready:
+                  break
+              time.sleep(2)
+          else:
+              raise SystemExit("Part-A Docker nodes did not become healthy")
+
+          payload = b"vault-part-a-docker-smoke"
+          headers = {"Content-Type": "application/octet-stream", "X-Request-ID": "req_ci_smoke"}
+          status, response_headers, body = request(
+              "PUT",
+              nodes["node-01"],
+              "/internal/v1/objects/smoke/ver-1",
+              data=payload,
+              headers=headers,
+          )
+          assert status == 201, (status, body)
+          assert response_headers["X-Request-ID"] == "req_ci_smoke"
+
+          status, _, body = request(
+              "GET",
+              nodes["node-01"],
+              "/internal/v1/objects/smoke/ver-1/verify",
+          )
+          verify = json.loads(body)
+          assert status == 200 and verify["valid"] is True
+          assert verify["size_bytes"] == len(payload)
+
+          status, _, body = request(
+              "GET",
+              nodes["node-01"],
+              "/internal/v1/objects/smoke/ver-1",
+          )
+          assert status == 200 and body == payload
+
+          status, _, _ = request(
+              "DELETE",
+              nodes["node-01"],
+              "/internal/v1/objects/smoke/ver-1",
+          )
+          assert status == 204
+
+          try:
+              request("GET", nodes["node-01"], "/internal/v1/objects/smoke/ver-1")
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 404
+          else:
+              raise AssertionError("deleted object remained readable")
+          PY
+
+      - name: Stop Part-A storage-node topology
+        if: always()
+        run: docker compose down -v
 
       - name: Run tests
         run: python -m pytest -q
