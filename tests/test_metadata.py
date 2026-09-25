@@ -315,6 +315,22 @@ def test_node_registration_is_idempotent_by_address(db_session):
     assert second.capacity_bytes == 1000
 
 
+def test_conflicting_node_id_for_different_address_is_rejected(db_session):
+    manager = MetadataManager(db_session)
+    manager.register_node(
+        node_id="node-identity",
+        address="http://first-node:9001",
+        capacity_bytes=1000,
+    )
+
+    with pytest.raises(ObjectAlreadyExists):
+        manager.register_node(
+            node_id="node-identity",
+            address="http://second-node:9001",
+            capacity_bytes=1000,
+        )
+
+
 def test_conflicting_node_id_for_same_address_is_rejected(db_session):
     manager = MetadataManager(db_session)
     manager.register_node(
