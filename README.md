@@ -1604,9 +1604,12 @@ The integration gate currently covers:
 - automatic replacement-replica repair;
 - end-to-end checksum and size verification;
 - corruption detection with healthy-replica failover;
-- write-quorum failure and version abort handling.
+- write-quorum failure and version abort handling;
+- durable repair-job lifecycle and read-path repair scheduling;
+- heartbeat-based SUSPECT/UNAVAILABLE/RECOVERING failure detection;
+- memory-safe distributed object streaming.
 
-The integrated branch currently has **101 automated tests passing in CI**.
+The integrated branch currently has **105 automated tests passing in CI**.
 
 Current verification chain:
 
