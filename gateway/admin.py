@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from common.config import get_settings
-from common.constants import JobStatus
+from common.constants import ErrorCode, JobStatus
 from common.errors import ObjectNotFound, VaultError
 from metadata.models import RebalanceJob, RepairJob, Replica
 from rebalance import RebalanceManager
@@ -100,7 +100,7 @@ class AdminService:
         )
         if job is None:
             raise VaultError(
-                code="REPAIR_IN_PROGRESS",
+                code=ErrorCode.REPAIR_IN_PROGRESS,
                 message=f"Version {request.version_id} already satisfies the requested replication factor.",
                 status_code=409,
             )
