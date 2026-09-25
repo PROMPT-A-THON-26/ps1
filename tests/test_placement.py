@@ -7,7 +7,7 @@ import pytest
 from common.constants import ErrorCode, NodeState
 from common.errors import VaultError
 from metadata.manager import MetadataManager
-from metadata.models import StorageNode
+from metadata.models import Replica, StorageNode
 from placement import PlacementManager, PlacementPolicy
 
 
@@ -173,6 +173,4 @@ def test_placement_only_plans_and_does_not_create_replica_records(db_session):
     )
 
     assert len(selected) == 3
-    assert manager.session.query(\
-        __import__("metadata.models", fromlist=["Replica"]).Replica\
-    ).count() == 0
+    assert manager.session.query(Replica).count() == 0
