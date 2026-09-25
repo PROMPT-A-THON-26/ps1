@@ -1,1 +1,5 @@
-"""Automatic storage rebalancing for Vault."""\n\nfrom .rebalancer import RebalancePolicy, RebalanceResult, Rebalancer\n\n__all__ = ["RebalancePolicy", "RebalanceResult", "Rebalancer"]\n
+"""Automatic storage rebalancing for Vault."""
+
+from .rebalancer import RebalancePolicy, RebalanceResult, Rebalancer
+
+__all__ = ["RebalancePolicy", "RebalanceResult", "Rebalancer"]
