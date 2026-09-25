@@ -299,8 +299,9 @@ async def test_put_is_not_automatically_retried(no_delay_retry_policy: RetryPoli
     calls = 0
 
     @app.put("/internal/v1/objects/{object_id}/{version_id}")
-    async def put(_: str, __: str, request: Request) -> Response:
+    async def put(object_id: str, version_id: str, request: Request) -> Response:
         nonlocal calls
+        del object_id, version_id
         calls += 1
         del request
         return Response(status_code=503)
