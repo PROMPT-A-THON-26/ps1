@@ -40,6 +40,7 @@ class IntegrityManager:
         repair_manager_factory=RepairManager,
         replication_factor: int = 3,
     ) -> None:
+        replication_factor = get_settings().replication_factor if replication_factor is None else replication_factor
         if (
             not isinstance(replication_factor, int)
             or isinstance(replication_factor, bool)
