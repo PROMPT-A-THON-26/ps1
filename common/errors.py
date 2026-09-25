@@ -61,3 +61,11 @@ class ChecksumMismatch(VaultError):
             message=f"Checksum mismatch: expected {expected}, got {actual}.",
             status_code=409,
         )
+
+class InsufficientReplicas(VaultError):
+    def __init__(self, required: int, available: int) -> None:
+        super().__init__(
+            code=ErrorCode.INSUFFICIENT_REPLICAS,
+            message=f"Required {required} replicas/quorum, but only {available} are available.",
+            status_code=503,
+        )
