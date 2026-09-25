@@ -281,7 +281,7 @@ class MetadataManager:
                 },
                 ReplicaState.STALE: {ReplicaState.REPAIRING},
                 ReplicaState.CORRUPTED: {ReplicaState.REPAIRING},
-                ReplicaState.UNAVAILABLE: {ReplicaState.REPAIRING},
+                ReplicaState.UNAVAILABLE: {ReplicaState.REPAIRING, ReplicaState.CORRUPTED},
                 ReplicaState.REPAIRING: {ReplicaState.COPYING, ReplicaState.FAILED},
                 # FAILED is terminal for that replica operation. A future repair
                 # creates/uses a new job rather than inventing an extra transition.
@@ -344,6 +344,53 @@ class MetadataManager:
             }:
                 raise InvalidState(
                     f"Replica {replica.replica_id} is {replica.status}; cannot mark HEALTHY."
+                )
+
+            replica.status = ReplicaState.HEALTHY
+            replica.checksum = actual
+            replica.size_bytes = size_bytes
+            replica.last_verified_at = datetime.now(timezone.utc)
+            self.session.flush()
+            return replica
+
+    def mark_replica_reconciled(
+        self,
+        replica_id: UUID,
+        *,
+        checksum: str,
+        size_bytes: int,
+    ) -> Replica:
+        """Restore an existing unavailable replica after independent verification."""
+        actual = _validate_checksum(checksum)
+        if (
+            not isinstance(size_bytes, int)
+            or isinstance(size_bytes, bool)
+            or size_bytes < 0
+        ):
+            raise ValueError("size_bytes must be a non-negative integer")
+
+        with self._transaction():
+            replica = self.session.scalar(
+                select(Replica).where(Replica.replica_id == replica_id).with_for_update()
+            )
+            if replica is None:
+                raise ObjectNotFound(str(replica_id))
+
+            version = self.session.scalar(
+                select(Version).where(Version.version_id == replica.version_id)
+            )
+            if version is None:
+                raise ObjectNotFound(str(replica.version_id))
+            if actual != version.checksum:
+                raise ChecksumMismatch(version.checksum, actual)
+            if size_bytes != version.size_bytes:
+                raise InvalidState(
+                    f"Replica size mismatch: expected {version.size_bytes}, got {size_bytes}."
+                )
+            if replica.status is not ReplicaState.UNAVAILABLE:
+                raise InvalidState(
+                    f"Replica {replica.replica_id} is {replica.status}; "
+                    "reconciliation only restores UNAVAILABLE replicas."
                 )
 
             replica.status = ReplicaState.HEALTHY
