@@ -199,7 +199,7 @@ class RepairManager:
         self,
         version_id: UUID,
         *,
-        replication_factor: int = 3,
+        replication_factor: int | None = None,
         reason: str = "under-replicated",
         preferred_replica: Replica | None = None,
     ) -> RepairJob | None:
