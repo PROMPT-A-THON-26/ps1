@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from common.constants import JobStatus, NodeState, ReplicaState, VersionState
+from common.constants import ErrorCode, JobStatus, NodeState, ReplicaState, VersionState
 from common.errors import InvalidState, ObjectNotFound, VaultError
 from metadata.manager import MetadataManager
 from metadata.models import RebalanceJob, Replica, StorageNode, Version
@@ -112,7 +112,7 @@ class RebalanceManager:
         candidates.sort(key=lambda node: (-node.free_bytes, node.node_id))
         if not candidates:
             raise VaultError(
-                code="INSUFFICIENT_REPLICAS",
+                code=ErrorCode.INSUFFICIENT_REPLICAS,
                 message=f"No healthy target node can hold version {version.version_id}.",
                 status_code=503,
             )
@@ -148,13 +148,13 @@ class RebalanceManager:
             )
         if target_node.status is not NodeState.HEALTHY:
             raise VaultError(
-                code="NODE_UNAVAILABLE",
+                code=ErrorCode.NODE_UNAVAILABLE,
                 message=f"Rebalance target node {target_node_id} is not healthy.",
                 status_code=503,
             )
         if target_node.free_bytes < version.size_bytes:
             raise VaultError(
-                code="STORAGE_FULL",
+                code=ErrorCode.STORAGE_FULL,
                 message=f"Rebalance target node {target_node_id} lacks capacity.",
                 status_code=507,
             )
@@ -485,15 +485,12 @@ class RebalanceManager:
             replica = self.session.get(Replica, replica_id)
             if replica is None:
                 continue
+            if replica.status is not ReplicaState.HEALTHY:
+                raise InvalidState(
+                    f"Cannot drain node {node_id}: replica {replica.replica_id} "
+                    f"is {replica.status}; repair it before migration."
+                )
             version = self._version(replica.version_id)
-            source = self._source_for_version(
-                version.version_id,
-                excluded_node_id=node_id,
-            )
-            excluded = {
-                source.node_id,
-                node_id,
-            }
             existing_nodes = set(
                 self.session.scalars(
                     select(Replica.node_id).where(
@@ -501,15 +498,14 @@ class RebalanceManager:
                     )
                 ).all()
             )
-            excluded.update(existing_nodes)
             target = self._eligible_target(
                 version,
-                excluded_node_ids=excluded,
+                excluded_node_ids=existing_nodes | {node_id},
             )
             results.append(
                 await self.migrate_replica(
                     version.version_id,
-                    source_node_id=source.node_id,
+                    source_node_id=node_id,
                     target_node_id=target.node_id,
                 )
             )
