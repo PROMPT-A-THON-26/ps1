@@ -84,9 +84,10 @@
       const requestId=options.requestId||"req_"+Math.random().toString(16).slice(2,10);
       headers.set("Accept","application/json");
       headers.set("X-Request-ID",requestId);
-      const base=new URL(this.baseUrl,location.origin).toString().replace(/\/$/,"");
+      const base=this.baseUrl.replace(/\/$/,"");
+      const url=base+(path.startsWith("/")?path:"/"+path);
       let response;
-      try{response=await fetch(new URL(path,base),{...options,headers,redirect:"error"});}
+      try{response=await fetch(new URL(url,location.origin),{...options,headers,redirect:"error"});}
       catch(error){const err=new Error(error?.message||"Unable to reach the Vault API");err.code="NETWORK_ERROR";err.requestId=requestId;throw err;}
       const body=await response.json().catch(()=>({}));
       if(!response.ok){const e=body.error||{};const err=new Error(e.message||"API request failed");err.code=e.code||"HTTP_"+response.status;err.requestId=e.request_id||requestId;throw err;}
