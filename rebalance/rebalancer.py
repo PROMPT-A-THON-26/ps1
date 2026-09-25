@@ -99,7 +99,7 @@ class Rebalancer:
                     node_id,
                     capacity_bytes=stats.capacity_bytes,
                     used_bytes=stats.used_bytes,
-                    status=NodeState.HEALTHY,
+                    status=None,
                 )
                 scanned += 1
             except StorageNodeClientError:
@@ -132,6 +132,7 @@ class Rebalancer:
         )
 
         planned: list[RebalanceJob] = []
+        reserved_by_target: dict[str, int] = {node.node_id: 0 for node in targets}
         for source in overloaded:
             replicas = list(
                 self.session.scalars(
@@ -169,7 +170,10 @@ class Rebalancer:
                     (
                         candidate for candidate in targets
                         if candidate.node_id not in existing_nodes
-                        and candidate.free_bytes >= version.size_bytes
+                        and (
+                            candidate.free_bytes
+                            - reserved_by_target.get(candidate.node_id, 0)
+                        ) >= version.size_bytes
                     ),
                     None,
                 )
@@ -187,6 +191,9 @@ class Rebalancer:
                 )
                 if duplicate is not None:
                     continue
+                reserved_by_target[target.node_id] = (
+                    reserved_by_target.get(target.node_id, 0) + version.size_bytes
+                )
                 job = RebalanceJob(
                     version_id=version.version_id,
                     source_node_id=source.node_id,
@@ -220,6 +227,19 @@ class Rebalancer:
         try:
             await self._execute_running_job(job)
         except Exception as exc:
+            target_replica = self.session.scalar(
+                select(Replica).where(
+                    Replica.version_id == job.version_id,
+                    Replica.node_id == job.target_node_id,
+                )
+            )
+            if target_replica is not None and target_replica.status in {
+                ReplicaState.COPYING,
+                ReplicaState.PENDING,
+            }:
+                self.manager.set_replica_state(
+                    target_replica.replica_id, ReplicaState.FAILED
+                )
             job.status = JobStatus.FAILED
             job.last_error = str(exc)
             self.session.flush()
@@ -282,8 +302,12 @@ class Rebalancer:
                     f"rebalance target replica is {target_replica.status}"
                 )
 
-        await source.health()
-        await target.health()
+        source_health = await source.health()
+        target_health = await target.health()
+        if source_health.status.lower() != NodeState.HEALTHY.value.lower():
+            raise InvalidState("rebalance source node is not healthy")
+        if target_health.status.lower() != NodeState.HEALTHY.value.lower():
+            raise InvalidState("rebalance target node is not healthy")
 
         verified_source = await source.verify_object(
             str(version.object_id), str(version.version_id)
