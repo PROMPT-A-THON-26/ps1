@@ -7,9 +7,11 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Mapping
 
+from sqlalchemy.orm import sessionmaker
+
 from health.failure_detector import FailureDetector, FailureDetectorConfig
 from integrity.scanner import IntegrityScanner
-from metadata.database import SessionLocal, build_engine, create_schema
+from metadata.database import build_engine, create_schema
 from metadata.manager import MetadataManager
 from rebalance.rebalancer import RebalancePolicy, Rebalancer
 from repair.worker import RepairWorker, RepairWorkerConfig
@@ -126,19 +128,13 @@ def _positive_float(name: str, default: float) -> float:
     return value
 
 
-def build_runtime(config: WorkerRuntimeConfig):
-    engine = build_engine(config.database_url)
-    create_schema(engine)
-    session = SessionLocal(bind=engine) if hasattr(SessionLocal, "__call__") else None
-    raise RuntimeError("build_runtime is async-only; use run_runtime()")
-
-
 async def run_runtime(config: WorkerRuntimeConfig) -> None:
     """Start the full detection -> integrity -> repair -> rebalance loop."""
     engine = build_engine(config.database_url)
     create_schema(engine)
 
-    with SessionLocal(bind=engine) as session:
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with session_factory() as session:
         manager = MetadataManager(session)
 
         async with AsyncExitStack() as stack:
@@ -216,6 +212,8 @@ async def run_runtime(config: WorkerRuntimeConfig) -> None:
 
             stop_event = asyncio.Event()
             await service.run_forever(stop_event)
+
+    engine.dispose()
 
 
 def main() -> None:
