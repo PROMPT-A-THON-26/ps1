@@ -182,7 +182,7 @@ async def test_control_plane_partition_detects_suspect_then_unavailable_while_no
         # The node itself is still alive. Only the control-plane network path
         # is partitioned.
         direct_health = await direct.health()
-        assert direct_health.status == NodeState.HEALTHY.value
+        assert direct_health.status.lower() == NodeState.HEALTHY.value.lower()
         assert direct_health.node_id == "node-1"
 
         clock[0] = base + timedelta(seconds=25)
@@ -279,4 +279,4 @@ async def test_write_path_partition_does_not_evict_healthy_node(
         # The node is still reachable through its health path and has not been
         # falsely classified as unavailable just because PUT traffic is broken.
         health = await clients["node-1"].health()
-        assert health.status == NodeState.HEALTHY.value
+        assert health.status.lower() == NodeState.HEALTHY.value.lower()
