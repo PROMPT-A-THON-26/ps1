@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from common.constants import ErrorCode, JobStatus, NodeState, ReplicaState, VersionState
+from common.settings import settings
 from common.errors import InvalidState, ObjectNotFound, VaultError
 from metadata.manager import MetadataManager
 from metadata.models import RebalanceJob, Replica, StorageNode, Version
@@ -40,8 +41,8 @@ class RebalanceManager:
         session: Session,
         *,
         client_factory=StorageNodeClient,
-        replication_factor: int = 3,
-        max_attempts: int = 5,
+        replication_factor: int | None = None,
+        max_attempts: int | None = None,
     ) -> None:
         if (
             not isinstance(replication_factor, int)
@@ -58,8 +59,8 @@ class RebalanceManager:
         self.session = session
         self.metadata = MetadataManager(session)
         self.client_factory = client_factory
-        self.replication_factor = replication_factor
-        self.max_attempts = max_attempts
+        self.replication_factor = settings.replication_factor if replication_factor is None else replication_factor
+        self.max_attempts = settings.max_attempts if max_attempts is None else max_attempts
 
     def _version(self, version_id: UUID) -> Version:
         version = self.session.scalar(
