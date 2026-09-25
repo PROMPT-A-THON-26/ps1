@@ -9,10 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from common.constants import NodeState, VersionState
+from common.constants import NodeState, ReplicaState, VersionState
 from common.errors import InvalidState
 from metadata.manager import MetadataManager
-from metadata.models import Replica, Version
+from metadata.models import Replica, StorageNode, Version
 from recovery import PartitionRecoveryManager
 
 
@@ -86,7 +86,7 @@ class HeartbeatService:
             .where(
                 Replica.node_id == node_id,
                 Version.state == VersionState.COMMITTED,
-                Replica.status != "FAILED",
+                Replica.status != ReplicaState.FAILED,
             )
         )
         return bool(count)
@@ -158,17 +158,9 @@ class HeartbeatService:
             self.session,
             replication_factor=self.replication_factor,
         )
-        recovery_result = await recovery.reconcile_and_mark_healthy(result.node_id)
-        node = self.manager._lock_object(
-            __import__("uuid").UUID(int=0)
-        ) if False else None
-        refreshed = self.session.scalar(
-            select(type(self.manager._lock_object) if False else Version)
-        ) if False else self.manager.get_object("") if False else None
+        await recovery.reconcile_and_mark_healthy(result.node_id)
         node = self.session.scalar(
-            select(__import__("metadata.models", fromlist=["StorageNode"]).StorageNode).where(
-                __import__("metadata.models", fromlist=["StorageNode"]).StorageNode.node_id == result.node_id
-            )
+            select(StorageNode).where(StorageNode.node_id == result.node_id)
         )
         if node is None:
             raise InvalidState(f"Recovered node {result.node_id} disappeared during reconciliation.")
