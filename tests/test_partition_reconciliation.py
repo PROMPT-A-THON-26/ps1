@@ -10,7 +10,7 @@ from sqlalchemy import select
 from common.constants import NodeState, ReplicaState
 from health.failure_detector import FailureDetector
 from metadata.manager import MetadataManager
-from metadata.models import Replica
+from metadata.models import Replica, StorageNode
 from replication.coordinator import DistributedWriteCoordinator
 from replication.node_client import RetryPolicy, StorageNodeClient, StorageNodeClientConfig
 from replication.reconciler import PartitionReconciler
@@ -133,16 +133,6 @@ async def test_reconciliation_restores_verified_replica_after_partition_heals(
         transports["node-1"].down = True
         await detector.probe_node("node-1")
         transports["node-1"].down = False
-
-        # Simulate the detector's recovery transition before reconciliation.
-        node = db_session.scalar(
-            select(__import__("metadata.models", fromlist=["StorageNode"]).StorageNode)
-            .where(
-                __import__("metadata.models", fromlist=["StorageNode"]).StorageNode.node_id
-                == "node-1"
-            )
-        )
-        node.status = NodeState.UNAVAILABLE
 
         await detector.probe_node("node-1")
         await detector.probe_node("node-1")
