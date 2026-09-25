@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from fastapi.testclient import TestClient
 
 from storage import node_server
@@ -6,6 +8,11 @@ from storage.storage_engine import StorageEngine
 
 def client_for(tmp_path):
     node_server.engine = StorageEngine(tmp_path, 1024 * 1024, chunk_size_bytes=4)
+    node_server.config = replace(
+        node_server.config,
+        data_dir=tmp_path,
+        sqlite_path=tmp_path / "node_state.sqlite3",
+    )
     node_server.lifecycle.resume()
     return TestClient(node_server.app)
 
