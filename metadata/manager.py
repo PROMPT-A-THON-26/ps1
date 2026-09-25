@@ -204,6 +204,22 @@ class MetadataManager:
             self.session.flush()
             return version
 
+    def fail_version(self, version_id: UUID) -> Version:
+        """Mark an uncommitted version as failed after a write/replication abort."""
+        with self._transaction():
+            version = self.session.scalar(
+                select(Version).where(Version.version_id == version_id).with_for_update()
+            )
+            if version is None:
+                raise ObjectNotFound(str(version_id))
+            if version.state is VersionState.COMMITTED:
+                raise InvalidState(
+                    f"Version {version.version_id} is already committed."
+                )
+            version.state = VersionState.FAILED
+            self.session.flush()
+            return version
+
     def create_replica(self, version_id: UUID, node_id: str) -> Replica:
         if not isinstance(node_id, str) or not node_id.strip():
             raise ValueError("node_id must be a non-empty string")
