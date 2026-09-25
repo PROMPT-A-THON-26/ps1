@@ -105,3 +105,24 @@ def test_verify_endpoint_missing_object(tmp_path):
     with client_for(tmp_path) as client:
         response = client.get("/internal/v1/objects/missing/ver-1/verify")
         assert response.status_code == 404
+
+
+def test_verify_endpoint_reports_corrupt_metadata(tmp_path):
+    import json
+    with client_for(tmp_path) as client:
+        payload = b"abcdefgh"
+        assert client.put("/internal/v1/objects/obj-1/ver-1", content=payload).status_code == 201
+        metadata_path = tmp_path / "objects" / "obj-1" / "ver-1" / "metadata.json"
+        metadata = json.loads(metadata_path.read_text())
+        metadata["checksum"] = "0" * 64
+        metadata_path.write_text(json.dumps(metadata))
+        response = client.get("/internal/v1/objects/obj-1/ver-1/verify")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["valid"] is False
+        assert "object checksum mismatch" in body["errors"]
+
+def test_verify_endpoint_rejects_invalid_id(tmp_path):
+    with client_for(tmp_path) as client:
+        response = client.get("/internal/v1/objects/%2E%2E/ver-1/verify")
+        assert response.status_code == 400
