@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from uuid import uuid4
 
 from common.constants import NodeState, ObjectState, ReplicaState, VersionState
 from common.errors import (
@@ -409,3 +410,49 @@ def test_metadata_relationships_round_trip(db_session):
     assert fetched_version.object.object_id == obj.object_id
     assert fetched_replica.version.version_id == version.version_id
     assert fetched_replica.node.node_id == node.node_id
+
+def test_node_registration_rejects_invalid_address(db_session):
+    manager = MetadataManager(db_session)
+
+    with pytest.raises(ValueError):
+        manager.register_node(node_id="node-invalid", address="not-an-url")
+
+
+def test_node_registration_rejects_duplicate_node_id_with_new_address(db_session):
+    manager = MetadataManager(db_session)
+    manager.register_node(
+        node_id="node-duplicate",
+        address="http://node-one:9001",
+        capacity_bytes=1000,
+    )
+
+    with pytest.raises(ObjectAlreadyExists):
+        manager.register_node(
+            node_id="node-duplicate",
+            address="http://node-two:9001",
+            capacity_bytes=1000,
+        )
+
+
+def test_heartbeat_rejects_capacity_below_existing_usage(db_session):
+    manager = MetadataManager(db_session)
+    node = manager.register_node(
+        node_id="node-shrink",
+        address="http://node-shrink:9001",
+        capacity_bytes=1000,
+    )
+    manager.update_node_heartbeat(
+        node.node_id,
+        used_bytes=750,
+        capacity_bytes=1000,
+    )
+
+    with pytest.raises(ValueError):
+        manager.update_node_heartbeat(
+            node.node_id,
+            capacity_bytes=500,
+        )
+
+    refreshed = manager.update_node_heartbeat(node.node_id)
+    assert refreshed.capacity_bytes == 1000
+    assert refreshed.used_bytes == 750
