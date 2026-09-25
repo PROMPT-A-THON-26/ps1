@@ -454,6 +454,8 @@ class MetadataManager:
                 raise ValueError("used_bytes cannot exceed capacity_bytes")
 
             current_heartbeat = node.last_heartbeat_at
+            if current_heartbeat is not None and current_heartbeat.tzinfo is None:
+                current_heartbeat = current_heartbeat.replace(tzinfo=timezone.utc)
             if current_heartbeat is None or now >= current_heartbeat:
                 node.last_heartbeat_at = now
 
