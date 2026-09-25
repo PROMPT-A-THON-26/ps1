@@ -1642,3 +1642,31 @@ The system should not merely store copies. It should know:
 - and whether the repaired data is actually correct.
 
 That is the core of Vault.
+
+
+# 41. Current Implemented Status
+
+The integrated control-plane branch now contains the implemented Part B reliability path through final validation:
+
+```text
+B1  Database foundation
+B2  Metadata manager
+B3  Storage-node client
+B4  Node registry / health
+B5  Deterministic placement
+B6  Gateway object I/O
+B7  Replication and quorum policy
+B8  Heartbeats / failure detector
+B9  Durable repair
+B10 Integrity scanning / corruption repair
+B11 Network-partition recovery
+B12 Safe rebalancing / node drain
+B13 Failure / chaos regression tests
+B14 Part A storage-node integration tests
+```
+
+Part A's storage-node implementation is integrated under `storage/` and is exercised by the B14 suite through the exact internal HTTP contract. The integration tests cover health, statistics, PUT, duplicate protection, HEAD, streaming GET, VERIFY, DELETE, and a gateway-to-storage-node object lifecycle.
+
+B13 covers node failure and repair, checksum corruption, network isolation/recovery, conditional concurrent writes, and persistence of job failure state across process restart.
+
+The final integration branch is intended as the handoff candidate; no feature work is considered complete until its GitHub Actions matrix passes on Python 3.11 and 3.12.
