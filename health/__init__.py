@@ -1,5 +1,16 @@
-"""Health subsystem for Vault Part B.
+"""Node registry, heartbeat processing, and failure detection for Vault."""
 
-Exports node registry, heartbeat processing, failure detection,
-and scheduler components.
-"""
+from .failure_detector import FailureDetector, NodeTransition
+from .heartbeat import HeartbeatPayload, HeartbeatResult, HeartbeatService
+from .node_registry import NodeRegistry
+from .scheduler import HealthScheduler
+
+__all__ = [
+    "FailureDetector",
+    "HeartbeatPayload",
+    "HeartbeatResult",
+    "HeartbeatService",
+    "HealthScheduler",
+    "NodeRegistry",
+    "NodeTransition",
+]
