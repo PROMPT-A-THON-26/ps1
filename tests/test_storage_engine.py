@@ -369,3 +369,26 @@ def test_verify_works_after_node_chunk_size_configuration_changes(tmp_path):
 
     assert reader.read_bytes("obj-1", "ver-1") == b"abcdefghij"
     assert reader.verify("obj-1", "ver-1").valid is True
+
+
+def test_sync_capacity_boundary_is_exact(tmp_path):
+    engine = StorageEngine(tmp_path, 8, chunk_size_bytes=4)
+    engine.write_bytes("obj-1", "ver-1", b"1234")
+    engine.write_bytes("obj-2", "ver-1", b"5678")
+    assert engine.stats().used_bytes == 8
+    assert engine.stats().free_bytes == 0
+
+    with pytest.raises(StorageFullError):
+        engine.write_bytes("obj-3", "ver-1", b"9")
+
+def test_objects_directory_symlink_is_rejected(tmp_path):
+    external = tmp_path / "external"
+    external.mkdir()
+    objects_dir = tmp_path / "objects"
+    try:
+        objects_dir.symlink_to(external, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are not available")
+
+    with pytest.raises(Exception):
+        StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
