@@ -105,11 +105,11 @@ class StorageEngine:
     ) -> int:
         """Consume an async request stream without buffering the full object."""
         self._validate_ids(object_id, version_id)
-            with self._lock:
-                self._ensure_new_object(object_id, version_id)
-                staging_dir = self._create_staging_dir(object_id, version_id)
+        with self._lock:
+            self._ensure_new_object(object_id, version_id)
+            staging_dir = self._create_staging_dir(object_id, version_id)
 
-            size = 0
+        size = 0
             chunk_index = 0
             chunk_written = 0
             chunk_handle = None
@@ -140,10 +140,11 @@ class StorageEngine:
                             self._reserve_capacity(len(piece))
                             reserved_bytes += len(piece)
 
-                        try:
-                            chunk_handle.write(piece)
-                        except Exception:
-                            raise
+                        written = chunk_handle.write(piece)
+                        if written != len(piece):
+                            raise OSError(
+                                f"Short write: expected={len(piece)}, written={written}"
+                            )
 
                         chunk_digest.update(piece)
                         object_digest.update(piece)
@@ -211,13 +212,10 @@ class StorageEngine:
                     f"Object metadata has invalid chunk layout: {object_id}/{version_id}"
                 )
             version_dir = self.object_path(object_id, version_id)
-            chunk_paths = [
-                version_dir / self._chunk_name(index)
-                for index in range(chunk_count)
-            ]
-
         read_size = min(stored_chunk_size, self.chunk_size_bytes)
-        for chunk_path in chunk_paths:
+
+        for index in range(chunk_count):
+            chunk_path = version_dir / self._chunk_name(index)
             if chunk_path.is_symlink():
                 raise StorageError(f"Object chunk is a symlink: {chunk_path.name}")
             with chunk_path.open("rb") as handle:
@@ -581,6 +579,11 @@ class StorageEngine:
         version_id: str,
     ) -> dict[str, object]:
         version_dir = self.object_path(object_id, version_id)
+        object_dir = version_dir.parent
+        if object_dir.is_symlink() or version_dir.is_symlink():
+            raise StorageError(
+                f"Object storage path is a symlink: {object_id}/{version_id}"
+            )
         metadata_path = version_dir / self.METADATA_NAME
 
         if metadata_path.is_symlink():
