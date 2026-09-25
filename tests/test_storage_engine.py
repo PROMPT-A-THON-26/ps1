@@ -275,3 +275,26 @@ def test_verify_handles_unreadable_metadata_as_invalid(tmp_path):
     assert result.valid is False
     assert result.checksum is None
     assert any("metadata is unreadable" in error for error in result.errors)
+
+
+def test_concurrent_async_duplicate_writes_have_one_winner(tmp_path):
+    engine = StorageEngine(tmp_path, 1024, chunk_size_bytes=4)
+
+    async def source():
+        yield b"abcd"
+
+    async def run():
+        async def write():
+            try:
+                await engine.write_stream("obj-1", "ver-1", source())
+                return "created"
+            except ObjectAlreadyExistsError:
+                return "duplicate"
+
+        return await asyncio.gather(*[write() for _ in range(8)])
+
+    results = asyncio.run(run())
+
+    assert results.count("created") == 1
+    assert results.count("duplicate") == 7
+    assert engine.read_bytes("obj-1", "ver-1") == b"abcd"
