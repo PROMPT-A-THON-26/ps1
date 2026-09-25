@@ -30,11 +30,7 @@ class StorageStats:
 
 
 class StorageEngine:
-    """Safe local filesystem storage for Vault object versions.
-
-    Layout is intentionally stable because later replication code will use the
-    same object_id/version_id pair when copying replicas between nodes.
-    """
+    """Safe local filesystem storage for Vault object versions."""
 
     def __init__(self, data_dir: Path, capacity_bytes: int) -> None:
         self.data_dir = data_dir.resolve()
@@ -54,14 +50,18 @@ class StorageEngine:
         if path.exists():
             raise ObjectAlreadyExistsError(f"Object version already exists: {object_id}/{version_id}")
         self._ensure_capacity(len(data))
-        path.parent.mkdir(parents=True, exist_ok=False)
+        path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = path.parent / ".data.tmp"
         try:
-            with temp_path.open("wb") as handle:
+            with temp_path.open("xb") as handle:
                 handle.write(data)
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temp_path, path)
+        except FileExistsError as exc:
+            raise ObjectAlreadyExistsError(
+                f"Object version is being written or already exists: {object_id}/{version_id}"
+            ) from exc
         finally:
             temp_path.unlink(missing_ok=True)
         return len(data)
@@ -88,13 +88,8 @@ class StorageEngine:
     def stats(self) -> StorageStats:
         usage = shutil.disk_usage(self.data_dir)
         used_bytes = sum(p.stat().st_size for p in self.data_dir.rglob("*") if p.is_file())
-        free_by_disk = usage.free
-        free_bytes = min(max(self.capacity_bytes - used_bytes, 0), free_by_disk)
-        return StorageStats(
-            capacity_bytes=self.capacity_bytes,
-            used_bytes=used_bytes,
-            free_bytes=free_bytes,
-        )
+        free_bytes = min(max(self.capacity_bytes - used_bytes, 0), usage.free)
+        return StorageStats(self.capacity_bytes, used_bytes, free_bytes)
 
     def _ensure_capacity(self, incoming_bytes: int) -> None:
         stats = self.stats()
