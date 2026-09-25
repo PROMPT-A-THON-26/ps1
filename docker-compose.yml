@@ -1,0 +1,207 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vault
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: vault
+    ports:
+      - "5432:5432"
+    volumes:
+      - vault_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault -d vault"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  vault-node-01:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      VAULT_NODE_ID: node-01
+      VAULT_NODE_HOST: 0.0.0.0
+      VAULT_NODE_PORT: 9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      VAULT_NODE_CHUNK_SIZE_BYTES: 16777216
+      VAULT_NODE_DATA_DIR: /data/vault
+      VAULT_NODE_SQLITE_PATH: /var/lib/vault/node_state.sqlite3
+    ports:
+      - "9001:9001"
+    volumes:
+      - vault_node_01_data:/data/vault
+      - vault_node_01_state:/var/lib/vault
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  vault-node-02:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      VAULT_NODE_ID: node-02
+      VAULT_NODE_HOST: 0.0.0.0
+      VAULT_NODE_PORT: 9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      VAULT_NODE_CHUNK_SIZE_BYTES: 16777216
+      VAULT_NODE_DATA_DIR: /data/vault
+      VAULT_NODE_SQLITE_PATH: /var/lib/vault/node_state.sqlite3
+    ports:
+      - "9002:9001"
+    volumes:
+      - vault_node_02_data:/data/vault
+      - vault_node_02_state:/var/lib/vault
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  vault-node-03:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      VAULT_NODE_ID: node-03
+      VAULT_NODE_HOST: 0.0.0.0
+      VAULT_NODE_PORT: 9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      VAULT_NODE_CHUNK_SIZE_BYTES: 16777216
+      VAULT_NODE_DATA_DIR: /data/vault
+      VAULT_NODE_SQLITE_PATH: /var/lib/vault/node_state.sqlite3
+    ports:
+      - "9003:9001"
+    volumes:
+      - vault_node_03_data:/data/vault
+      - vault_node_03_state:/var/lib/vault
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  vault-node-04:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    environment:
+      VAULT_NODE_ID: node-04
+      VAULT_NODE_HOST: 0.0.0.0
+      VAULT_NODE_PORT: 9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      VAULT_NODE_CHUNK_SIZE_BYTES: 16777216
+      VAULT_NODE_DATA_DIR: /data/vault
+      VAULT_NODE_SQLITE_PATH: /var/lib/vault/node_state.sqlite3
+    ports:
+      - "9004:9001"
+    volumes:
+      - vault_node_04_data:/data/vault
+      - vault_node_04_state:/var/lib/vault
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/gateway.Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://vault:vault@postgres:5432/vault
+      VAULT_STORAGE_NODES: node-01=http://vault-node-01:9001,node-02=http://vault-node-02:9001,node-03=http://vault-node-03:9001,node-04=http://vault-node-04:9001
+      VAULT_NODE_CAPACITY_BYTES: 10737418240
+      REPLICATION_FACTOR: 3
+      WRITE_QUORUM: 2
+      READ_QUORUM: 1
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault-node-01:
+        condition: service_healthy
+      vault-node-02:
+        condition: service_healthy
+      vault-node-03:
+        condition: service_healthy
+      vault-node-04:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  vault-worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://vault:vault@postgres:5432/vault
+      VAULT_STORAGE_NODES: node-01=http://vault-node-01:9001,node-02=http://vault-node-02:9001,node-03=http://vault-node-03:9001,node-04=http://vault-node-04:9001
+      REPLICATION_FACTOR: 3
+      WRITE_QUORUM: 2
+      READ_QUORUM: 1
+      HEARTBEAT_INTERVAL_SECONDS: 5
+      SUSPECT_AFTER_SECONDS: 15
+      UNAVAILABLE_AFTER_SECONDS: 30
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault-node-01:
+        condition: service_healthy
+      vault-node-02:
+        condition: service_healthy
+      vault-node-03:
+        condition: service_healthy
+      vault-node-04:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  vault_postgres_data:
+  vault_node_01_data:
+  vault_node_01_state:
+  vault_node_02_data:
+  vault_node_02_state:
+  vault_node_03_data:
+  vault_node_03_state:
+  vault_node_04_data:
+  vault_node_04_state:
