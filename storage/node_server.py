@@ -3,8 +3,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI, HTTPException, Response, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .config import StorageNodeConfig
@@ -13,6 +13,7 @@ from .storage_engine import (
     ObjectNotFoundError,
     StorageEngine,
     StorageFullError,
+    StorageError,
 )
 
 
@@ -26,10 +27,15 @@ class StatsResponse(BaseModel):
     capacity_bytes: int
     used_bytes: int
     free_bytes: int
+    chunk_size_bytes: int
 
 
 config = StorageNodeConfig.from_env()
-engine = StorageEngine(config.data_dir, config.capacity_bytes)
+engine = StorageEngine(
+    config.data_dir,
+    config.capacity_bytes,
+    config.chunk_size_bytes,
+)
 
 
 @asynccontextmanager
@@ -54,43 +60,45 @@ def stats() -> StatsResponse:
         capacity_bytes=current.capacity_bytes,
         used_bytes=current.used_bytes,
         free_bytes=current.free_bytes,
+        chunk_size_bytes=engine.chunk_size_bytes,
     )
 
 
 @app.head("/internal/v1/objects/{object_id}/{version_id}")
 def head_object(object_id: str, version_id: str) -> Response:
     try:
-        path = engine.object_path(object_id, version_id)
-        if not path.is_file():
-            raise ObjectNotFoundError(
-                f"Object version not found: {object_id}/{version_id}"
-            )
+        size = engine.object_size(object_id, version_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ObjectNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
-    return Response(headers={"Content-Length": str(path.stat().st_size)})
+    return Response(headers={"Content-Length": str(size)})
 
 
 @app.get("/internal/v1/objects/{object_id}/{version_id}")
-def get_object(object_id: str, version_id: str) -> Response:
+def get_object(object_id: str, version_id: str) -> StreamingResponse:
     try:
-        data = engine.read_bytes(object_id, version_id)
+        size = engine.object_size(object_id, version_id)
+        chunks = engine.iter_chunks(object_id, version_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ObjectNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    return Response(content=data, media_type="application/octet-stream")
+
+    return StreamingResponse(
+        chunks,
+        media_type="application/octet-stream",
+        headers={"Content-Length": str(size)},
+    )
 
 
 @app.put(
     "/internal/v1/objects/{object_id}/{version_id}",
     status_code=status.HTTP_201_CREATED,
 )
-def put_object(object_id: str, version_id: str, data: bytes) -> JSONResponse:
+async def put_object(object_id: str, version_id: str, request: Request) -> JSONResponse:
     try:
-        size = engine.write_bytes(object_id, version_id, data)
+        size = await engine.write_stream(object_id, version_id, request.stream())
     except ObjectAlreadyExistsError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except StorageFullError as exc:
@@ -100,6 +108,11 @@ def put_object(object_id: str, version_id: str, data: bytes) -> JSONResponse:
         ) from exc
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except StorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
 
     return JSONResponse(
         content={
