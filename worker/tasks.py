@@ -159,16 +159,22 @@ def check_under_replicated_objects(self: Task) -> dict[str, Any]:
                     select(Version).where(Version.state == VersionState.COMMITTED)
                 ).all()
             )
-            for version in versions:
-                healthy_count = int(
-                    session.scalar(
-                        select(func.count(Replica.replica_id)).where(
-                            Replica.version_id == version.version_id,
+            version_ids = [version.version_id for version in versions]
+            healthy_counts = {}
+            if version_ids:
+                healthy_counts = dict(
+                    session.execute(
+                        select(Replica.version_id, func.count(Replica.replica_id))
+                        .where(
+                            Replica.version_id.in_(version_ids),
                             Replica.status == ReplicaState.HEALTHY,
                         )
-                    )
-                    or 0
+                        .group_by(Replica.version_id)
+                    ).all()
                 )
+
+            for version in versions:
+                healthy_count = int(healthy_counts.get(version.version_id, 0))
                 if healthy_count >= settings.replication_factor:
                     continue
                 try:
