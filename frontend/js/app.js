@@ -23,48 +23,18 @@
     if (file.size > MAX_UPLOAD_BYTES) throw new Error("File exceeds the 100 MB demo upload limit.");
     if (!SAFE_FILENAME.test(file.name)) throw new Error("File name contains invalid control characters.");
   }
-  const ROUTES = ["overview","nodes","objects","repairs","integrity","rebalance","events","policies"];
+  const ROUTES = ["overview","nodes","objects","repairs","integrity","rebalance","events","policies","guide","about"];
   const DATA = {
-    dashboard:{objects:12842},
-    nodes:[
-      {id:"node-01",status:"healthy",capacity:"500 GB",used:"205 GB",percent:41,objects:4287,heartbeat:"2.0s",lifecycle:"HEALTHY"},
-      {id:"node-02",status:"healthy",capacity:"500 GB",used:"340 GB",percent:68,objects:3914,heartbeat:"2.1s",lifecycle:"HEALTHY"},
-      {id:"node-03",status:"healthy",capacity:"500 GB",used:"285 GB",percent:57,objects:3669,heartbeat:"2.0s",lifecycle:"HEALTHY"},
-      {id:"node-04",status:"attention",capacity:"500 GB",used:"405 GB",percent:81,objects:4210,heartbeat:"2.4s",lifecycle:"HEALTHY"}
-    ],
-    objects:[
-      {id:"obj_8fd21a",name:"project-backup.zip",size:"24.8 MB",version:"v7",replicas:"3/3",checksum:"6d1f…9a20",status:"healthy",updated:"2m ago",type:"application/zip",created:"Sep 26, 2026 · 03:44:12",currentVersionId:"v7",replicaRows:[["node-01","HEALTHY","24.8 MB"],["node-02","HEALTHY","24.8 MB"],["node-03","HEALTHY","24.8 MB"]]},
-      {id:"obj_4c11b7",name:"analytics-dataset.parquet",size:"1.2 GB",version:"v3",replicas:"3/3",checksum:"21a9…b641",status:"healthy",updated:"14m ago",type:"application/octet-stream",created:"Sep 26, 2026 · 03:31:07",currentVersionId:"v3",replicaRows:[["node-02","HEALTHY","1.2 GB"],["node-03","HEALTHY","1.2 GB"],["node-04","HEALTHY","1.2 GB"]]},
-      {id:"obj_3da909",name:"sensor-data.json",size:"84.2 MB",version:"v2",replicas:"2/3",checksum:"a57b…c1e9",status:"degraded",updated:"28m ago",type:"application/json",created:"Sep 26, 2026 · 03:14:30",currentVersionId:"v2",replicaRows:[["node-01","HEALTHY","84.2 MB"],["node-02","HEALTHY","84.2 MB"],["node-04","UNAVAILABLE","—"]]},
-      {id:"obj_711ce2",name:"field-recording.mp4",size:"412 MB",version:"v9",replicas:"3/3",checksum:"b44e…8c71",status:"healthy",updated:"1h ago",type:"video/mp4",created:"Sep 26, 2026 · 02:52:13",currentVersionId:"v9",replicaRows:[["node-01","HEALTHY","412 MB"],["node-03","HEALTHY","412 MB"],["node-04","HEALTHY","412 MB"]]},
-      {id:"obj_c92e10",name:"system-report.pdf",size:"18.6 MB",version:"v4",replicas:"3/3",checksum:"1f91…73ae",status:"healthy",updated:"2h ago",type:"application/pdf",created:"Sep 26, 2026 · 02:04:51",currentVersionId:"v4",replicaRows:[["node-01","HEALTHY","18.6 MB"],["node-02","HEALTHY","18.6 MB"],["node-03","HEALTHY","18.6 MB"]]},
-      {id:"obj_aa9120",name:"archive-2026.tar",size:"6.8 GB",version:"v12",replicas:"2/3",checksum:"e21c…10bd",status:"corrupted",updated:"3h ago",type:"application/x-tar",created:"Sep 26, 2026 · 01:26:09",currentVersionId:"v12",replicaRows:[["node-01","HEALTHY","6.8 GB"],["node-02","CORRUPTED","6.8 GB"],["node-03","HEALTHY","6.8 GB"]]}
-    ],
-    repairs:[
-      {id:"repair-203",object:"obj_8fd21a",source:"node-01",target:"node-04",progress:72,status:"RUNNING",eta:"8s",note:"Rebuilding replica after node-04 storage pressure"},
-      {id:"repair-202",object:"obj_aa9120",source:"node-03",target:"node-02",progress:100,status:"COMPLETED",eta:"—",note:"Replaced corrupted replica after checksum mismatch"},
-      {id:"repair-201",object:"obj_31c0e9",source:"node-01",target:"node-03",progress:100,status:"COMPLETED",eta:"—",note:"Recovered missing replica after heartbeat loss"}
-    ],
-    integrity:[
-      {object:"obj_aa9120",replica:"node-02",expected:"e21c…10bd",observed:"b8d3…9ca0",result:"CORRUPTED",checked:"3h ago"},
-      {object:"obj_8fd21a",replica:"node-01",expected:"6d1f…9a20",observed:"6d1f…9a20",result:"VALID",checked:"2m ago"},
-      {object:"obj_4c11b7",replica:"node-03",expected:"21a9…b641",observed:"21a9…b641",result:"VALID",checked:"14m ago"},
-      {object:"obj_711ce2",replica:"node-04",expected:"b44e…8c71",observed:"b44e…8c71",result:"VALID",checked:"1h ago"}
-    ],
-    rebalance:[
-      {job:"rebalance-088",object:"obj_8fd21a",source:"node-04",target:"node-01",progress:64,status:"RUNNING",updated:"1m ago"},
-      {job:"rebalance-087",object:"obj_4c11b7",source:"node-04",target:"node-03",progress:100,status:"SUCCEEDED",updated:"22m ago"}
-    ],
-    events:[
-      {type:"success",icon:"✓",title:"Repair completed",body:"obj_aa9120 restored to three healthy replicas after checksum verification.",relative:"3m ago"},
-      {type:"warning",icon:"!",title:"node-04 crossed high watermark",body:"Storage usage is 81%. Rebalancing is eligible.",relative:"4m ago"},
-      {type:"success",icon:"↻",title:"Integrity scan completed",body:"38,526 replicas checked. One mismatch was isolated.",relative:"8m ago"},
-      {type:"success",icon:"↑",title:"Object committed",body:"obj_8fd21a committed at version v7 with write quorum 2.",relative:"16m ago"},
-      {type:"warning",icon:"◌",title:"Replica became unavailable",body:"node-04 missed the control-plane heartbeat window.",relative:"18m ago"},
-      {type:"failure",icon:"×",title:"Checksum mismatch detected",body:"obj_aa9120 on node-02 failed SHA-256 verification and entered CORRUPTED.",relative:"21m ago"}
-    ],
+    dashboard:{objects:0},
+    nodes:[],
+    objects:[],
+    repairs:[],
+    integrity:[],
+    rebalance:[],
+    events:[],
     liveHealth:null,
-    sync:{status:CONFIG.mode==="api"?"connecting":"demo",at:null,error:null},
+    policies:null,
+    sync:{status:"connecting",at:null,error:null,admin:"unknown"},
     detailLoading:false
   };
 
@@ -128,6 +98,8 @@
       headers.set("Accept","application/json");
       headers.set("Cache-Control","no-cache");
       headers.set("X-Request-ID",requestId);
+      const adminKey=sessionStorage.getItem("vault_admin_key")||"";
+      if(adminKey && path.startsWith("/admin/"))headers.set("X-Admin-Key",adminKey);
       const base=this.baseUrl.replace(/\/$/,"");
       const url=base+(path.startsWith("/")?path:"/"+path);
       let response;
@@ -158,11 +130,22 @@
       const [metadata,versions]=await Promise.all([this.get("/objects/"+encoded+"/metadata"),this.get("/objects/"+encoded+"/versions")]);
       return {metadata,versions:Array.isArray(versions)?versions:[]};
     },
+    async jobs(name){
+      const paths={repair:"/admin/repair",integrity:"/admin/integrity/check",rebalance:"/admin/rebalance"};
+      return this.get(paths[name]);
+    },
     async sync(){
-      if(this.mode!=="api")return;
       stateBusy(true);
-      const results=await Promise.allSettled([this.get("/health"),this.get("/nodes"),this.get("/objects")]);
-      const [health,nodes,objects]=results;
+      const results=await Promise.allSettled([
+        this.get("/health"),
+        this.get("/nodes"),
+        this.get("/objects"),
+        this.get("/policies"),
+        this.jobs("repair"),
+        this.jobs("integrity"),
+        this.jobs("rebalance")
+      ]);
+      const [health,nodes,objects,policies,repairs,integrity,rebalance]=results;
       const errors=[];
       if(health.status==="fulfilled")DATA.liveHealth=health.value;else errors.push("health");
       if(nodes.status==="fulfilled"&&Array.isArray(nodes.value)){
@@ -171,11 +154,17 @@
           const percent=capacity?Math.min(100,Math.round((used/capacity)*100)):0;
           const rawStatus=String(n.status||"UNKNOWN").toUpperCase();
           const healthy=["HEALTHY","READY"].includes(rawStatus);
-          return {id:n.node_id,status:healthy?"healthy":"attention",capacity:formatBytes(capacity),used:formatBytes(used),percent,objects:"—",heartbeat:formatHeartbeat(n.last_heartbeat_at),lifecycle:rawStatus,capacityBytes:capacity,usedBytes:used};
+          return {id:n.node_id,status:healthy?"healthy":"attention",capacity:formatBytes(capacity),used:formatBytes(used),percent,objects:"—",heartbeat:formatHeartbeat(n.last_heartbeat_at),lifecycle:rawStatus,capacityBytes:capacity,usedBytes:used,address:n.address,lastHeartbeat:n.last_heartbeat_at};
         });
       }else errors.push("nodes");
       if(objects.status==="fulfilled"&&Array.isArray(objects.value)){DATA.objects=objects.value.map(normalizeLiveObject);DATA.dashboard.objects=DATA.objects.length;}else errors.push("objects");
-      DATA.sync={status:errors.length?"degraded":"live",at:new Date(),error:errors.length?("Failed: "+errors.join(", ")):null};
+      if(policies.status==="fulfilled")DATA.policies=policies.value;else errors.push("policies");
+      DATA.sync.admin="unknown";
+      if(repairs.status==="fulfilled"&&Array.isArray(repairs.value)){DATA.repairs=repairs.value;DATA.sync.admin="ready";}else if(repairs.status==="rejected")DATA.sync.admin="locked";
+      if(integrity.status==="fulfilled"&&Array.isArray(integrity.value))DATA.integrity=integrity.value;
+      if(rebalance.status==="fulfilled"&&Array.isArray(rebalance.value))DATA.rebalance=rebalance.value;
+      DATA.sync={...DATA.sync,status:errors.length?"degraded":"live",at:new Date(),error:errors.length?("Failed: "+errors.join(", ")):null};
+      buildLiveEvents();
       stateBusy(false);renderAll();
       if(errors.length)throw new Error(DATA.sync.error);
     }
@@ -184,7 +173,7 @@
   function normalizeLiveObject(o){
     const active=String(o.state||"").toUpperCase()==="ACTIVE";
     const name=o.name||"";
-    return {id:name||o.object_id||"unknown",name:name||o.object_id||"unknown",size:"—",version:o.current_version_id?"current":"—",replicas:"—",checksum:"—",status:active?"healthy":"attention",updated:formatTimestamp(o.updated_at),type:"object",created:formatTimestamp(o.created_at),currentVersionId:o.current_version_id||null,replicaRows:[],live:true};
+    return {id:name||o.object_id||"unknown",name:name||o.object_id||"unknown",objectId:o.object_id||"",size:"—",version:"—",replicas:"—",checksum:"—",status:active?"healthy":"attention",updated:formatTimestamp(o.updated_at),type:"object",created:formatTimestamp(o.created_at),currentVersionId:o.current_version_id||null,currentVersion:null,replicaRows:[],live:true};
   }
   function toast(title,message){const t=document.createElement("div");t.className="toast";t.innerHTML="<b>"+escapeHtml(title)+"</b><small>"+escapeHtml(message)+"</small>";$("#toasts").appendChild(t);setTimeout(()=>t.remove(),4200);}
   function stateBusy(flag){document.body.classList.toggle("is-syncing",!!flag);const refresh=$("#refresh");if(refresh)refresh.disabled=!!flag;const main=document.getElementById("main-content");if(main)main.setAttribute("aria-busy",String(!!flag));}
@@ -204,9 +193,9 @@
   }
   function renderEnvironment(){
     const live=CONFIG.mode==="api", ok=live?DATA.sync.status==="live":true;
-    $("#env-label").textContent=live?(ok?"LIVE API":"API "+String(DATA.sync.status||"CONNECTING").toUpperCase()):"DEMO MODE";
-    $("#env-detail").textContent=live?(DATA.sync.at?"Last sync "+formatTimestamp(DATA.sync.at):"Connecting to Part B…"):"Safe local simulation";
-    $("#api-badge").textContent=live?"LIVE API":"MOCK MODE";
+    $("#env-label").textContent=live?(ok?"LIVE API":"API "+String(DATA.sync.status||"CONNECTING").toUpperCase()):"API REQUIRED";
+    $("#env-detail").textContent=live?(DATA.sync.at?(DATA.sync.admin==="locked"?"Connected · admin key required for controls":"Connected · Part B live"):"Connecting to Part B…"):"Live Part B required";
+    $("#api-badge").textContent=live?(DATA.sync.admin==="locked"?"LIVE API · ADMIN LOCKED":"LIVE API"):"API";
     $("#api-badge").className="chip "+(live?"green":"amber");
     $("#api-base-url").textContent=CONFIG.baseUrl;
     $("#topology-live-label").textContent=live?"live telemetry":"demo telemetry";
@@ -219,23 +208,67 @@
     const nodes=DATA.nodes,healthy=nodes.filter(n=>n.status==="healthy").length,attention=nodes.length-healthy;
     const totalCapacity=nodes.reduce((s,n)=>s+(n.capacityBytes||bytesFromDisplay(n.capacity)),0);
     const totalUsed=nodes.reduce((s,n)=>s+(n.usedBytes||bytesFromDisplay(n.used)),0);
-    const usedPct=totalCapacity?Math.round(totalUsed/totalCapacity*100):72,headroom=Math.max(0,100-usedPct),liveBad=CONFIG.mode==="api"&&DATA.liveHealth?.status==="degraded";
-    const score=Math.max(0,Math.min(100,CONFIG.mode==="mock"?98.7:Math.round((healthy/Math.max(nodes.length,1))*1000)/10-(liveBad?4:0)));
+    const usedPct=totalCapacity?Math.round(totalUsed/totalCapacity*100):0,headroom=Math.max(0,100-usedPct),liveBad=DATA.liveHealth?.status==="degraded";
+    const score=nodes.length?Math.max(0,Math.min(100,Math.round((healthy/nodes.length)*100)-(liveBad?4:0))):0;
     $("#resilience-score").innerHTML=score.toFixed(1)+"<small>/100</small>";$("#score-meter").style.width=score+"%";$("#score-meter").parentElement.setAttribute("aria-valuenow",String(score));$("#score-delta").textContent=attention?("−"+Math.min(3,attention*0.9).toFixed(1)+"%"):"+1.8%";
-    $("#storage-used").innerHTML=(totalUsed?formatBytes(totalUsed):"1.44 TB").replace(" ","<small> ")+"</small>";$("#storage-chip").textContent=usedPct+"%";$("#storage-meter").style.width=Math.min(100,usedPct)+"%";$("#storage-meter").parentElement.setAttribute("aria-valuenow",String(Math.min(100,usedPct)));$("#storage-caption").textContent=totalCapacity?formatBytes(totalCapacity)+" total logical capacity":"2.0 TB logical capacity";
-    $("#signal-headroom").textContent=headroom+"% remaining";$("#healthy-replicas").innerHTML=(attention?Math.max(0,100-attention*4):99.4).toFixed(1)+"<small>%</small>";
+    const usedLabel=totalUsed?formatBytes(totalUsed):"—";$("#storage-used").innerHTML=usedLabel.includes(" ")?usedLabel.replace(" ","<small> ")+"</small>":usedLabel;$("#storage-chip").textContent=usedPct+"%";$("#storage-meter").style.width=Math.min(100,usedPct)+"%";$("#storage-meter").parentElement.setAttribute("aria-valuenow",String(Math.min(100,usedPct)));$("#storage-caption").textContent=totalCapacity?formatBytes(totalCapacity)+" total logical capacity":"2.0 TB logical capacity";
+    $("#signal-headroom").textContent=nodes.length?headroom+"% remaining":"—";$("#healthy-replicas").innerHTML=nodes.length?Math.max(0,100-(attention/Math.max(nodes.length,1)*100)).toFixed(1)+"<small>%</small>":"—";
     $("#nodes-count").textContent=nodes.length;$("#nodes-summary").textContent=healthy+" healthy · "+attention+" attention";
-    const free=totalCapacity-totalUsed;$("#available-capacity").innerHTML=(free?formatBytes(free):"560 GB").replace(" ","<small> ")+"</small>";$("#capacity-summary").textContent=headroom+"% cluster headroom";
-    $("#write-acceptance").innerHTML=(attention?Math.round((healthy/Math.max(nodes.length,1))*100):100)+"<small>%</small>";$("#write-summary").textContent=attention?"Some nodes need attention":"All nodes accepting writes";
-    const heartbeatSeconds=nodes.map(n=>parseFloat(String(n.heartbeat).replace("s",""))).filter(Number.isFinite);const median=heartbeatSeconds.length?heartbeatSeconds.sort((a,b)=>a-b)[Math.floor(heartbeatSeconds.length/2)]:2.1;$("#median-heartbeat").innerHTML=median.toFixed(1)+"<small>s</small>";
+    const free=totalCapacity-totalUsed;const freeLabel=free>0?formatBytes(free):"—";$("#available-capacity").innerHTML=freeLabel.includes(" ")?freeLabel.replace(" ","<small> ")+"</small>":freeLabel;$("#capacity-summary").textContent=headroom+"% cluster headroom";
+    $("#write-acceptance").innerHTML=(nodes.length?(healthy/Math.max(nodes.length,1)*100):0).toFixed(0)+"<small>%</small>";$("#write-summary").textContent=nodes.length?(attention?"Some nodes need attention":"All nodes accepting writes"):"Waiting for live node telemetry";
+    const heartbeatSeconds=nodes.map(n=>parseFloat(String(n.heartbeat).replace("s",""))).filter(Number.isFinite);const median=heartbeatSeconds.length?heartbeatSeconds.sort((a,b)=>a-b)[Math.floor(heartbeatSeconds.length/2)]:0;$("#median-heartbeat").innerHTML=median.toFixed(1)+"<small>s</small>";
     $("#health-ring-score").textContent=score.toFixed(1);$("#health-ring").setAttribute("aria-valuenow",String(score));$("#health-ring").style.background="conic-gradient(var(--green) 0 "+score+"%,#193042 "+score+"% 100%)";
-    $("#cluster-badge").textContent=attention||liveBad?"ATTENTION":"HEALTHY";$("#cluster-badge").className="badge "+(attention||liveBad?"amber":"green");$("#cluster-summary").textContent=attention||liveBad?"Cluster requires attention":"All core services operational";
-    const attentionNode=nodes.find(n=>n.status==="attention");$("#cluster-copy").textContent=attentionNode?(attentionNode.id+" needs attention. Reads remain available."): "No current loss of read availability.";
-    const hot=nodes.find(n=>n.percent>=80);$("#ops-banner").classList.toggle("good-news",!hot);$("#ops-banner-title").textContent=hot?hot.id+" is above the 80% watermark":"Cluster operating inside the configured watermark";$("#ops-banner-copy").textContent=hot?"Rebalance is eligible before capacity pressure becomes a failure mode.":"No capacity watermark is currently breached.";
+    $("#cluster-badge").textContent=!nodes.length?"WAITING":(attention||liveBad?"ATTENTION":"HEALTHY");$("#cluster-badge").className="badge "+(!nodes.length?"":(attention||liveBad?"amber":"green"));$("#cluster-summary").textContent=!nodes.length?"Waiting for Part B telemetry":(attention||liveBad?"Cluster requires attention":"All reported services operational");
+    const attentionNode=nodes.find(n=>n.status==="attention");$("#cluster-copy").textContent=attentionNode?(attentionNode.id+" needs attention. Reads remain available."):(nodes.length?"No current node requires attention.":"Waiting for live node telemetry.");
+    const hot=nodes.find(n=>n.percent>=80);$("#ops-banner").classList.toggle("good-news",!hot);$("#ops-banner-title").textContent=hot?hot.id+" is above the configured 80% watermark":(nodes.length?"Cluster is inside the configured capacity watermark":"Waiting for live capacity telemetry");$("#ops-banner-copy").textContent=hot?"Review Rebalance before capacity pressure becomes a failure mode.":(nodes.length?"No node is currently above 80% used.":"No capacity data is available yet.");
   }
   function updateTopology(){
     DATA.nodes.slice(0,4).forEach(n=>{const el=$("#topology-"+n.id);if(!el)return;const dot=el.querySelector(".dot"),name=el.querySelector("b"),meta=el.querySelector("small");dot.className="dot "+(n.status==="healthy"?"good":"warn");name.textContent=n.id;meta.textContent=n.percent+"% used";el.classList.toggle("attention-node",n.status!=="healthy");});
   }
+  function objectByVersion(versionId){return DATA.objects.find(o=>o.currentVersionId===versionId)||null;}
+  function objectLabelForVersion(versionId){const o=objectByVersion(versionId);return o?.name||versionId||"Unknown object";}
+  function buildLiveEvents(){
+    const rows=[];
+    DATA.nodes.filter(n=>n.status!=="healthy").forEach(n=>rows.push({type:"warning",icon:"!",title:n.id+" needs attention",body:(n.lifecycle||"NODE")+" · "+n.percent+"% capacity used.",relative:n.lastHeartbeat?formatTimestamp(n.lastHeartbeat):"now"}));
+    DATA.repairs.slice(0,8).forEach(r=>rows.push({type:r.status==="FAILED"?"failure":(["COMPLETED","SUCCEEDED"].includes(String(r.status||"").toUpperCase())?"success":"warning"),icon:"↻",title:"Repair "+String(r.status||"").toLowerCase(),body:objectLabelForVersion(r.version_id)+" · "+(r.source_node_id||"source")+" → "+(r.target_node_id||"target"),relative:formatTimestamp(r.updated_at||r.created_at)}));
+    DATA.integrity.slice(0,8).forEach(r=>rows.push({type:r.status==="FAILED"?"failure":"success",icon:"✓",title:"Integrity check "+String(r.status||"").toLowerCase(),body:(r.node_id||"cluster")+" · checked "+(r.checked_count??0)+" replicas · corrupted "+(r.corrupted_count??0),relative:formatTimestamp(r.updated_at||r.created_at)}));
+    DATA.rebalance.slice(0,8).forEach(r=>rows.push({type:r.status==="FAILED"?"failure":"warning",icon:"⇄",title:"Rebalance "+String(r.status||"").toLowerCase(),body:(r.source_node_id||"source")+" → "+(r.target_node_id||"target"),relative:formatTimestamp(r.updated_at||r.created_at)}));
+    if(!rows.length&&DATA.sync.status==="live")rows.push({type:"success",icon:"✓",title:"Control plane synchronized",body:"No repair, integrity, or rebalance jobs are currently reported by Part B.",relative:formatTimestamp(DATA.sync.at)});
+    DATA.events=rows.slice(0,30);
+  }
+  function renderServiceStatus(){
+    const el=$("#service-status-list");if(!el)return;
+    const apiOk=DATA.sync.status==="live";
+    const rows=[
+      ["Control plane",apiOk?"Connected":"Unavailable",apiOk?"good":"warn"],
+      ["Storage nodes",DATA.nodes.length?DATA.nodes.filter(n=>n.status==="healthy").length+" / "+DATA.nodes.length+" healthy":"No telemetry",DATA.nodes.length&&DATA.nodes.every(n=>n.status==="healthy")?"good":"warn"],
+      ["Repair jobs",DATA.repairs.length+" recorded",DATA.sync.admin==="ready"?"good":"warn"],
+      ["Integrity jobs",DATA.integrity.length+" recorded",DATA.sync.admin==="ready"?"good":"warn"],
+      ["Rebalance jobs",DATA.rebalance.length+" recorded",DATA.sync.admin==="ready"?"good":"warn"]
+    ];
+    el.innerHTML=rows.map(r=>"<div><span>"+escapeHtml(r[0])+"</span><b><i class='service "+r[2]+"'></i>"+escapeHtml(r[1])+"</b></div>").join("");
+  }
+  function renderWatchlist(){
+    const el=$("#watchlist");if(!el)return;
+    const items=[];
+    DATA.nodes.filter(n=>n.percent>=80||n.status!=="healthy").slice(0,3).forEach(n=>items.push("<div class='watch warning'><b>"+escapeHtml(n.id)+" needs attention</b><span>"+escapeHtml(n.lifecycle)+" · "+n.percent+"% used</span><button data-view='rebalance'>Review</button></div>"));
+    DATA.repairs.filter(r=>!["SUCCEEDED","COMPLETED"].includes(String(r.status||"").toUpperCase())).slice(0,2).forEach(r=>items.push("<div class='watch'><b>Repair "+escapeHtml(r.status||"pending")+"</b><span>"+escapeHtml(objectLabelForVersion(r.version_id))+"</span><button data-view='repairs'>Open</button></div>"));
+    if(!items.length)items.push("<div class='empty' style='padding:16px'><b>✓</b><h3>Nothing needs attention</h3><p>Part B reports no current node or repair warning.</p></div>");
+    el.innerHTML=items.join("");
+  }
+  function renderPolicy(){
+    const p=DATA.policies;
+    const keyLoaded=!!sessionStorage.getItem("vault_admin_key");
+    const keyStatus=$("#admin-key-status");if(keyStatus){keyStatus.textContent=keyLoaded?"Key loaded for this session":"Key not loaded";keyStatus.className=keyLoaded?"green-text":"";}
+    const keyInput=$("#admin-key-input");if(keyInput&&document.activeElement!==keyInput)keyInput.value="";
+    if(!p)return;
+    const set=(id,v)=>{const e=$("#"+id);if(e)e.value=v;};
+    set("policy-rf",p.replication_factor);set("policy-wq",p.write_quorum);set("policy-rq",p.read_quorum);set("policy-chunk",formatBytes(p.chunk_size_bytes));
+    set("policy-heartbeat",p.heartbeat_interval_seconds+" s");set("policy-suspect",p.suspect_after_seconds+" s");set("policy-unavailable",p.unavailable_after_seconds+" s");set("policy-parallel",p.max_concurrent_jobs);
+    $("#signal-policy").textContent="RF "+p.replication_factor+" · W"+p.write_quorum+" · R"+p.read_quorum;
+    $("#signal-heal").textContent=DATA.repairs.length+" repair jobs";
+  }
+
   function renderNodes(){
     const q=($("#node-search")?.value||"").toLowerCase();
     const rows=DATA.nodes.filter(n=>(state.nodeFilter==="all"||(state.nodeFilter==="healthy"&&n.status==="healthy")||(state.nodeFilter==="attention"&&n.status==="attention"))&&(!q||(n.id+" "+n.lifecycle).toLowerCase().includes(q)));
@@ -251,16 +284,23 @@
   }
   function renderDetail(o){
     const liveVersion=o.currentVersion||{};
-    const replicaCards=o.replicaRows?.length?o.replicaRows.map(r=>"<div class='replica'><b>"+escapeHtml(r[0])+"</b><small>"+escapeHtml(r[2])+"</small>"+status(r[1]==="HEALTHY"?"healthy":r[1]==="CORRUPTED"?"corrupted":"attention")+"</div>").join(""):"<div class='replica'><b>Healthy replicas</b><small>Public API count</small><span class='detail-number'>"+escapeHtml(o.replicas)+"</span></div><div class='replica'><b>Version state</b><small>Current committed version</small>"+status(o.status)+"</div><div class='replica'><b>Placement</b><small>Not exposed by public catalog contract</small><span class='status green'><i></i>API-safe</span></div>";
-    $("#object-detail").innerHTML="<div class='detail-grid'><div><div class='detail-hero'><p class='eyebrow'>OBJECT DETAIL</p><h2>"+escapeHtml(o.name||o.id)+"</h2><p class='object-id detail-id'>Object ID: "+escapeHtml(o.id)+"</p><div class='detail-meta'><span>"+escapeHtml(o.size)+"</span><span>Version "+escapeHtml(o.version)+"</span><span>"+status(o.status)+"</span><span>SHA-256 "+escapeHtml(o.checksum)+"</span></div></div><div style='padding-top:12px'><p class='eyebrow'>REPLICA / VERSION SIGNAL</p><div class='replicas'>"+replicaCards+"</div></div></div><div><p class='eyebrow'>METADATA</p><div class='service-list'><div><span>Content type</span><b>"+escapeHtml(o.type)+"</b></div><div><span>Created</span><b>"+escapeHtml(o.created)+"</b></div><div><span>Version ID</span><b>"+escapeHtml(o.currentVersionId||"—")+"</b></div><div><span>Version number</span><b>"+escapeHtml(liveVersion.version_number?("v"+liveVersion.version_number):o.version)+"</b></div><div><span>Healthy replicas</span><b>"+escapeHtml(o.replicas)+"</b></div><div><span>Placement policy</span><b>RF 3 · W2 · R1</b></div></div></div></div>";
+    const replicaCards=o.replicaRows?.length?o.replicaRows.map(r=>"<div class='replica'><b>"+escapeHtml(r[0])+"</b><small>"+escapeHtml(r[2]||"—")+"</small>"+status(r[1]==="HEALTHY"?"healthy":r[1]==="CORRUPTED"?"corrupted":"attention")+"</div>").join(""):"<div class='empty' style='grid-column:1/-1;padding:16px'><b>i</b><h3>Replica placement not returned</h3><p>Part B did not return replica details for this version.</p></div>";
+    $("#object-detail").innerHTML="<div class='detail-grid'><div><div class='detail-hero'><p class='eyebrow'>OBJECT DETAIL</p><h2>"+escapeHtml(o.name||o.id)+"</h2><p class='object-id detail-id'>Object ID: "+escapeHtml(o.objectId||o.id)+"</p><div class='detail-meta'><span>"+escapeHtml(o.size)+"</span><span>Version "+escapeHtml(o.version)+"</span><span>"+status(o.status)+"</span><span>SHA-256 "+escapeHtml(o.checksum)+"</span></div></div><div style='padding-top:12px'><p class='eyebrow'>REPLICA PLACEMENT</p><div class='replicas'>"+replicaCards+"</div></div></div><div><p class='eyebrow'>METADATA</p><div class='service-list'><div><span>Content type</span><b>"+escapeHtml(o.type)+"</b></div><div><span>Created</span><b>"+escapeHtml(o.created)+"</b></div><div><span>Version ID</span><b>"+escapeHtml(o.currentVersionId||"—")+"</b></div><div><span>Version number</span><b>"+escapeHtml(liveVersion.version_number?("v"+liveVersion.version_number):o.version)+"</b></div><div><span>Healthy replicas</span><b>"+escapeHtml(o.replicas)+"</b></div><div><span>Placement policy</span><b>"+escapeHtml(DATA.policies?("RF "+DATA.policies.replication_factor+" · W"+DATA.policies.write_quorum+" · R"+DATA.policies.read_quorum):"—")+"</b></div></div></div></div>";
   }
   function objectLabel(id){const o=DATA.objects.find(item=>item.id===id);return o?.name||id;}
   function renderRepairs(){$("#repair-active").textContent=DATA.repairs.filter(r=>r.status==="RUNNING").length;$("#repair-grid").innerHTML=DATA.repairs.map(r=>"<article class='repair-card'><div class='repair-top'><div><p class='eyebrow'>"+escapeHtml(r.id)+"</p><h3>"+escapeHtml(objectLabel(r.object))+"</h3><small class='object-id'>"+escapeHtml(r.object)+"</small></div>"+status(r.status==="RUNNING"?"running":"success")+"</div><p>"+escapeHtml(r.note)+"</p><div class='route'><b>"+escapeHtml(r.source)+"</b><span>→ verified stream →</span><b>"+escapeHtml(r.target)+"</b></div><div class='progress-label'><span>Recovery progress</span><b>"+r.progress+"%</b></div><div class='meter' role='progressbar' aria-label='Recovery progress for "+escapeHtml(r.id)+"' aria-valuemin='0' aria-valuemax='100' aria-valuenow='"+r.progress+"'><i style='width:"+r.progress+"%'></i></div><footer><span>"+(r.status==="RUNNING"?"ETA "+escapeHtml(r.eta):"Durability floor restored")+"</span><span>checksum verified</span></footer></article>").join("");}
-  function renderIntegrity(){$("#integrity-body").innerHTML=DATA.integrity.map(r=>"<tr><td class='objid'><b>"+escapeHtml(objectLabel(r.object))+"</b><small class='object-id'>"+escapeHtml(r.object)+"</small></td><td>"+escapeHtml(r.replica)+"</td><td class='hash'>"+escapeHtml(r.expected)+"</td><td class='hash'>"+escapeHtml(r.observed)+"</td><td>"+(r.result==="VALID"?status("healthy"):status("corrupted"))+"</td><td>"+escapeHtml(r.checked)+"</td></tr>").join("");}
+  function renderIntegrity(){
+    const checked=DATA.integrity.reduce((sum,r)=>sum+Number(r.checked_count||0),0),corrupted=DATA.integrity.reduce((sum,r)=>sum+Number(r.corrupted_count||0),0);
+    $("#integrity-checked").textContent=checked.toLocaleString();
+    $("#integrity-corrupted").textContent=corrupted.toLocaleString();
+    const latest=DATA.integrity[0];$("#integrity-latest").textContent=latest?"Latest job "+(latest.integrity_id||""):"No integrity job reported yet";
+    $("#integrity-copy").textContent=latest?((latest.status||"").toUpperCase()+" · "+(latest.node_id||"cluster")+" · updated "+formatTimestamp(latest.updated_at||latest.created_at)):"Run a check to create a durable verification job.";
+    $("#integrity-meter").style.width=latest?(["SUCCEEDED","COMPLETED"].includes(String(latest.status||"").toUpperCase())?"100%":"25%"):"0%";
+    $("#integrity-body").innerHTML=DATA.integrity.length?DATA.integrity.map(r=>"<tr><td class='objid'><b>"+escapeHtml(objectLabel(r.object))+"</b><small class='object-id'>"+escapeHtml(r.object)+"</small></td><td>"+escapeHtml(r.replica)+"</td><td class='hash'>"+escapeHtml(r.expected)+"</td><td class='hash'>"+escapeHtml(r.observed)+"</td><td>"+(r.result==="VALID"?status("healthy"):status("corrupted"))+"</td><td>"+escapeHtml(r.checked)+"</td></tr>").join("");}
   function renderRebalance(){$("#capacity-bars").innerHTML=DATA.nodes.map(n=>"<div class='capacity-row'><b>"+escapeHtml(n.id)+"</b><div class='capacity "+(n.percent>=80?"high":"")+"' role='progressbar' aria-label='Storage usage for "+escapeHtml(n.id)+"' aria-valuemin='0' aria-valuemax='100' aria-valuenow='"+n.percent+"'><i style='width:"+n.percent+"%'></i></div><span class='capacity-value'>"+n.percent+"%</span></div>").join("");$("#rebalance-body").innerHTML=DATA.rebalance.map(r=>"<tr><td class='objid'>"+escapeHtml(r.job)+"</td><td><b>"+escapeHtml(objectLabel(r.object))+"</b><small class='object-id'>"+escapeHtml(r.object)+"</small></td><td>"+escapeHtml(r.source)+"</td><td>"+escapeHtml(r.target)+"</td><td style='min-width:120px'><div class='meter'><i style='width:"+r.progress+"%'></i></div><small>"+r.progress+"%</small></td><td>"+status(r.status==="RUNNING"?"running":"success")+"</td><td>"+escapeHtml(r.updated)+"</td></tr>").join("");}
   function renderEvents(){const rows=DATA.events.filter(e=>state.eventFilter==="all"||e.type===state.eventFilter);$("#event-feed").innerHTML=rows.length?rows.map(e=>"<article class='event'><span class='event-icon "+e.type+"'>"+escapeHtml(e.icon)+"</span><div><b>"+escapeHtml(e.title)+"</b><p>"+escapeHtml(e.body)+"</p></div><time>"+escapeHtml(e.relative)+"</time></article>").join(""):"<div class='empty'><b>≋</b><h3>No events in this filter</h3><p>The event feed is clear.</p></div>";}
   function renderTimeline(){$("#timeline").innerHTML=DATA.events.slice(0,4).map(e=>"<div class='event' style='grid-template-columns:8px 1fr auto;background:transparent;border:0;border-bottom:1px solid rgba(167,192,216,.07);border-radius:0;padding:10px 0'><span class='dot "+(e.type==="success"?"good":e.type==="warning"?"warn":"")+"' style='margin-top:4px'></span><div><b>"+escapeHtml(e.title)+"</b><p>"+escapeHtml(e.body)+"</p></div><time>"+escapeHtml(e.relative)+"</time></div>").join("");}
-  function renderAll(){renderEnvironment();renderSummary();updateTopology();renderCurrentView();renderTimeline();$("#objects-kpi").textContent=DATA.dashboard.objects.toLocaleString();}
+  function renderAll(){renderEnvironment();renderSummary();updateTopology();renderCurrentView();renderTimeline();renderServiceStatus();renderWatchlist();renderPolicy();$("#objects-kpi").textContent=DATA.dashboard.objects.toLocaleString();}
   function renderCurrentView(){
     if(state.view==="nodes")renderNodes();
     else if(state.view==="objects")renderObjects();
@@ -327,7 +367,7 @@
     try{
       const o=DATA.objects.find(item=>item.id===id);if(!o)throw new Error("Object not found in the current catalog.");
       const detail=await API.objectDetails(id),metadata=detail.metadata||{},versions=detail.versions||[],current=versions.find(v=>v.version_id===metadata.current_version_id)||versions[0]||{},replicas=Number(current.healthy_replicas);
-      o.currentVersionId=metadata.current_version_id||current.version_id||o.currentVersionId;o.currentVersion=current;o.version=current.version_number?"v"+current.version_number:(o.currentVersionId||"current");o.size=Number.isFinite(Number(current.size_bytes))?formatBytes(Number(current.size_bytes)):"—";o.checksum=current.checksum||"—";o.replicas=Number.isFinite(replicas)?replicas+"/3":"—";o.status=String(current.state||metadata.state||"ACTIVE").toUpperCase()==="CORRUPTED"?"corrupted":(Number.isFinite(replicas)&&replicas<3?"degraded":"healthy");o.type=metadata.content_type||metadata.type||o.type||"object";o.created=formatTimestamp(metadata.created_at||o.created);o.updated=formatTimestamp(metadata.updated_at||o.updated);o.replicaRows=[];
+      o.objectId=metadata.object_id||o.objectId||o.id;o.currentVersionId=metadata.current_version_id||current.version_id||o.currentVersionId;o.currentVersion=current;o.version=current.version_number?("v"+current.version_number):(o.currentVersionId||"—");o.size=Number.isFinite(Number(current.size_bytes))?formatBytes(Number(current.size_bytes)):"—";o.checksum=current.checksum||"—";o.replicas=Number.isFinite(replicas)?replicas+"/"+(DATA.policies?.replication_factor||3):"—";o.status=String(current.state||metadata.state||"ACTIVE").toUpperCase()==="CORRUPTED"?"corrupted":(Number.isFinite(replicas)&&DATA.policies&&replicas<DATA.policies.replication_factor?"degraded":"healthy");o.type=metadata.content_type||metadata.type||o.type||"object";o.created=formatTimestamp(metadata.created_at||o.created);o.updated=formatTimestamp(metadata.updated_at||o.updated);o.replicaRows=(current.replicas||[]).map(r=>[r.node_id,r.status,r.size_bytes?formatBytes(Number(r.size_bytes)):"—"]);
     }catch(error){toast("Object details unavailable",error.message);}finally{state.detailLoading=false;renderAll();}
   }
   let activeOverlay=null;
@@ -391,7 +431,7 @@
     DATA.events.unshift({type:"success",icon:"⚡",title:"Resilience drill completed",body:"A simulated node failure was detected, isolated, repaired and checksum-verified without data loss.",relative:"just now"});state.drillRunning=false;$("#drill-run").disabled=false;$("#drill-run").textContent="Run again";toast("Resilience drill complete","Zero-data-loss recovery path demonstrated locally.");renderAll();
   }
   const commands=[
-    {label:"Go to Overview",keys:"1",run:()=>showView("overview")},{label:"Go to Nodes",keys:"2",run:()=>showView("nodes")},{label:"Go to Objects",keys:"3",run:()=>showView("objects")},{label:"Go to Repairs",keys:"4",run:()=>showView("repairs")},{label:"Go to Integrity",keys:"5",run:()=>showView("integrity")},{label:"Go to Rebalance",keys:"6",run:()=>showView("rebalance")},{label:"Open Events",keys:"7",run:()=>showView("events")},{label:"Open Policies",keys:"8",run:()=>showView("policies")},{label:"Upload object",keys:"U",run:openModal},{label:"Run integrity scan",keys:"I",run:()=>runAction("integrity")},{label:"Run resilience drill",keys:"D",run:openDrill},{label:"Refresh telemetry",keys:"R",run:async()=>{try{await API.sync();renderAll();toast("Refreshed",CONFIG.mode==="api"?"Live Vault telemetry synchronized.":"Demo telemetry refreshed.");}catch(e){toast("Refresh failed",e.message);}}}
+    {label:"Go to Overview",keys:"1",run:()=>showView("overview")},{label:"Go to Nodes",keys:"2",run:()=>showView("nodes")},{label:"Go to Objects",keys:"3",run:()=>showView("objects")},{label:"Go to Repairs",keys:"4",run:()=>showView("repairs")},{label:"Go to Integrity",keys:"5",run:()=>showView("integrity")},{label:"Go to Rebalance",keys:"6",run:()=>showView("rebalance")},{label:"Open Activity",keys:"7",run:()=>showView("events")},{label:"Open Settings",keys:"8",run:()=>showView("policies")},{label:"Open User Guide",keys:"9",run:()=>showView("guide")},{label:"Open About",keys:"0",run:()=>showView("about")},{label:"Upload object",keys:"U",run:openModal},{label:"Run integrity scan",keys:"I",run:()=>runAction("integrity")},{label:"Refresh telemetry",keys:"R",run:async()=>{try{await API.sync();renderAll();toast("Refreshed","Live Part B telemetry synchronized.");}catch(e){toast("Refresh failed",e.message);}}}
   ];
   function renderCommands(){const q=($("#command-input")?.value||"").toLowerCase(),list=commands.filter(c=>c.label.toLowerCase().includes(q));state.commandIndex=Math.min(state.commandIndex,Math.max(0,list.length-1));$("#command-list").innerHTML=list.map((c,i)=>"<button class='command-item "+(i===state.commandIndex?"active":"")+"' data-command-label='"+escapeHtml(c.label)+"'><span>"+escapeHtml(c.label)+"</span><kbd>"+escapeHtml(c.keys)+"</kbd></button>").join("")||"<div class='empty command-empty'><b>⌕</b><h3>No command found</h3><p>Try “upload”, “repair”, or a view name.</p></div>";}
   function openCommand(){state.commandIndex=0;renderCommands();openOverlay("command-modal","#command-input");}
@@ -402,7 +442,7 @@
     const action=e.target.closest("[data-action]");
     if(action){
       const a=action.dataset.action;
-      if(a==="upload")openModal();else if(a==="close-modal")closeModal();else if(a==="upload-file")await uploadFile();else if(a==="integrity")await runAction("integrity");else if(a==="repair")await runAction("repair");else if(a==="rebalance")await runAction("rebalance");else if(a==="refresh"){try{await API.sync();renderAll();toast("Refreshed",CONFIG.mode==="api"?"Live Vault telemetry synchronized.":"Demo telemetry refreshed.");}catch(error){toast("Refresh failed",error.message);}}else if(a==="clear-events"){if(CONFIG.mode==="api")toast("Read-only feed","Live event history comes from Part B and is not deleted by the frontend.");else{DATA.events=[];renderAll();toast("Demo alerts cleared","Local event history was cleared.");}}else if(a==="drill")openDrill();else if(a==="close-drill")closeDrill();else if(a==="run-drill")await runDrill();
+      if(a==="upload")openModal();else if(a==="close-modal")closeModal();else if(a==="upload-file")await uploadFile();else if(a==="integrity")await runAction("integrity");else if(a==="repair")await runAction("repair");else if(a==="rebalance")await runAction("rebalance");else if(a==="refresh"){try{await API.sync();renderAll();toast("Refreshed",CONFIG.mode==="api"?"Live Vault telemetry synchronized.":"Demo telemetry refreshed.");}catch(error){toast("Refresh failed",error.message);}}else if(a==="save-admin-key"){const input=$("#admin-key-input"),key=input?.value.trim();if(!key){toast("Admin key not saved","Enter the VAULT_ADMIN_API_KEY supplied for this environment.");return;}sessionStorage.setItem("vault_admin_key",key);input.value="";toast("Admin access ready","Key stored only in this browser session.");try{await API.sync();}catch(error){toast("Telemetry refresh failed",error.message);}}
     }
     const obj=e.target.closest("[data-object]");if(obj){await selectObject(obj.dataset.object);return;}
     const node=e.target.closest("[data-node]");
@@ -428,11 +468,11 @@
   document.addEventListener("keydown",e=>{
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openCommand();return;}
     if(e.key==="Tab"&&activeOverlay){trapOverlayFocus(e);return;}
-    if(e.key==="Escape"){if(activeOverlay){e.preventDefault();closeOverlay(activeOverlay.id);}else{closeModal();closeDrill();closeCommand();}}
+    if(e.key==="Escape"){if(activeOverlay){e.preventDefault();closeOverlay(activeOverlay.id);}else{closeModal();closeCommand();}}
     const tag=(e.target.tagName||"").toLowerCase();
     if(!["input","textarea","select"].includes(tag)){
       const key=e.key.toLowerCase();
-      const map={u:openModal,d:openDrill,r:()=>API.sync().then(()=>{renderAll();toast("Refreshed","Telemetry synchronized.");}).catch(err=>toast("Refresh failed",err.message)),i:()=>runAction("integrity")};
+      const map={u:openModal,r:()=>API.sync().then(()=>{renderAll();toast("Refreshed","Live Part B telemetry synchronized.");}).catch(err=>toast("Refresh failed",err.message)),i:()=>runAction("integrity")};
       if(map[key]&&!((e.ctrlKey||e.metaKey)))map[key]();
     }
   });
