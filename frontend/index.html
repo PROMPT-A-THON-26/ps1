@@ -74,13 +74,13 @@
           <div><span class="signal amber">◒</span><div><small>HEADROOM</small><b id="signal-headroom">Loading…</b></div></div>
           <div><span class="signal violet">3×</span><div><small>POLICY</small><b id="signal-policy">Loading policy…</b></div></div>
         </section>
-        <div class="ops-banner" id="ops-banner"><div class="ops-banner-icon">!</div><div><small>OPERATIONAL SIGNAL</small><b id="ops-banner-title">node-04 is above the 80% watermark</b><span id="ops-banner-copy">Rebalance is eligible before capacity pressure becomes a failure mode.</span></div><button class="link" data-view="rebalance">Review</button></div>
+        <div class="ops-banner" id="ops-banner"><div class="ops-banner-icon">!</div><div><small>STORAGE SIGNAL</small><b id="ops-banner-title">Waiting for storage telemetry</b><span id="ops-banner-copy">The highest-pressure node will appear after Part B reports capacity.</span></div><button class="link" data-view="rebalance">Review</button></div>
 
         <div class="grid kpis">
           <article class="metric"><div class="metric-head"><span>Healthy nodes</span><b class="up" id="score-delta">LIVE</b></div><strong id="resilience-score">—<small>/—</small></strong><div class="meter" role="progressbar" aria-label="Healthy nodes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="score-meter" style="width:0%"></i></div><p>Current Part B node health</p></article>
           <article class="metric"><div class="metric-head"><span>Objects</span><b class="chip">LIVE</b></div><strong id="objects-kpi">0</strong><div class="spark"></div><p>Current object catalog</p></article>
           <article class="metric"><div class="metric-head"><span>Storage used</span><b class="chip amber" id="storage-chip">—</b></div><strong id="storage-used">—</strong><div class="meter amber-meter" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="storage-meter" style="width:0%"></i></div><p id="storage-caption">Waiting for live capacity telemetry</p></article>
-          <article class="metric"><div class="metric-head"><span>Healthy replicas</span><b class="chip green" id="replica-chip">LIVE</b></div><strong id="healthy-replicas">—</strong><div class="replica-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>Protected objects stay at RF 3</p></article>
+          <article class="metric"><div class="metric-head"><span>Healthy replicas</span><b class="chip green" id="replica-chip">LIVE</b></div><strong id="healthy-replicas">—</strong><div class="replica-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p id="replica-summary">Waiting for replica health</p></article>
         </div>
 
         <div class="grid two">
@@ -120,7 +120,7 @@
 
       <section class="view" id="view-nodes">
         <div class="page-head"><div><p class="eyebrow">DATA PLANE</p><h1>Storage nodes</h1><p>Capacity, lifecycle and heartbeat state across the cluster.</p></div><button class="btn primary" data-action="refresh">Refresh telemetry</button></div>
-        <div class="grid kpis compact"><article class="metric"><span>Nodes</span><strong id="nodes-count">4</strong><p id="nodes-summary">3 healthy · 1 needs rebalance</p></article><article class="metric"><span>Available capacity</span><strong id="available-capacity">560<small> GB</small></strong><p id="capacity-summary">28% cluster headroom</p></article><article class="metric"><span>Write acceptance</span><strong id="write-acceptance">100<small>%</small></strong><p id="write-summary">All nodes accepting writes</p></article><article class="metric"><span>Median heartbeat</span><strong id="median-heartbeat">2.1<small>s</small></strong><p>Control-plane pulse</p></article></div>
+        <div class="grid kpis compact"><article class="metric"><span>Nodes</span><strong id="nodes-count">0</strong><p id="nodes-summary">Waiting for Part B telemetry</p></article><article class="metric"><span>Available capacity</span><strong id="available-capacity">—</strong><p id="capacity-summary">Waiting for live capacity telemetry</p></article><article class="metric"><span>Write quorum</span><strong id="write-acceptance">—</strong><p id="write-summary">Waiting for node health and policy</p></article><article class="metric"><span>Median heartbeat</span><strong id="median-heartbeat">—</strong><p>Control-plane pulse</p></article></div>
         <div class="panel table-panel"><div class="toolbar"><input id="node-search" placeholder="Search node ID or lifecycle state" aria-label="Search nodes"><div id="node-filters" class="filters" role="group" aria-label="Node status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="attention" aria-pressed="false">Attention</button></div></div><div class="table-wrap"><table><caption class="sr-only">Storage node health and lifecycle</caption><thead><tr><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Capacity</th><th scope="col">Used</th><th scope="col">Objects</th><th scope="col">Heartbeat</th><th scope="col">Lifecycle</th></tr></thead><tbody id="nodes-body"></tbody></table></div></div>
       </section>
 
@@ -144,7 +144,7 @@
 
       <section class="view" id="view-rebalance">
         <div class="page-head"><div><p class="eyebrow">CAPACITY CONTROL</p><h1>Rebalance center</h1><p>Track durable replica migrations created by the Part B control plane.</p></div><button class="btn" data-action="refresh">Refresh jobs</button></div>
-        <div class="panel"><div class="panel-head"><div><p class="eyebrow">CLUSTER DISTRIBUTION</p><h2>Storage pressure</h2></div><span class="chip amber">HIGH WATERMARK · 80%</span></div><div class="capacity-bars" id="capacity-bars"></div><div class="rule"><span>Policy</span><b>Use the live capacity and replication policy reported by Part B</b><small id="rebalance-policy-note">Waiting for policy telemetry</small></div></div>
+        <div class="panel"><div class="panel-head"><div><p class="eyebrow">CLUSTER DISTRIBUTION</p><h2>Storage pressure</h2></div><span class="chip">LIVE NODE DATA</span></div><div class="capacity-bars" id="capacity-bars"></div><div class="rule"><span>Policy</span><b>Use the live capacity and replication policy reported by Part B</b><small id="rebalance-policy-note">Waiting for policy telemetry</small></div></div>
         <div class="panel table-panel top-gap"><div class="panel-head"><div><p class="eyebrow">MIGRATIONS</p><h2>Replica moves</h2></div><span class="chip">DURABLE JOBS</span></div><div class="table-wrap"><table><caption class="sr-only">Durable rebalancing migrations</caption><thead><tr><th scope="col">Job</th><th scope="col">Version</th><th scope="col">Source</th><th scope="col">Target</th><th scope="col">Attempts</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="rebalance-body"></tbody></table></div></div>
       </section>
 
@@ -162,8 +162,8 @@
             <div class="service-list guide-list">
               <div><span>Object</span><b>A stored file and its version history</b></div>
               <div><span>Replica</span><b>A protected copy on a storage node</b></div>
-              <div><span>RF 3</span><b>Three replicas are targeted</b></div>
-              <div><span>W2</span><b>Two successful replica writes are required</b></div>
+              <div><span>RF 3</span><b>The configured replication factor is targeted</b></div>
+              <div><span>W2</span><b>The configured write quorum must be met</b></div>
               <div><span>Healthy</span><b>Stored data passed verification</b></div>
               <div><span>Corrupted</span><b>The checksum does not match</b></div>
               <div><span>Repair</span><b>Rebuild a missing or damaged replica</b></div>
@@ -201,7 +201,7 @@
           <label>Unavailable after<input id="policy-unavailable" value="—" readonly></label>
           <label>Max parallel repairs<input id="policy-parallel" value="—" readonly></label></article>
 <article class="panel wide"><div class="panel-head"><div><p class="eyebrow">API ADAPTER</p><h2>Part B connection</h2></div><span class="chip amber" id="api-badge">CONNECTING</span></div><div class="connection"><span>Base URL</span><code id="api-base-url">/api/v1</code></div><div class="connection"><span>Request tracing</span><b class="green-text">Enabled</b></div><div class="connection"><span>Admin mutations</span><b id="admin-key-status" class="green-text">Key not loaded</b></div>
-            <div class="connection"><span>Admin access key</span><div class="admin-key-row"><input id="admin-key-input" type="password" autocomplete="off" placeholder="Paste VAULT_ADMIN_API_KEY"><button class="btn" data-action="save-admin-key">Save for session</button></div></div><div class="connection"><span>Upload ingress</span><b class="green-text">100 MB hard cap</b></div><div class="connection"><span>Error contract</span><code>error.code · message · request_id</code></div><p class="note">All operational data is read from the running Part B API. Protected repair, integrity, and rebalance actions require the configured VAULT_ADMIN_API_KEY; the key is kept only in this browser session.</p></article>
+            <div class="connection"><span>Admin access key</span><div class="admin-key-row"><input id="admin-key-input" type="password" autocomplete="off" placeholder="Paste VAULT_ADMIN_API_KEY"><button class="btn" data-action="save-admin-key">Save for session</button></div></div><div class="connection"><span>Upload ingress</span><b id="upload-cap" class="green-text">Waiting for policy</b></div><div class="connection"><span>Error contract</span><code>error.code · message · request_id</code></div><p class="note">All operational data is read from the running Part B API. Protected repair, integrity, and rebalance actions require the configured VAULT_ADMIN_API_KEY; the key is kept only in this browser session.</p></article>
         </div>
       </section>
     </div>
@@ -212,7 +212,7 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-title" aria-describedby="upload-description">
     <div class="modal-head"><div><p class="eyebrow">OBJECT INGEST</p><h2 id="upload-title">Upload object</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">×</button></div>
     <label class="drop" for="file-input"><input id="file-input" type="file" aria-label="Select object file"><span>↑</span><b>Drop a file here</b><small id="upload-description">or click to browse · streamed through Vault</small><strong id="file-name">No file selected</strong></label>
-    <div class="upload-meta"><div><small>Replication</small><b>RF 3</b></div><div><small>Write quorum</small><b>W 2</b></div><div><small>Integrity</small><b>SHA-256</b></div></div>
+    <div class="upload-meta"><div><small>Replication</small><b id="upload-rf">—</b></div><div><small>Write quorum</small><b id="upload-wq">—</b></div><div><small>Integrity</small><b>SHA-256</b></div></div>
     <div id="progress-wrap" hidden><div class="progress-label"><span id="progress-text">Uploading</span><b id="progress-value">0%</b></div><div class="meter" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="progress-bar" style="width:0%"></i></div></div>
     <div class="modal-actions"><button class="btn" data-action="close-modal">Cancel</button><button class="btn primary" id="upload-btn" data-action="upload-file" disabled>Start upload</button></div>
   </div>
