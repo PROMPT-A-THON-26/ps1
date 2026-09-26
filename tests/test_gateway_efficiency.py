@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from common.constants import NodeState
+from common.constants import NodeState, ReplicaState
 from gateway.service import GatewayService
 from metadata.manager import MetadataManager
-from common.constants import ReplicaState
 
 
 SHA_A = "a" * 64
