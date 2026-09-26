@@ -248,7 +248,17 @@
     else if(state.view==="rebalance")renderRebalance();
     else if(state.view==="events")renderEvents();
   }
-  function setFilter(group,value){state[group]=value;const id=group==="nodeFilter"?"node-filters":group==="objectFilter"?"object-filters":"event-filters";const box=$("#"+id);$("button",box).forEach(b=>{const active=b.dataset.filter===value;b.classList.toggle("active",active);b.setAttribute("aria-pressed",String(active));});renderAll();}
+  function setFilter(group,value){
+    state[group]=value;
+    const id=group==="nodeFilter"?"node-filters":group==="objectFilter"?"object-filters":"event-filters";
+    const box=$("#"+id);
+    $("button",box).forEach(b=>{
+      const active=b.dataset.filter===value;
+      b.classList.toggle("active",active);
+      b.setAttribute("aria-pressed",String(active));
+    });
+    renderCurrentView();
+  }
   function jobIdFromResponse(name,result){const keys={repair:["repair_id","job_id","id"],integrity:["integrity_id","job_id","id"],rebalance:["rebalance_id","job_id","id"]};return(keys[name]||[]).map(k=>result?.[k]).find(Boolean)||null;}
   async function pollJob(name,id){
     if(CONFIG.mode!=="api"||!id)return;
