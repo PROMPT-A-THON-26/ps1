@@ -99,27 +99,34 @@ class GatewayService:
             .where(Version.object_id == obj.object_id)
             .order_by(Version.version_number)
         ).all()
-        result = []
-        for version in versions:
-            healthy = self.session.scalar(
-                select(func.count(Replica.replica_id)).where(
-                    Replica.version_id == version.version_id,
+        if not versions:
+            return []
+
+        version_ids = [version.version_id for version in versions]
+        replica_counts = dict(
+            self.session.execute(
+                select(Replica.version_id, func.count(Replica.replica_id))
+                .where(
+                    Replica.version_id.in_(version_ids),
                     Replica.status == ReplicaState.HEALTHY,
                 )
-            )
-            result.append(
-                {
-                    "version_id": str(version.version_id),
-                    "version_number": version.version_number,
-                    "size_bytes": version.size_bytes,
-                    "checksum": version.checksum,
-                    "state": version.state.value,
-                    "healthy_replicas": int(healthy or 0),
-                    "created_at": version.created_at,
-                    "committed_at": version.committed_at,
-                }
-            )
-        return result
+                .group_by(Replica.version_id)
+            ).all()
+        )
+
+        return [
+            {
+                "version_id": str(version.version_id),
+                "version_number": version.version_number,
+                "size_bytes": version.size_bytes,
+                "checksum": version.checksum,
+                "state": version.state.value,
+                "healthy_replicas": int(replica_counts.get(version.version_id, 0)),
+                "created_at": version.created_at,
+                "committed_at": version.committed_at,
+            }
+            for version in versions
+        ]
 
     def list_nodes(self) -> list[StorageNode]:
         return list(
