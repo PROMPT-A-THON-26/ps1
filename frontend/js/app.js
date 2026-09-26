@@ -69,15 +69,37 @@
   };
 
   const state = {view:"overview",nodeFilter:"all",objectFilter:"all",eventFilter:"all",selectedObject:null,commandIndex:0,drillRunning:false};
+  const STATUS_META=Object.freeze({
+    healthy:["green","HEALTHY"],
+    attention:["amber","ATTENTION"],
+    degraded:["amber","DEGRADED"],
+    corrupted:["red","CORRUPTED"],
+    running:["amber","RUNNING"],
+    success:["green","SUCCEEDED"],
+    draining:["amber","DRAINING"]
+  });
+  const BYTE_UNITS=Object.freeze(["B","KB","MB","GB","TB"]);
+  const BYTE_MULTIPLIERS=Object.freeze({B:1,KB:1024,MB:1024**2,GB:1024**3,TB:1024**4});
+  const ADMIN_PATHS=Object.freeze({
+    repair:"/admin/repair",
+    integrity:"/admin/integrity/check",
+    rebalance:"/admin/rebalance"
+  });
+  const ADMIN_JOB_PATHS=Object.freeze({
+    repair:"/admin/repair/",
+    integrity:"/admin/integrity/check/",
+    rebalance:"/admin/rebalance/"
+  });
+  const TERMINAL_JOB_STATES=new Set(["SUCCEEDED","COMPLETED","DONE","FAILED","ERROR"]);
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
   const escapeHtml=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const formatBytes=bytes=>{
     if(!Number.isFinite(bytes)||bytes<0)return "—";
     if(bytes===0)return "0 B";
-    const units=["B","KB","MB","GB","TB"];let i=0,value=bytes;
-    while(value>=1024&&i<units.length-1){value/=1024;i++;}
-    return (value>=100?value.toFixed(0):value.toFixed(1))+" "+units[i];
+    let i=0,value=bytes;
+    while(value>=1024&&i<BYTE_UNITS.length-1){value/=1024;i++;}
+    return (value>=100?value.toFixed(0):value.toFixed(1))+" "+BYTE_UNITS[i];
   };
   const formatTimestamp=value=>{
     if(!value)return "—";
@@ -94,8 +116,7 @@
   const bytesFromDisplay=value=>{
     const m=String(value||"").trim().match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/i);
     if(!m)return 0;
-    const units={B:1,KB:1024,MB:1024**2,GB:1024**3,TB:1024**4};
-    return Number(m[1])*units[m[2].toUpperCase()];
+    return Number(m[1])*BYTE_MULTIPLIERS[m[2].toUpperCase()];
   };
 
   const API={
@@ -119,13 +140,12 @@
     get(path){return this.request(path);},
     async action(name,payload){
       if(this.mode==="mock")return {job_id:name+"-"+Date.now(),status:"RUNNING"};
-      const paths={repair:"/admin/repair",integrity:"/admin/integrity/check",rebalance:"/admin/rebalance"};
-      if(!paths[name])throw new Error("Unsupported admin action.");
-      return this.request(paths[name],{method:"POST",body:JSON.stringify(payload||{}),headers:{"Content-Type":"application/json"}});
+      if(!ADMIN_PATHS[name])throw new Error("Unsupported admin action.");
+      return this.request(ADMIN_PATHS[name],{method:"POST",body:JSON.stringify(payload||{}),headers:{"Content-Type":"application/json"}});
     },
     async job(name,id){
-      const paths={repair:"/admin/repair/",integrity:"/admin/integrity/check/",rebalance:"/admin/rebalance/"};
-      return this.get(paths[name]+encodeURIComponent(id));
+      if(!ADMIN_JOB_PATHS[name])throw new Error("Unsupported admin job.");
+      return this.get(ADMIN_JOB_PATHS[name]+encodeURIComponent(id));
     },
     async upload(file){
       validateUploadFile(file);
@@ -178,9 +198,8 @@
     renderAll();
   }
   function status(s){
-    const map={healthy:["green","HEALTHY"],attention:["amber","ATTENTION"],degraded:["amber","DEGRADED"],corrupted:["red","CORRUPTED"],running:["amber","RUNNING"],success:["green","SUCCEEDED"],draining:["amber","DRAINING"]};
-    const m=map[s]||["green",String(s||"unknown").toUpperCase()];
-    return "<span class='status "+m[0]+"'><i></i>"+m[1]+"</span>";
+    const m=STATUS_META[s]||["green",String(s||"unknown").toUpperCase()];
+    return "<span class='status "+m[0]+"'><i></i>"+escapeHtml(m[1])+"</span>";
   }
   function renderEnvironment(){
     const live=CONFIG.mode==="api", ok=live?DATA.sync.status==="live":true;
@@ -268,7 +287,7 @@
       try{
         const data=await API.job(name,id),statusText=String(data.status||data.state||"").toUpperCase();
         if(statusText&&statusText!==last){toast(name.charAt(0).toUpperCase()+name.slice(1)+" job",statusText+" · "+id);last=statusText;}
-        if(["SUCCEEDED","COMPLETED","DONE","FAILED","ERROR"].includes(statusText)){await API.sync().catch(()=>{});toast(statusText==="FAILED"||statusText==="ERROR"?"Operation failed":"Operation completed",id);return;}
+        if(TERMINAL_JOB_STATES.has(statusText)){await API.sync().catch(()=>{});toast(statusText==="FAILED"||statusText==="ERROR"?"Operation failed":"Operation completed",id);return;}
       }catch(error){toast("Job polling paused",error.message);return;}
     }
     toast("Operation still running","The API accepted "+id+"; refresh to check its latest state.");
