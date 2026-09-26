@@ -32,6 +32,13 @@ jobs:
           python frontend/tests/verify_frontend.py
           node --check frontend/js/app.js
 
+      - name: Configure ephemeral service credentials
+        shell: bash
+        run: |
+          echo "POSTGRES_USER=vault" >> "$GITHUB_ENV"
+          echo "POSTGRES_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
+          echo "REDIS_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
+
       - name: Validate compose
         run: docker compose config --quiet
 
