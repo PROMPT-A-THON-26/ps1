@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport
 
 from common.constants import NodeState, ObjectState, VersionState
-from common.errors import VersionConflict
+from common.errors import PayloadTooLarge, VersionConflict
 from gateway.api import build_gateway_router
 from gateway.service import GatewayService
 from metadata.manager import MetadataManager
@@ -290,7 +290,7 @@ async def test_stage_upload_rejects_payload_over_configured_limit():
         yield b"1234"
         yield b"5678"
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(PayloadTooLarge) as exc:
         await GatewayService.stage_upload(chunks(), max_bytes=5)
 
     assert "PAYLOAD_TOO_LARGE" in str(exc.value)
