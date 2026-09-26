@@ -22,6 +22,7 @@ from common.constants import (
     ReplicaState,
     VersionState,
 )
+from common.settings import settings
 from common.validation import normalize_object_name
 from common.errors import (
     ObjectAlreadyExists,
