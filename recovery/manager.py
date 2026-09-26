@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from common.constants import NodeState, ReplicaState, VersionState
 from common.errors import InvalidState, ObjectNotFound, VaultError
 from metadata.manager import MetadataManager
-from metadata.models import RepairJob, Replica, StorageNode, Version
+from metadata.models import Replica, StorageNode, Version
 from repair import RepairManager
 from replication.node_client import (
     StorageNodeClient,
