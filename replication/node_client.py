@@ -335,13 +335,7 @@ class StorageNodeClient:
         *,
         request_id: str | None = None,
     ) -> AsyncIterator[httpx.Response]:
-        """Open a streaming GET.
-
-        Only connection establishment and HTTP response status are retried. A
-        transport error raised while the caller consumes response bytes is not
-        retried, because the client cannot safely replay a partially delivered
-        stream without caller-level range/resume semantics.
-        """
+        """Open a streaming GET with safe connection-establishment retries."""
         self._validate_identifier(object_id, "object_id")
         self._validate_identifier(version_id, "version_id")
         rid = self._request_id(request_id)
@@ -353,9 +347,11 @@ class StorageNodeClient:
                 headers=self._headers(rid),
                 timeout=self.config.timeouts.for_operation("read"),
             )
+            entered = False
             try:
                 try:
                     response = await context.__aenter__()
+                    entered = True
                 except httpx.TimeoutException as exc:
                     if attempt >= self.config.retry_policy.max_attempts:
                         raise StorageNodeUnavailableError(
@@ -373,8 +369,12 @@ class StorageNodeClient:
                     await self._sleep_before_retry(attempt)
                     continue
 
-                if response.status_code in self.RETRYABLE_STATUS_CODES and attempt < self.config.retry_policy.max_attempts:
+                if (
+                    response.status_code in self.RETRYABLE_STATUS_CODES
+                    and attempt < self.config.retry_policy.max_attempts
+                ):
                     await context.__aexit__(None, None, None)
+                    entered = False
                     await self._sleep_before_retry(attempt)
                     continue
 
@@ -386,28 +386,14 @@ class StorageNodeClient:
                         rid,
                     )
 
-                try:
-                    yield response
-                finally:
-                    await context.__aexit__(None, None, None)
+                yield response
                 return
-            except StorageNodeClientError:
-                # _raise_for_response closes protocol-error responses. Keep the
-                # context manager consistent for any error that escaped before
-                # the caller received the response.
-                try:
-                    await context.__aexit__(None, None, None)
-                except Exception as cleanup_error:
-                    # Cleanup failures must not hide the protocol/network error.
-                    self._log_cleanup_failure(cleanup_error, rid)
-                raise
-            except Exception:
-                try:
-                    await context.__aexit__(None, None, None)
-                except Exception as cleanup_error:
-                    # Cleanup failures must not hide the original exception.
-                    self._log_cleanup_failure(cleanup_error, rid)
-                raise
+            finally:
+                if entered:
+                    try:
+                        await context.__aexit__(None, None, None)
+                    except (OSError, httpx.HTTPError, RuntimeError) as cleanup_error:
+                        self._log_cleanup_failure(cleanup_error, rid)
 
     async def head_object(
         self,
