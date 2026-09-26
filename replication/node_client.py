@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 import json
 import logging
+import os
 from secrets import SystemRandom
 from typing import Any
 from urllib.parse import quote, urlparse
@@ -182,6 +183,7 @@ class StorageNodeClientConfig:
     retry_policy: RetryPolicy = RetryPolicy()
     max_connections: int = 100
     max_keepalive_connections: int = 20
+    internal_api_key: str | None = None
 
     def __post_init__(self) -> None:
         address = self.address.strip().rstrip("/")
@@ -196,6 +198,13 @@ class StorageNodeClientConfig:
 
         if self.timeout_seconds is not None and self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero")
+        internal_api_key = self.internal_api_key
+        if internal_api_key is None:
+            internal_api_key = os.getenv("VAULT_INTERNAL_API_KEY", "").strip()
+        if not internal_api_key:
+            raise ValueError("VAULT_INTERNAL_API_KEY must be configured for storage-node access")
+        object.__setattr__(self, "internal_api_key", internal_api_key)
+
         if self.max_connections < 1:
             raise ValueError("max_connections must be at least 1")
         if not 1 <= self.max_keepalive_connections <= self.max_connections:
@@ -825,7 +834,10 @@ class StorageNodeClient:
         *,
         content_type: str | None = None,
     ) -> dict[str, str]:
-        headers = {"X-Request-ID": request_id}
+        headers = {
+            "X-Request-ID": request_id,
+            "X-Internal-API-Key": self.config.internal_api_key or "",
+        }
         if content_type:
             headers["Content-Type"] = content_type
         return headers
