@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Iterator, Optional
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from common.constants import OBJECT_STATE_TRANSITIONS, NODE_STATE_TRANSITIONS, NodeState, ObjectState, ReplicaState, VersionState
@@ -263,6 +263,124 @@ class MetadataManager:
             node.status = state
             self.session.flush()
             return node
+
+    def create_replicas(self, version_id: UUID, node_ids: Iterable[str]) -> list[Replica]:
+        """Create a new replica row for each unique target in one transaction."""
+        if not isinstance(version_id, UUID):
+            raise ValueError("version_id must be a UUID")
+        normalized = [node_id.strip() for node_id in node_ids if isinstance(node_id, str) and node_id.strip()]
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("node_ids must be unique non-empty strings")
+        if not normalized:
+            raise ValueError("node_ids must contain at least one node ID")
+
+        with self._transaction():
+            if self.session.scalar(
+                select(Version.version_id).where(Version.version_id == version_id)
+            ) is None:
+                raise ObjectNotFound(str(version_id))
+
+            nodes = {
+                node.node_id
+                for node in self.session.scalars(
+                    select(StorageNode).where(StorageNode.node_id.in_(normalized))
+                ).all()
+            }
+            missing = [node_id for node_id in normalized if node_id not in nodes]
+            if missing:
+                raise ObjectNotFound(",".join(missing))
+
+            existing = {
+                node_id
+                for node_id in self.session.scalars(
+                    select(Replica.node_id).where(
+                        Replica.version_id == version_id,
+                        Replica.node_id.in_(normalized),
+                    )
+                ).all()
+            }
+            if existing:
+                raise InvalidState(
+                    f"Replica already exists for version {version_id} on node(s) "
+                    f"{', '.join(sorted(existing))}."
+                )
+
+            replicas = [
+                Replica(
+                    version_id=version_id,
+                    node_id=node_id,
+                    status=ReplicaState.PENDING,
+                )
+                for node_id in normalized
+            ]
+            self.session.add_all(replicas)
+            self.session.flush()
+            return replicas
+
+    def set_replica_states(
+        self,
+        replica_ids: Iterable[UUID],
+        state: ReplicaState,
+    ) -> list[Replica]:
+        """Transition multiple replicas atomically after validating every state edge."""
+        if not isinstance(state, ReplicaState):
+            raise ValueError("state must be a ReplicaState")
+        ids = list(replica_ids)
+        if not ids:
+            return []
+        if any(not isinstance(replica_id, UUID) for replica_id in ids):
+            raise ValueError("replica_ids must contain UUID values")
+        if state is ReplicaState.HEALTHY:
+            raise InvalidState(
+                "Use mark_replica_healthy() after size/checksum verification."
+            )
+
+        allowed = {
+            ReplicaState.PENDING: {ReplicaState.REPAIRING, ReplicaState.COPYING, ReplicaState.FAILED},
+            ReplicaState.COPYING: {ReplicaState.FAILED},
+            ReplicaState.HEALTHY: {
+                ReplicaState.STALE,
+                ReplicaState.CORRUPTED,
+                ReplicaState.UNAVAILABLE,
+            },
+            ReplicaState.STALE: {ReplicaState.REPAIRING},
+            ReplicaState.CORRUPTED: {ReplicaState.REPAIRING},
+            ReplicaState.UNAVAILABLE: {ReplicaState.REPAIRING},
+            ReplicaState.REPAIRING: {ReplicaState.COPYING, ReplicaState.FAILED},
+            ReplicaState.FAILED: set(),
+        }
+
+        with self._transaction():
+            replicas = list(
+                self.session.scalars(
+                    select(Replica)
+                    .where(Replica.replica_id.in_(ids))
+                    .with_for_update()
+                ).all()
+            )
+            if len(replicas) != len(set(ids)):
+                found = {replica.replica_id for replica in replicas}
+                missing = [str(replica_id) for replica_id in ids if replica_id not in found]
+                raise ObjectNotFound(",".join(missing))
+
+            for replica in replicas:
+                if replica.status is state:
+                    continue
+                if state not in allowed.get(replica.status, set()):
+                    raise InvalidState(
+                        f"Cannot transition replica {replica.replica_id} "
+                        f"from {replica.status} to {state}."
+                    )
+
+            self.session.execute(
+                update(Replica)
+                .where(Replica.replica_id.in_(ids))
+                .values(status=state)
+            )
+            for replica in replicas:
+                replica.status = state
+            self.session.flush()
+            return replicas
 
     def create_replica(self, version_id: UUID, node_id: str) -> Replica:
         if not isinstance(node_id, str) or not node_id.strip():
