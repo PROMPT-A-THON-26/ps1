@@ -16,8 +16,8 @@ This document ties the implemented control-plane behaviors to the project specif
 | Durable background jobs | `metadata/models.py`, `worker/tasks.py` | worker/restart-safe tests |
 | Capacity safety | `storage/storage_engine.py`, database check constraint, migration 0003 | `tests/test_storage_engine.py`, `tests/test_migrations.py` |
 | Bounded upload ingress | `common/settings.py`, `gateway/api.py`, `gateway/service.py` | `tests/test_gateway.py` |
-| Administrative control protection | `gateway/api.py` with `VAULT_ADMIN_API_KEY` | `tests/test_admin.py` |
-| Network/API hardening | `gateway/app.py`, `storage/node_server.py`, `replication/node_client.py` | CI Bandit/Ruff plus security tests |
+| Administrative control protection | `gateway/api.py` with `VAULT_ADMIN_API_KEY` | `tests/test_admin.py` |\n| Storage-node control authentication | `storage/node_server.py`, `replication/node_client.py`, `docker-compose.yml` with `VAULT_INTERNAL_API_KEY` | `tests/test_part_a_integration.py`, CI end-to-end stack |
+| Network/API hardening | `gateway/app.py`, `storage/node_server.py`, `replication/node_client.py` | CI Ruff, Bandit, dependency audit, plus security/integration tests |
 | Failure/partition regression coverage | `tests/test_failure_chaos.py` | CI |
 | Frontend observability and safe demo mode | `frontend/index.html`, `frontend/js/app.js`, `frontend/js/config.js` | `frontend/tests/verify_frontend.py` |
 | Accessibility requirements | semantic landmarks, labels, progress semantics, focus management, reduced motion, contrast | `frontend/tests/verify_frontend.py`, manual keyboard review gate |
