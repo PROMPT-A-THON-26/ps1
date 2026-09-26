@@ -3,7 +3,7 @@
 
   const CONFIG = window.VAULT_CONFIG || { mode: "api", baseUrl: "/api/v1" };
 
-  const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+  let MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
   const SAFE_FILENAME = /^[^\x00-\x1f\x7f]+$/;
 
   function resolveApiBaseUrl(raw) {
@@ -20,7 +20,7 @@
   function validateUploadFile(file) {
     if (!(file instanceof File)) throw new Error("Please select a valid file.");
     if (!Number.isFinite(file.size) || file.size < 0) throw new Error("Invalid file size.");
-    if (file.size > MAX_UPLOAD_BYTES) throw new Error("File exceeds the 100 MB upload limit.");
+    if (file.size > MAX_UPLOAD_BYTES) throw new Error("File exceeds the configured upload limit.");
     if (!SAFE_FILENAME.test(file.name)) throw new Error("File name contains invalid control characters.");
   }
   const ROUTES = ["overview","nodes","objects","repairs","integrity","rebalance","events","policies","guide","about"];
@@ -155,7 +155,7 @@
           return {id:n.node_id,status:healthy?"healthy":"attention",capacity:formatBytes(capacity),used:formatBytes(used),percent,objects:"—",heartbeat:formatHeartbeat(n.last_heartbeat_at),lifecycle:rawStatus,capacityBytes:capacity,usedBytes:used,address:n.address,lastHeartbeat:n.last_heartbeat_at};
         });
       }else errors.push("nodes");
-      if(policies.status==="fulfilled")DATA.policies=policies.value;else errors.push("policies");
+      if(policies.status==="fulfilled"){DATA.policies=policies.value;const configuredLimit=Number(policies.value?.max_upload_bytes);if(Number.isFinite(configuredLimit)&&configuredLimit>0)MAX_UPLOAD_BYTES=configuredLimit;}else errors.push("policies");
       if(objects.status==="fulfilled"&&Array.isArray(objects.value)){DATA.objects=objects.value.map(normalizeLiveObject);DATA.dashboard.objects=DATA.objects.length;}else errors.push("objects");
       DATA.sync.admin="unknown";
       if(repairs.status==="fulfilled"&&Array.isArray(repairs.value)){DATA.repairs=repairs.value;DATA.sync.admin="ready";}else if(repairs.status==="rejected")DATA.sync.admin="locked";
@@ -215,15 +215,15 @@
     const replicaHealth=replicaStats.length?Math.round(replicaStats.reduce((s,x)=>s+x.healthy,0)/Math.max(1,replicaStats.reduce((s,x)=>s+x.total,0))*100):0;
     $("#resilience-score").innerHTML=healthy+"<small>/"+nodes.length+"</small>";$("#score-meter").style.width=nodeHealth+"%";$("#score-meter").parentElement.setAttribute("aria-valuenow",String(nodeHealth));$("#score-delta").textContent=nodes.length?(attention?"ATTENTION":"LIVE"):"—";
     const usedLabel=totalUsed?formatBytes(totalUsed):"—";$("#storage-used").innerHTML=usedLabel.includes(" ")?usedLabel.replace(" ","<small> ")+"</small>":usedLabel;$("#storage-chip").textContent=usedPct+"%";$("#storage-meter").style.width=Math.min(100,usedPct)+"%";$("#storage-meter").parentElement.setAttribute("aria-valuenow",String(Math.min(100,usedPct)));$("#storage-caption").textContent=totalCapacity?formatBytes(totalCapacity)+" total node capacity":"Waiting for live capacity telemetry";
-    $("#signal-headroom").textContent=nodes.length?headroom+"% remaining":"—";$("#healthy-replicas").innerHTML=replicaStats.length?replicaHealth+"<small>%</small>":"—";
+    $("#signal-headroom").textContent=nodes.length?headroom+"% remaining":"—";$("#healthy-replicas").innerHTML=replicaStats.length?replicaHealth+"<small>%</small>":"—";$("#replica-summary").textContent=replicaStats.length?"Weighted healthy-replica ratio from object catalog":"Waiting for replica health";
     $("#nodes-count").textContent=nodes.length;$("#nodes-summary").textContent=healthy+" healthy · "+attention+" attention";
     const free=totalCapacity-totalUsed;const freeLabel=free>0?formatBytes(free):"—";$("#available-capacity").innerHTML=freeLabel.includes(" ")?freeLabel.replace(" ","<small> ")+"</small>":freeLabel;$("#capacity-summary").textContent=headroom+"% cluster headroom";
-    $("#write-acceptance").innerHTML=(nodes.length?(healthy/Math.max(nodes.length,1)*100):0).toFixed(0)+"<small>%</small>";$("#write-summary").textContent=nodes.length?(attention?"Some nodes need attention":"All nodes accepting writes"):"Waiting for live node telemetry";
+    const writeQuorum=Number(DATA.policies?.write_quorum||0),writeReady=Boolean(nodes.length&&writeQuorum&&healthy>=writeQuorum);$("#write-acceptance").textContent=writeQuorum?(writeReady?"READY":"BLOCKED"):"—";$("#write-summary").textContent=writeQuorum?(healthy+" healthy node"+(healthy===1?"":"s")+" · quorum "+writeQuorum):"Waiting for node health and policy";
     const heartbeatSeconds=nodes.map(n=>parseFloat(String(n.heartbeat).replace("s",""))).filter(Number.isFinite);const median=heartbeatSeconds.length?heartbeatSeconds.sort((a,b)=>a-b)[Math.floor(heartbeatSeconds.length/2)]:0;$("#median-heartbeat").innerHTML=median.toFixed(1)+"<small>s</small>";
     $("#health-ring-score").innerHTML=healthy+"<small>/"+nodes.length+" healthy</small>";$("#health-ring").setAttribute("aria-valuenow",String(nodeHealth));$("#health-ring").style.background="conic-gradient(var(--green) 0 "+nodeHealth+"%,#193042 "+nodeHealth+"% 100%)";
     $("#cluster-badge").textContent=!nodes.length?"WAITING":(attention||liveBad?"ATTENTION":"HEALTHY");$("#cluster-badge").className="badge "+(!nodes.length?"":(attention||liveBad?"amber":"green"));$("#cluster-summary").textContent=!nodes.length?"Waiting for Part B telemetry":(attention||liveBad?"Cluster requires attention":"All reported services operational");
     const attentionNode=nodes.find(n=>n.status==="attention");$("#cluster-copy").textContent=attentionNode?(attentionNode.id+" needs attention. Reads remain available."):(nodes.length?"No current node requires attention.":"Waiting for live node telemetry.");
-    const hot=nodes.find(n=>n.percent>=80);$("#ops-banner").classList.toggle("good-news",!hot);$("#ops-banner-title").textContent=hot?hot.id+" is above the configured 80% watermark":(nodes.length?"Cluster is inside the configured capacity watermark":"Waiting for live capacity telemetry");$("#ops-banner-copy").textContent=hot?"Review Rebalance before capacity pressure becomes a failure mode.":(nodes.length?"No node is currently above 80% used.":"No capacity data is available yet.");
+    const hottest=nodes.slice().sort((a,b)=>b.percent-a.percent)[0];$("#ops-banner").classList.toggle("good-news",true);$("#ops-banner-title").textContent=hottest?hottest.id+" is using "+hottest.percent+"% of reported capacity":"Waiting for live capacity telemetry";$("#ops-banner-copy").textContent=hottest?"Use Rebalance to inspect placement and durable migration jobs.":"No capacity data is available yet.";
   }
   function updateTopology(){
     const count=$("#topology-object-count");if(count)count.textContent=DATA.dashboard.objects?DATA.dashboard.objects.toLocaleString()+" objects":"Waiting for objects";
@@ -284,7 +284,7 @@
     const el=$("#watchlist");
     if(!el)return;
     const items=[];
-    DATA.nodes.filter(n=>n.percent>=80||n.status!=="healthy").slice(0,3).forEach(n=>{
+    DATA.nodes.filter(n=>n.status!=="healthy").slice(0,3).forEach(n=>{
       items.push("<div class='watch warning'><b>"+escapeHtml(n.id)+" needs attention</b><span>"+escapeHtml(n.lifecycle)+" · "+n.percent+"% used</span><button data-view='rebalance'>Review</button></div>");
     });
     DATA.repairs.filter(r=>!["SUCCEEDED","COMPLETED"].includes(String(r.status||"").toUpperCase())).slice(0,2).forEach(r=>{
@@ -304,7 +304,8 @@
     const set=(id,v)=>{const e=$("#"+id);if(e)e.value=v;};
     set("policy-rf",p.replication_factor);set("policy-wq",p.write_quorum);set("policy-rq",p.read_quorum);set("policy-chunk",formatBytes(p.chunk_size_bytes));
     set("policy-heartbeat",p.heartbeat_interval_seconds+" s");set("policy-suspect",p.suspect_after_seconds+" s");set("policy-unavailable",p.unavailable_after_seconds+" s");set("policy-parallel",p.max_concurrent_jobs);
-    $("#signal-policy").textContent="RF "+p.replication_factor+" · W"+p.write_quorum+" · R"+p.read_quorum;
+    const cap=Number(p.max_upload_bytes);if($("#upload-rf"))$("#upload-rf").textContent="RF "+p.replication_factor;if($("#upload-wq"))$("#upload-wq").textContent="W "+p.write_quorum;if($("#upload-cap"))$("#upload-cap").textContent=Number.isFinite(cap)&&cap>0?formatBytes(cap)+" max per upload":"Configured by Part B";
+        $("#signal-policy").textContent="RF "+p.replication_factor+" · W"+p.write_quorum+" · R"+p.read_quorum;
     $("#signal-heal").textContent=DATA.repairs.length+" repair jobs";
   }
   function renderNodes(){
@@ -435,9 +436,9 @@
       if(name==="integrity"&&versionId)payload={version_id:versionId};
       if(name==="rebalance"){
         const replicaNodeIds=new Set((selected?.replicaRows||[]).filter(r=>String(r[1]||"").toUpperCase()==="HEALTHY").map(r=>r[0]));
-        const source=DATA.nodes.find(n=>replicaNodeIds.has(n.id)&&n.percent>=80)||DATA.nodes.find(n=>replicaNodeIds.has(n.id));
-        const target=DATA.nodes.find(n=>!replicaNodeIds.has(n.id)&&n.status==="healthy"&&n.percent<60);
-        if(!source||!target)throw new Error("No safe replica source and target node pair is available from the current Part B state.");
+        const source=DATA.nodes.filter(n=>replicaNodeIds.has(n.id)&&n.status==="healthy").sort((a,b)=>b.percent-a.percent)[0];
+        const target=DATA.nodes.filter(n=>!replicaNodeIds.has(n.id)&&n.status==="healthy").sort((a,b)=>a.percent-b.percent)[0];
+        if(!source||!target)throw new Error("No healthy replica source and target node pair is available from the current Part B state.");
         payload={version_id:versionId,source_node_id:source.id,target_node_id:target.id};
       }
       const result=await API.action(name,payload);
