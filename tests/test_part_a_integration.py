@@ -22,6 +22,17 @@ from storage.storage_engine import StorageEngine
 
 
 @pytest.mark.asyncio
+async def test_storage_node_rejects_unauthenticated_internal_requests():
+    transport = ASGITransport(app=node_server.app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://node-01:9001",
+    ) as http_client:
+        response = await http_client.get("/internal/v1/health")
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "UNAUTHORIZED"
+
+@pytest.mark.asyncio
 async def test_storage_node_client_matches_part_a_http_contract(tmp_path):
     node_server.engine = StorageEngine(
         tmp_path,
