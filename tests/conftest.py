@@ -1,3 +1,7 @@
+import os
+
+os.environ.setdefault("VAULT_INTERNAL_API_KEY", "test-internal-key")
+
 from collections.abc import Iterator
 
 import pytest
