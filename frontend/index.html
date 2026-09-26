@@ -6,7 +6,7 @@
   <meta name="description" content="Vault distributed object storage resilience control center">
   <meta name="theme-color" content="#07111f">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'none'; connect-src 'self' https: http://localhost:*; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'none'; connect-src 'self' http://localhost:8000 http://127.0.0.1:8000; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
   <title>Vault — Resilience Control Center</title>
   <link rel="stylesheet" href="./css/app.css">
 </head>
@@ -152,7 +152,7 @@
         <div class="grid policy-grid">
           <article class="panel"><div class="panel-head"><div><p class="eyebrow">REPLICATION</p><h2>Durability policy</h2></div><span class="chip green">ACTIVE</span></div><label>Replication factor<input value="3" readonly></label><label>Write quorum<input value="2" readonly></label><label>Read quorum<input value="1" readonly></label><label>Chunk size<input value="16 MiB" readonly></label></article>
           <article class="panel"><div class="panel-head"><div><p class="eyebrow">RELIABILITY</p><h2>Failure windows</h2></div><span class="chip">CONFIG</span></div><label>Heartbeat interval<input value="5 s" readonly></label><label>Suspect after<input value="15 s" readonly></label><label>Unavailable after<input value="30 s" readonly></label><label>Max parallel repairs<input value="4" readonly></label></article>
-          <article class="panel wide"><div class="panel-head"><div><p class="eyebrow">API ADAPTER</p><h2>Part B connection</h2></div><span class="chip amber" id="api-badge">MOCK MODE</span></div><div class="connection"><span>Base URL</span><code id="api-base-url">/api/v1</code></div><div class="connection"><span>Request tracing</span><b class="green-text">Enabled</b></div><div class="connection"><span>Error contract</span><code>error.code · message · request_id</code></div><p class="note">Part C uses the documented public Part B contract only. Live mode reads health, nodes and objects, loads object metadata/versions on demand, and polls admin jobs. Node drain/resume stays demo-only because no public Part B endpoint is defined for it.</p></article>
+          <article class="panel wide"><div class="panel-head"><div><p class="eyebrow">API ADAPTER</p><h2>Part B connection</h2></div><span class="chip amber" id="api-badge">MOCK MODE</span></div><div class="connection"><span>Base URL</span><code id="api-base-url">/api/v1</code></div><div class="connection"><span>Request tracing</span><b class="green-text">Enabled</b></div><div class="connection"><span>Admin mutations</span><b class="green-text">API key protected</b></div><div class="connection"><span>Upload ingress</span><b class="green-text">100 MB hard cap</b></div><div class="connection"><span>Error contract</span><code>error.code · message · request_id</code></div><p class="note">Part C uses the documented public Part B contract only. Live mode reads health, nodes and objects, loads object metadata/versions on demand, and polls admin jobs. Node drain/resume stays demo-only because no public Part B endpoint is defined for it.</p></article>
         </div>
       </section>
     </div>
@@ -186,8 +186,8 @@
 </div>
 
 <div class="command-bg" id="command-modal" aria-hidden="true">
-  <div class="command-palette" role="dialog" aria-modal="true" aria-labelledby="command-title">
-    <div class="command-head"><div><p class="eyebrow">OPERATIONS</p><h2 id="command-title">Command palette</h2></div><kbd>Esc</kbd></div>
+  <div class="command-palette" role="dialog" aria-modal="true" aria-labelledby="command-title" aria-describedby="command-description">
+    <div class="command-head"><div><p class="eyebrow">OPERATIONS</p><h2 id="command-title">Command palette</h2><p id="command-description" class="sr-only">Search keyboard commands to navigate the Vault control center or start supported operations.</p></div><kbd>Esc</kbd></div>
     <input id="command-input" aria-label="Search commands" placeholder="Jump to a view or run an action…">
     <div class="command-list" id="command-list"></div>
     <div class="command-footer"><span>Keyboard</span><kbd>Ctrl/⌘ K</kbd><span>Navigate</span><kbd>↑↓</kbd><span>Run</span><kbd>Enter</kbd></div>
