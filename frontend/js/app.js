@@ -358,11 +358,11 @@
     }).join(""):"<div class='empty-row'>Part B has no repair jobs.</div>";
   }
   function renderIntegrity(){
-    const checked=DATA.integrity.reduce((sum,r)=>sum+Number(r.checked_count||0),0);
-    const corrupted=DATA.integrity.reduce((sum,r)=>sum+Number(r.corrupted_count||0),0);
+    const latest=DATA.integrity[0];
+    const checked=Number(latest?.checked_count||0);
+    const corrupted=Number(latest?.corrupted_count||0);
     $("#integrity-checked").textContent=checked.toLocaleString();
     $("#integrity-corrupted").textContent=corrupted.toLocaleString();
-    const latest=DATA.integrity[0];
     const integrityChip=$("#integrity-chip");
     const latestState=String(latest?.status||"").toUpperCase();
     if(integrityChip){
@@ -373,7 +373,7 @@
     }
     $("#integrity-latest").textContent=latest?"Latest job "+(latest.integrity_id||""):"No integrity job reported yet";
     $("#integrity-copy").textContent=latest?((latest.status||"").toUpperCase()+" · "+(latest.node_id||"cluster")+" · updated "+formatTimestamp(latest.updated_at||latest.created_at)):"Run a check to create a durable verification job.";
-    $("#integrity-meter").style.width=latest?(["SUCCEEDED","COMPLETED"].includes(String(latest.status||"").toUpperCase())?"100%":"25%"):"0%";
+    $("#integrity-meter").style.width=latest?(["SUCCEEDED","COMPLETED"].includes(String(latest.status||"").toUpperCase())?"100%":"0%"):"0%";
     $("#integrity-body").innerHTML=DATA.integrity.length?DATA.integrity.map(r=>{
       const stateText=String(r.status||"UNKNOWN").toUpperCase();
       const stateClass=["SUCCEEDED","COMPLETED"].includes(stateText)?"success":(["FAILED","ERROR"].includes(stateText)?"corrupted":"running");
