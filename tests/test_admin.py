@@ -15,6 +15,9 @@ from metadata.models import IntegrityJob, RebalanceJob, RepairJob
 from worker import tasks
 
 
+ADMIN_KEY = "test-admin-key-0123456789abcdef0123456789"
+
+
 def _app(session, monkeypatch):
     @contextmanager
     def factory():
@@ -22,6 +25,8 @@ def _app(session, monkeypatch):
 
     def queued(*, args=None, kwargs=None):
         return SimpleNamespace(id="test-task")
+
+    monkeypatch.setenv("VAULT_ADMIN_API_KEY", ADMIN_KEY)
 
     for name in ("repair_version", "run_integrity_check", "migrate_replica"):
         monkeypatch.setattr(getattr(tasks, name), "apply_async", queued)
@@ -68,10 +73,12 @@ async def test_admin_job_endpoints_create_and_read(db_session, monkeypatch):
         repair = await client.post(
             "/api/v1/admin/repair",
             json={"version_id": str(version.version_id)},
+            headers={"X-Admin-Key": ADMIN_KEY},
         )
         integrity = await client.post(
             "/api/v1/admin/integrity/check",
             json={"version_id": str(version.version_id)},
+            headers={"X-Admin-Key": ADMIN_KEY},
         )
 
     assert repair.status_code == 202
@@ -87,12 +94,32 @@ async def test_admin_job_endpoints_create_and_read(db_session, monkeypatch):
     async with httpx.AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"
     ) as client:
-        repair_status = await client.get(f"/api/v1/admin/repair/{repair_id}")
+        repair_status = await client.get(f"/api/v1/admin/repair/{repair_id}", headers={"X-Admin-Key": ADMIN_KEY})
         integrity_status = await client.get(
-            f"/api/v1/admin/integrity/check/{integrity_id}"
+            f"/api/v1/admin/integrity/check/{integrity_id}",
+            headers={"X-Admin-Key": ADMIN_KEY},
         )
 
     assert repair_status.status_code == 200
     assert integrity_status.status_code == 200
     assert repair_status.json()["status"] == "PENDING"
     assert integrity_status.json()["status"] == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_admin_endpoints_reject_missing_or_invalid_key(db_session, monkeypatch):
+    _seed(db_session)
+    app = _app(db_session, monkeypatch)
+
+    async with httpx.AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
+        missing = await client.get("/api/v1/admin/repair/00000000-0000-0000-0000-000000000000")
+        invalid = await client.get(
+            "/api/v1/admin/repair/00000000-0000-0000-0000-000000000000",
+            headers={"X-Admin-Key": "wrong"},
+        )
+
+    assert missing.status_code == 401
+    assert invalid.status_code == 401
+    assert missing.json()["error"]["code"] == "UNAUTHORIZED"
