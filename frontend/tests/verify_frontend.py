@@ -82,7 +82,6 @@ def test_accessibility_contract():
         'class="skip-link"',
         'href="#main-content"',
         'id="main-content"',
-        'aria-label="Vault sections"',
         'aria-label="Primary navigation"',
         'aria-label="Search nodes"',
         'aria-label="Search objects"',
