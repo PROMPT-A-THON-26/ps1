@@ -106,7 +106,7 @@ def test_admin_controls_are_contextual():
 
 def test_user_facing_branding_and_help():
     assert "<title>VaultOps — Storage Reliability Center</title>" in HTML
-    assert 'href="./favicon.svg"' in HTML
+    assert 'href="./favicon.svg?v=2"' in HTML
     assert "VAULTOPS" in HTML
     assert "User guide" in HTML
     assert "About us" in HTML
