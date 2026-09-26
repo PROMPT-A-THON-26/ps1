@@ -241,6 +241,7 @@ class GatewayService:
 
         staged = await self.stage_upload(chunks)
         created_object = False
+        version = None
         try:
             obj = self.session.scalar(
                 select(Object).where(Object.name == name.strip())
@@ -269,9 +270,7 @@ class GatewayService:
                 payload_factory=lambda: self.file_chunks(staged.path),
                 expected_current_version=expected_current_version,
             )
-            committed = self.session.scalar(
-                select(Version).where(Version.version_id == result.version_id)
-            )
+            committed = version
             if committed is None or committed.state is not VersionState.COMMITTED:
                 raise VaultError(
                     code=__import__("common.constants", fromlist=["ErrorCode"]).ErrorCode.INTERNAL_ERROR,
@@ -293,14 +292,9 @@ class GatewayService:
                 "write_quorum": policy.write_quorum,
             }
         except Exception:
-            prepared = self.session.scalar(
-                select(Version)
-                .where(Version.object_id == obj.object_id if "obj" in locals() else False)
-                .order_by(Version.version_number.desc())
-            ) if "obj" in locals() else None
-            if prepared is not None and prepared.state is VersionState.PREPARING:
+            if version is not None and version.state is VersionState.PREPARING:
                 with suppress(Exception):
-                    self.metadata.fail_version(prepared.version_id)
+                    self.metadata.fail_version(version.version_id)
             if created_object and "obj" in locals() and obj.current_version_id is None:
                 with suppress(Exception):
                     self.session.delete(obj)
@@ -322,40 +316,42 @@ class GatewayService:
         if obj.state is ObjectState.ACTIVE:
             self.metadata.transition_object_state(obj.object_id, ObjectState.DELETING)
 
-        replicas = list(
-            self.session.scalars(
-                select(Replica)
-                .join(Version, Replica.version_id == Version.version_id)
-                .where(Version.object_id == obj.object_id)
-            ).all()
-        )
+        replica_rows = self.session.execute(
+            select(Replica, StorageNode, Version)
+            .join(Version, Replica.version_id == Version.version_id)
+            .outerjoin(StorageNode, StorageNode.node_id == Replica.node_id)
+            .where(Version.object_id == obj.object_id)
+        ).all()
 
         deleted = 0
         failures: list[str] = []
-        for replica in replicas:
-            node = self.session.scalar(
-                select(StorageNode).where(StorageNode.node_id == replica.node_id)
-            )
-            if node is None:
-                self.session.delete(replica)
-                deleted += 1
-                continue
-            client = client_factory(node.address)
-            version = self.session.scalar(
-                select(Version).where(Version.version_id == replica.version_id)
-            )
-            try:
-                if version is not None:
+        clients: dict[str, StorageNodeClient] = {}
+        try:
+            for replica, node, version in replica_rows:
+                if node is None:
+                    self.session.delete(replica)
+                    deleted += 1
+                    continue
+
+                client = clients.get(node.address)
+                if client is None:
+                    client = client_factory(node.address)
+                    clients[node.address] = client
+
+                try:
                     await client.delete_object(
                         str(version.object_id),
                         str(version.version_id),
                     )
-                self.session.delete(replica)
-                deleted += 1
-            except StorageNodeClientError as exc:
-                failures.append(node.node_id)
-            finally:
-                await client.aclose()
+                    self.session.delete(replica)
+                    deleted += 1
+                except StorageNodeClientError:
+                    failures.append(node.node_id)
+        finally:
+            await asyncio.gather(
+                *(client.aclose() for client in clients.values()),
+                return_exceptions=True,
+            )
 
         self.session.commit()
         if failures:
@@ -378,13 +374,11 @@ class GatewayService:
         version_id: str,
         client_factory=StorageNodeClient,
     ) -> tuple[StorageNode, list[StorageNode]]:
-        remaining = []
-        for node in targets:
+        for index, node in enumerate(targets):
             client = client_factory(node.address)
             try:
                 await client.head_object(object_id, version_id)
-                remaining = targets[targets.index(node):]
-                return node, remaining
+                return node, targets[index:]
             except StorageNodeClientError:
                 continue
             finally:
