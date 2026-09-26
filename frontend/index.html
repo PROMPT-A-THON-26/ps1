@@ -77,7 +77,7 @@
         <div class="ops-banner" id="ops-banner"><div class="ops-banner-icon">!</div><div><small>OPERATIONAL SIGNAL</small><b id="ops-banner-title">node-04 is above the 80% watermark</b><span id="ops-banner-copy">Rebalance is eligible before capacity pressure becomes a failure mode.</span></div><button class="link" data-view="rebalance">Review</button></div>
 
         <div class="grid kpis">
-          <article class="metric"><div class="metric-head"><span>Resilience score</span><b class="up" id="score-delta">+1.8%</b></div><strong id="resilience-score">98.7<small>/100</small></strong><div class="meter" role="progressbar" aria-label="Resilience score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="98.7"><i id="score-meter" style="width:98.7%"></i></div><p>Healthy replicas + recovery success</p></article>
+          <article class="metric"><div class="metric-head"><span>Healthy nodes</span><b class="up" id="score-delta">LIVE</b></div><strong id="resilience-score">—<small>/—</small></strong><div class="meter" role="progressbar" aria-label="Healthy nodes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="score-meter" style="width:0%"></i></div><p>Current Part B node health</p></article>
           <article class="metric"><div class="metric-head"><span>Objects</span><b class="chip">LIVE</b></div><strong id="objects-kpi">12,842</strong><div class="spark"></div><p>+184 objects in the last 24h</p></article>
           <article class="metric"><div class="metric-head"><span>Storage used</span><b class="chip amber" id="storage-chip">72%</b></div><strong id="storage-used">1.44<small> TB</small></strong><div class="meter amber-meter" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="72"><i id="storage-meter" style="width:72%"></i></div><p id="storage-caption">2.0 TB logical capacity</p></article>
           <article class="metric"><div class="metric-head"><span>Healthy replicas</span><b class="chip green" id="replica-chip">SYNC</b></div><strong id="healthy-replicas">99.4<small>%</small></strong><div class="replica-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>Protected objects stay at RF 3</p></article>
@@ -121,7 +121,7 @@
       <section class="view" id="view-nodes">
         <div class="page-head"><div><p class="eyebrow">DATA PLANE</p><h1>Storage nodes</h1><p>Capacity, lifecycle and heartbeat state across the cluster.</p></div><button class="btn primary" data-action="refresh">Refresh telemetry</button></div>
         <div class="grid kpis compact"><article class="metric"><span>Nodes</span><strong id="nodes-count">4</strong><p id="nodes-summary">3 healthy · 1 needs rebalance</p></article><article class="metric"><span>Available capacity</span><strong id="available-capacity">560<small> GB</small></strong><p id="capacity-summary">28% cluster headroom</p></article><article class="metric"><span>Write acceptance</span><strong id="write-acceptance">100<small>%</small></strong><p id="write-summary">All nodes accepting writes</p></article><article class="metric"><span>Median heartbeat</span><strong id="median-heartbeat">2.1<small>s</small></strong><p>Control-plane pulse</p></article></div>
-        <div class="panel table-panel"><div class="toolbar"><input id="node-search" placeholder="Search node ID or lifecycle state" aria-label="Search nodes"><div id="node-filters" class="filters" role="group" aria-label="Node status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="attention" aria-pressed="false">Attention</button></div></div><div class="table-wrap"><table><caption class="sr-only">Storage node health and lifecycle</caption><thead><tr><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Capacity</th><th scope="col">Used</th><th scope="col">Objects</th><th scope="col">Heartbeat</th><th scope="col">Lifecycle</th><th scope="col"></th></tr></thead><tbody id="nodes-body"></tbody></table></div></div>
+        <div class="panel table-panel"><div class="toolbar"><input id="node-search" placeholder="Search node ID or lifecycle state" aria-label="Search nodes"><div id="node-filters" class="filters" role="group" aria-label="Node status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="attention" aria-pressed="false">Attention</button></div></div><div class="table-wrap"><table><caption class="sr-only">Storage node health and lifecycle</caption><thead><tr><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Capacity</th><th scope="col">Used</th><th scope="col">Objects</th><th scope="col">Heartbeat</th><th scope="col">Lifecycle</th></tr></thead><tbody id="nodes-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-objects">
@@ -131,7 +131,7 @@
       </section>
 
       <section class="view" id="view-repairs">
-        <div class="page-head"><div><p class="eyebrow">SELF HEALING</p><h1>Repair center</h1><p>Track recovery work restoring the durability floor.</p></div><button class="btn primary" data-action="repair">Run repair pass</button></div>
+        <div class="page-head"><div><p class="eyebrow">SELF HEALING</p><h1>Repair center</h1><p>Track durable repair jobs created by the Part B control plane.</p></div><button class="btn" data-action="refresh">Refresh jobs</button></div>
         <div class="grid kpis compact"><article class="metric"><span>Active jobs</span><strong id="repair-active">0</strong><p>Live durable repair jobs</p></article><article class="metric"><span>Recorded jobs</span><strong id="repair-total">0</strong><p>Repair jobs returned by Part B</p></article><article class="metric"><span>Completed</span><strong id="repair-completed">0</strong><p>Terminal successful jobs</p></article><article class="metric"><span>Failed</span><strong id="repair-failed">0</strong><p>Jobs requiring attention</p></article></div>
         <div class="repair-grid" id="repair-grid"></div>
       </section>
@@ -143,7 +143,7 @@
       </section>
 
       <section class="view" id="view-rebalance">
-        <div class="page-head"><div><p class="eyebrow">CAPACITY CONTROL</p><h1>Rebalance center</h1><p>Move verified replicas before capacity pressure becomes a failure mode.</p></div><button class="btn primary" data-action="rebalance">Start rebalance</button></div>
+        <div class="page-head"><div><p class="eyebrow">CAPACITY CONTROL</p><h1>Rebalance center</h1><p>Track durable replica migrations created by the Part B control plane.</p></div><button class="btn" data-action="refresh">Refresh jobs</button></div>
         <div class="panel"><div class="panel-head"><div><p class="eyebrow">CLUSTER DISTRIBUTION</p><h2>Storage pressure</h2></div><span class="chip amber">HIGH WATERMARK · 80%</span></div><div class="capacity-bars" id="capacity-bars"></div><div class="rule"><span>Policy</span><b>Use the live capacity and replication policy reported by Part B</b><small id="rebalance-policy-note">Waiting for policy telemetry</small></div></div>
         <div class="panel table-panel top-gap"><div class="panel-head"><div><p class="eyebrow">MIGRATIONS</p><h2>Replica moves</h2></div><span class="chip">DURABLE JOBS</span></div><div class="table-wrap"><table><caption class="sr-only">Durable rebalancing migrations</caption><thead><tr><th scope="col">Job</th><th scope="col">Version</th><th scope="col">Source</th><th scope="col">Target</th><th scope="col">Attempts</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="rebalance-body"></tbody></table></div></div>
       </section>
@@ -244,6 +244,6 @@
 </div>
 
 <script src="./js/config.js" defer></script>
-<script src="./js/app.js?v=20260926-6" defer></script>
+<script src="./js/app.js?v=20260926-7" defer></script>
 </body>
 </html>
