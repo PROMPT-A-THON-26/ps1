@@ -416,3 +416,11 @@ def test_generated_request_id_is_nonempty() -> None:
     request_id = client._request_id(None)
     assert request_id.startswith("req_")
     assert len(request_id) > 8
+
+
+@pytest.mark.parametrize("bad_id", ["bad id", "line\nbreak", "x" * 65])
+def test_supplied_request_id_is_normalized_and_rejects_unsafe_values(bad_id: str) -> None:
+    client = StorageNodeClient(StorageNodeClientConfig("http://test"))
+    with pytest.raises(ValueError):
+        client._request_id(bad_id)
+    assert client._request_id("req-safe_01") == "req-safe_01"
