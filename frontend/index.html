@@ -132,20 +132,20 @@
 
       <section class="view" id="view-repairs">
         <div class="page-head"><div><p class="eyebrow">SELF HEALING</p><h1>Repair center</h1><p>Track recovery work restoring the durability floor.</p></div><button class="btn primary" data-action="repair">Run repair pass</button></div>
-        <div class="grid kpis compact"><article class="metric"><span>Active</span><strong id="repair-active">1</strong><p>Replica replacement running</p></article><article class="metric"><span>Completed today</span><strong>2</strong><p>100% success rate</p></article><article class="metric"><span>Median recovery</span><strong>18<small>s</small></strong><p>Last 24 hours</p></article><article class="metric"><span>Durability floor</span><strong>3<small>/3</small></strong><p>Protected objects restored</p></article></div>
+        <div class="grid kpis compact"><article class="metric"><span>Active jobs</span><strong id="repair-active">0</strong><p>Live durable repair jobs</p></article><article class="metric"><span>Recorded jobs</span><strong id="repair-total">0</strong><p>Repair jobs returned by Part B</p></article><article class="metric"><span>Completed</span><strong id="repair-completed">0</strong><p>Terminal successful jobs</p></article><article class="metric"><span>Failed</span><strong id="repair-failed">0</strong><p>Jobs requiring attention</p></article></div>
         <div class="repair-grid" id="repair-grid"></div>
       </section>
 
       <section class="view" id="view-integrity">
         <div class="page-head"><div><p class="eyebrow">TRUST LAYER</p><h1>Integrity center</h1><p>SHA-256 verification across committed replicas — corruption never becomes truth.</p></div><button class="btn primary" data-action="integrity">Run integrity scan</button></div>
-        <div class="integrity-hero"><div><small>INTEGRITY SCORE</small><strong>99.7%</strong><p>38,526 replicas verified</p></div><div><b>Last full scan · 04:12:36</b><p>One mismatch was isolated and repaired before it affected reads.</p><div class="meter" role="progressbar" aria-label="Integrity score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="99.7"><i style="width:99.7%"></i></div></div><div><small>MISMATCHES</small><strong class="green-text">0</strong><p>currently open</p></div></div>
-        <div class="panel table-panel"><div class="panel-head"><div><p class="eyebrow">VERIFICATION LOG</p><h2>Replica checks</h2></div><span class="chip green">CLEAN</span></div><div class="table-wrap"><table><caption class="sr-only">Replica integrity verification log</caption><thead><tr><th scope="col">Object</th><th scope="col">Replica</th><th scope="col">Expected</th><th scope="col">Observed</th><th scope="col">Result</th><th scope="col">Checked</th></tr></thead><tbody id="integrity-body"></tbody></table></div></div>
+        <div class="integrity-hero"><div><small>CHECKED</small><strong id="integrity-checked">0</strong><p>Replicas reported by Part B</p></div><div><b id="integrity-latest">No integrity job reported yet</b><p id="integrity-copy">Run a check to create a durable verification job.</p><div class="meter" role="progressbar" aria-label="Integrity completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="integrity-meter" style="width:0%"></i></div></div><div><small>CORRUPTED</small><strong id="integrity-corrupted" class="green-text">0</strong><p>reported by jobs</p></div></div>
+        <div class="panel table-panel"><div class="panel-head"><div><p class="eyebrow">VERIFICATION LOG</p><h2>Replica checks</h2></div><span class="chip green">CLEAN</span></div><div class="table-wrap"><table><caption class="sr-only">Replica integrity verification log</caption><thead><tr><th scope="col">Job</th><th scope="col">Node</th><th scope="col">Version</th><th scope="col">Checked</th><th scope="col">Corrupted</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="integrity-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-rebalance">
         <div class="page-head"><div><p class="eyebrow">CAPACITY CONTROL</p><h1>Rebalance center</h1><p>Move verified replicas before capacity pressure becomes a failure mode.</p></div><button class="btn primary" data-action="rebalance">Start rebalance</button></div>
-        <div class="panel"><div class="panel-head"><div><p class="eyebrow">CLUSTER DISTRIBUTION</p><h2>Storage pressure</h2></div><span class="chip amber">HIGH WATERMARK · 80%</span></div><div class="capacity-bars" id="capacity-bars"></div><div class="rule"><span>Policy</span><b>Move verified replicas from &gt;80% nodes to &lt;60% nodes</b><small>Max 8 moves/scan</small></div></div>
-        <div class="panel table-panel top-gap"><div class="panel-head"><div><p class="eyebrow">MIGRATIONS</p><h2>Replica moves</h2></div><span class="chip">DURABLE JOBS</span></div><div class="table-wrap"><table><caption class="sr-only">Durable rebalancing migrations</caption><thead><tr><th scope="col">Job</th><th scope="col">Object</th><th scope="col">Source</th><th scope="col">Target</th><th scope="col">Progress</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="rebalance-body"></tbody></table></div></div>
+        <div class="panel"><div class="panel-head"><div><p class="eyebrow">CLUSTER DISTRIBUTION</p><h2>Storage pressure</h2></div><span class="chip amber">HIGH WATERMARK · 80%</span></div><div class="capacity-bars" id="capacity-bars"></div><div class="rule"><span>Policy</span><b>Use the live capacity and replication policy reported by Part B</b><small id="rebalance-policy-note">Waiting for policy telemetry</small></div></div>
+        <div class="panel table-panel top-gap"><div class="panel-head"><div><p class="eyebrow">MIGRATIONS</p><h2>Replica moves</h2></div><span class="chip">DURABLE JOBS</span></div><div class="table-wrap"><table><caption class="sr-only">Durable rebalancing migrations</caption><thead><tr><th scope="col">Job</th><th scope="col">Version</th><th scope="col">Source</th><th scope="col">Target</th><th scope="col">Attempts</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="rebalance-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-guide">
@@ -244,6 +244,6 @@
 </div>
 
 <script src="./js/config.js" defer></script>
-<script src="./js/app.js?v=20260926-5" defer></script>
+<script src="./js/app.js?v=20260926-6" defer></script>
 </body>
 </html>
