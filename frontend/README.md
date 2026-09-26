@@ -1,4 +1,4 @@
-# Vault Part C — Frontend
+# VaultGuard Part C — Frontend
 
 Part C is the judge-facing resilience cockpit built with plain HTML, CSS and vanilla JavaScript.
 
@@ -11,12 +11,6 @@ On MASTER, live API mode is the default:
 The frontend connects automatically to:
 
     http://localhost:8000/api/v1
-
-Use:
-
-    http://localhost:5173/?mode=mock
-
-for the safe local simulation.
 
 ## One-command full stack
 
@@ -59,7 +53,7 @@ The frontend consumes:
 - POST /api/v1/admin/rebalance
 - GET /api/v1/admin/rebalance/{job_id}
 
-Node drain/resume remains demo-only because no corresponding public Part B endpoint exists.
+Node lifecycle changes are intentionally not exposed in the UI because Part B does not publish a corresponding public endpoint.
 
 ## Verification
 
