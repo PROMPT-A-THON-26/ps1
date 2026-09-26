@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "index.html").read_text(encoding="utf-8")
 CSS = (ROOT / "css" / "app.css").read_text(encoding="utf-8")
 JS = (ROOT / "js" / "app.js").read_text(encoding="utf-8")
+CONFIG = (ROOT / "js" / "config.js").read_text(encoding="utf-8")
 
 REQUIRED = {"overview","nodes","objects","repairs","integrity","rebalance","events","policies"}
 
@@ -51,12 +52,13 @@ def test_no_unsupported_live_object_post():
 
 def test_demo_mode_exists():
     # Static hosting uses a deterministic mock mode by default; live API remains an explicit opt-in.
-    assert 'const requestedMode = params.get("mode")' in HTML
-    assert 'requestedMode === "api"' in HTML
-    assert 'requestedMode === "mock"' in HTML
-    assert 'hostedStatic' in HTML
+    assert '<script src="./js/config.js" defer></script>' in HTML
+    assert 'const requestedMode = params.get("mode")' in CONFIG
+    assert 'requestedMode === "api"' in CONFIG
+    assert 'requestedMode === "mock"' in CONFIG
+    assert 'hostedStatic' in CONFIG
     assert 'CONFIG.mode==="mock"' in JS
-    assert '/api/v1' in HTML
+    assert '/api/v1' in CONFIG
 
 def test_safe_demo_is_explicit():
     assert "Demo-only control" in JS
@@ -96,6 +98,7 @@ def test_accessibility_contract():
         assert token in HTML
     assert 'prefers-reduced-motion' in CSS
     assert '.skip-link:focus' in CSS
+    assert 'Content-Security-Policy' in HTML
     assert 'resolveApiBaseUrl' in JS
     assert 'MAX_UPLOAD_BYTES' in JS
 
