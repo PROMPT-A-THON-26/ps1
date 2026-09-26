@@ -166,7 +166,7 @@ def test_accessibility_contract():
         'id="main-content"',
         'aria-label="Primary navigation"',
         'aria-label="Search nodes"',
-        'aria-label="Search objects"',
+        'aria-label="Search files"',
         'aria-hidden="true"',
         'aria-live="polite"',
         'aria-atomic="true"',
