@@ -61,3 +61,25 @@ class ChecksumMismatch(VaultError):
             message=f"Checksum mismatch: expected {expected}, got {actual}.",
             status_code=409,
         )
+
+
+class Unauthorized(VaultError):
+    """Raised when an administrative operation lacks valid credentials."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            code=ErrorCode.UNAUTHORIZED,
+            message="Administrative credentials are required.",
+            status_code=401,
+        )
+
+
+class PayloadTooLarge(VaultError):
+    """Raised when an upload exceeds the configured gateway limit."""
+
+    def __init__(self, limit_bytes: int) -> None:
+        super().__init__(
+            code=ErrorCode.PAYLOAD_TOO_LARGE,
+            message=f"Upload exceeds the configured limit of {limit_bytes} bytes.",
+            status_code=413,
+        )
