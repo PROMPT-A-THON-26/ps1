@@ -19,7 +19,14 @@ def new_request_id() -> str:
     return f"req_{uuid4().hex}"
 
 
+def validate_request_id(value: str) -> str:
+    """Validate an explicitly supplied request ID without silently replacing it."""
+    if not isinstance(value, str) or _REQUEST_ID_RE.fullmatch(value) is None:
+        raise ValueError("request_id must match the log-safe identifier format")
+    return value
+
+
 def normalize_request_id(value: str | None) -> str:
-    """Accept only short, log-safe request IDs; otherwise create a fresh ID."""
+    """Accept short, log-safe request IDs; otherwise create a fresh ID."""
     candidate = value.strip() if isinstance(value, str) else ""
     return candidate if _REQUEST_ID_RE.fullmatch(candidate) else new_request_id()
