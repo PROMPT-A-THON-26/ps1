@@ -344,28 +344,34 @@ class GatewayService:
 
         deleted = 0
         failures: list[str] = []
-        clients: dict[str, StorageNodeClient] = {}
+        clients: dict[str, StorageNodeClient] = {
+            node.address: client_factory(node.address)
+            for _, node, _ in replica_rows
+            if node is not None
+        }
+
+        async def delete_one(replica, node, version):
+            if node is None:
+                return replica, None, True
+            try:
+                await clients[node.address].delete_object(
+                    str(version.object_id),
+                    str(version.version_id),
+                )
+                return replica, node.node_id, True
+            except StorageNodeClientError:
+                return replica, node.node_id, False
+
         try:
-            for replica, node, version in replica_rows:
-                if node is None:
+            results = await asyncio.gather(
+                *(delete_one(replica, node, version) for replica, node, version in replica_rows)
+            )
+            for replica, node_id, succeeded in results:
+                if succeeded:
                     self.session.delete(replica)
                     deleted += 1
-                    continue
-
-                client = clients.get(node.address)
-                if client is None:
-                    client = client_factory(node.address)
-                    clients[node.address] = client
-
-                try:
-                    await client.delete_object(
-                        str(version.object_id),
-                        str(version.version_id),
-                    )
-                    self.session.delete(replica)
-                    deleted += 1
-                except StorageNodeClientError:
-                    failures.append(node.node_id)
+                elif node_id is not None:
+                    failures.append(node_id)
         finally:
             await asyncio.gather(
                 *(client.aclose() for client in clients.values()),
