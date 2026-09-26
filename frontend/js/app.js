@@ -359,6 +359,14 @@
     $("#integrity-checked").textContent=checked.toLocaleString();
     $("#integrity-corrupted").textContent=corrupted.toLocaleString();
     const latest=DATA.integrity[0];
+    const integrityChip=$("#integrity-chip");
+    const latestState=String(latest?.status||"").toUpperCase();
+    if(integrityChip){
+      const failed=latestState==="FAILED"||latestState==="ERROR";
+      const complete=["SUCCEEDED","COMPLETED"].includes(latestState);
+      integrityChip.textContent=!latest?"WAITING":(failed?"ACTION NEEDED":(complete?"CLEAN":"RUNNING"));
+      integrityChip.className="chip "+(!latest||(!failed&&!complete)?"amber":(failed?"red":"green"));
+    }
     $("#integrity-latest").textContent=latest?"Latest job "+(latest.integrity_id||""):"No integrity job reported yet";
     $("#integrity-copy").textContent=latest?((latest.status||"").toUpperCase()+" · "+(latest.node_id||"cluster")+" · updated "+formatTimestamp(latest.updated_at||latest.created_at)):"Run a check to create a durable verification job.";
     $("#integrity-meter").style.width=latest?(["SUCCEEDED","COMPLETED"].includes(String(latest.status||"").toUpperCase())?"100%":"25%"):"0%";
@@ -537,7 +545,7 @@
     const action=e.target.closest("[data-action]");
     if(action){
       const a=action.dataset.action;
-      if(a==="upload")openModal();else if(a==="close-modal")closeModal();else if(a==="upload-file")await uploadFile();else if(a==="integrity")await runAction("integrity");else if(a==="repair")await runAction("repair");else if(a==="rebalance")await runAction("rebalance");else if(a==="refresh"){try{await API.sync();renderAll();toast("Refreshed","Live Part B telemetry synchronized.");}catch(error){toast("Refresh failed",error.message);}}else if(a==="save-admin-key"){const input=$("#admin-key-input"),key=input?.value.trim();if(!key){toast("Admin key not saved","Enter the VAULT_ADMIN_API_KEY supplied for this environment.");return;}sessionStorage.setItem("vault_admin_key",key);input.value="";toast("Admin access ready","Key stored only in this browser session.");try{await API.sync();}catch(error){toast("Telemetry refresh failed",error.message);}}
+      if(a==="upload")openModal();else if(a==="close-modal")closeModal();else if(a==="upload-file")await uploadFile();else if(a==="integrity")await runAction("integrity");else if(a==="repair")await runAction("repair");else if(a==="rebalance")await runAction("rebalance");else if(a==="refresh"){try{await API.sync();renderAll();toast("Refreshed","Live Part B telemetry synchronized.");}catch(error){toast("Refresh failed",error.message);}}else if(a==="save-admin-key"){const input=$("#admin-key-input"),key=input?.value.trim();if(!key){toast("Admin key not saved","Enter the VAULT_ADMIN_API_KEY supplied for this environment.");return;}sessionStorage.setItem("vault_admin_key",key);input.value="";try{await API.sync();if(DATA.sync.admin==="ready")toast("Admin access verified","Part B accepted the key for this session.");else toast("Admin key rejected","Part B did not authorize the supplied key.");}catch(error){toast("Telemetry refresh failed",error.message);}}
     }
     const obj=e.target.closest("[data-object]");if(obj){await selectObject(obj.dataset.object);return;}
     const node=e.target.closest("[data-node]");
