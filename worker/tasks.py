@@ -9,6 +9,7 @@ from uuid import UUID
 from celery import Task
 from pydantic import ValidationError
 from sqlalchemy import and_, func, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from common.constants import ErrorCode, NodeState, ReplicaState, VersionState
 from common.errors import VaultError
@@ -84,7 +85,7 @@ def repair_version(self: Task, version_id: str, repair_id: str | None = None) ->
                     for item in results
                 ],
             }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
 
@@ -114,7 +115,7 @@ def verify_replica(self: Task, replica_id: str) -> dict[str, Any]:
                 )
                 payload["repair_task_id"] = str(queued.id)
             return payload
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
 
@@ -144,7 +145,7 @@ def scan_node(self: Task, node_id: str) -> dict[str, Any]:
                 "corrupted": sum(result.corrupted for result in results),
                 "repair_task_ids": task_ids,
             }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
 
@@ -203,7 +204,7 @@ def check_under_replicated_objects(self: Task) -> dict[str, Any]:
                         "error": exc.message,
                     })
         return {"queued": queued, "blocked": blocked}
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
 
@@ -234,7 +235,7 @@ def rebalance_node(self: Task, node_id: str) -> dict[str, Any]:
                     for item in results
                 ],
             }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
 
@@ -280,7 +281,7 @@ def migrate_replica(
                 "attempts": result.attempts,
                 "source_removed": result.source_removed,
             }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
 
@@ -384,7 +385,7 @@ def process_node_health(self: Task) -> dict[str, Any]:
                             kwargs={"repair_id": str(repair_id)},
                         )
         return {"transitions": transitions, "poll_failures": poll_failures}
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
 
@@ -416,7 +417,7 @@ def run_integrity_check(self: Task, integrity_id: str) -> dict[str, Any]:
                 "corrupted_count": result.corrupted_count,
                 "repair_task_ids": repair_task_ids,
             }
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
 
@@ -432,6 +433,6 @@ def scan_all_integrity(self: Task) -> dict[str, Any]:
             ).create_job()
             queued = run_integrity_check.apply_async(args=[str(job.integrity_id)])
             return {"integrity_id": str(job.integrity_id), "task_id": str(queued.id)}
-    except Exception as exc:
+    except (StorageNodeClientError, VaultError, ValueError, TypeError, ValidationError, SQLAlchemyError) as exc:
         _retry_task(self, exc)
         raise AssertionError("unreachable")
