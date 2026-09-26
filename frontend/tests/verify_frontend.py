@@ -126,3 +126,26 @@ def test_client_hardening_contract():
     assert 'validateUploadFile(file)' in JS
     assert 'Unsupported API protocol.' in JS
     assert 'File exceeds the 100 MB demo upload limit.' in JS
+
+
+def test_security_and_performance_metadata():
+    assert 'Content-Security-Policy' in HTML
+    assert 'name="referrer"' in HTML
+    assert 'script src="./js/config.js" defer' in HTML
+    assert 'script src="./js/app.js" defer' in HTML
+    assert '<meta name="description"' in HTML
+    assert '<meta name="viewport"' in HTML
+
+
+def test_no_render_blocking_inline_javascript():
+    assert '<script>' not in HTML
+    assert '<script ' in HTML
+    assert 'eval(' not in JS
+    assert 'new Function' not in JS
+
+
+def test_api_input_validation_and_output_safety():
+    assert 'resolveApiBaseUrl' in JS
+    assert 'validateUploadFile' in JS
+    assert 'escapeHtml' in JS
+    assert 'X-Request-ID' in JS
