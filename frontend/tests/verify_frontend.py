@@ -102,6 +102,8 @@ def test_accessibility_contract():
     assert 'Content-Security-Policy' in HTML
     assert 'resolveApiBaseUrl' in JS
     assert 'MAX_UPLOAD_BYTES' in JS
+    assert 'id="file-input" type="file" aria-label="Select object file"' in HTML
+    assert "connect-src 'self' https:" in HTML
 
 def test_frontend_framework_free():
     text = (HTML + CSS + JS).lower()
