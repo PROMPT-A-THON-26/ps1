@@ -9,14 +9,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from common.constants import (
-    DEFAULT_REPLICATION_FACTOR,
-    DEFAULT_SUSPECT_AFTER_SECONDS,
-    DEFAULT_UNAVAILABLE_AFTER_SECONDS,
-    NodeState,
-    ReplicaState,
-    VersionState,
-)
+from common.constants import NodeState, ReplicaState, VersionState
 from common.errors import VaultError
 from common.settings import settings
 from metadata.manager import MetadataManager
