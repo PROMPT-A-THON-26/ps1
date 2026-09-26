@@ -34,3 +34,13 @@ th{color:#7895aa}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 }
+
+/* Accessibility: readable minimums for dense operational UI and screen-reader-only structure. */
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.nav-label,.eyebrow,.env b,.env small,.sidebar-foot>small,.signal-strip small,.live-chip,.metric-head,.metric>p,.chip,.badge,.legend,.health-summary p,.service-list>div,.toolbar input,.filters button,th,.status,.table-action,.detail-meta,.replica small,.repair-card p,.route,.progress-label,.repair-card footer,.integrity-hero small,.integrity-hero p,.capacity-row b,.capacity-value,.rule,.event p,.event time,.panel label,.panel label input,.connection,.note,.modal-subtitle,.drop small,.drop strong,.upload-meta small,.upload-meta b,.toast small,.command-footer,.command-item,.command-palette>input,.drill-status small,.drill-step span,.drill-step small{font-size:max(10px,1em)}
+td{font-size:max(10px,1em)}
+.status i,.service,.dot,.live,.status-dot{min-width:7px;min-height:7px}
+@media(max-width:560px){
+  th,td{padding:10px}
+  .hero p,.page-head p{font-size:11px}
+}
