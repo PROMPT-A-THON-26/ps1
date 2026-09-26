@@ -166,7 +166,7 @@
     return {id:o.name||o.object_id||"unknown",size:"—",version:o.current_version_id?"current":"—",replicas:"—",checksum:"—",status:active?"healthy":"attention",updated:formatTimestamp(o.updated_at),type:"object",created:formatTimestamp(o.created_at),currentVersionId:o.current_version_id||null,replicaRows:[],live:true};
   }
   function toast(title,message){const t=document.createElement("div");t.className="toast";t.innerHTML="<b>"+escapeHtml(title)+"</b><small>"+escapeHtml(message)+"</small>";$("#toasts").appendChild(t);setTimeout(()=>t.remove(),4200);}
-  function stateBusy(flag){document.body.classList.toggle("is-syncing",!!flag);const refresh=$("#refresh");if(refresh)refresh.disabled=!!flag;}
+  function stateBusy(flag){document.body.classList.toggle("is-syncing",!!flag);const refresh=$("#refresh");if(refresh)refresh.disabled=!!flag;const main=document.getElementById("main-content");if(main)main.setAttribute("aria-busy",String(!!flag));}
   function showView(view){
     if(!ROUTES.includes(view))view="overview";
     state.view=view;
@@ -240,7 +240,7 @@
   function renderEvents(){const rows=DATA.events.filter(e=>state.eventFilter==="all"||e.type===state.eventFilter);$("#event-feed").innerHTML=rows.length?rows.map(e=>"<article class='event'><span class='event-icon "+e.type+"'>"+escapeHtml(e.icon)+"</span><div><b>"+escapeHtml(e.title)+"</b><p>"+escapeHtml(e.body)+"</p></div><time>"+escapeHtml(e.relative)+"</time></article>").join(""):"<div class='empty'><b>≋</b><h3>No events in this filter</h3><p>The event feed is clear.</p></div>";}
   function renderTimeline(){$("#timeline").innerHTML=DATA.events.slice(0,4).map(e=>"<div class='event' style='grid-template-columns:8px 1fr auto;background:transparent;border:0;border-bottom:1px solid rgba(167,192,216,.07);border-radius:0;padding:10px 0'><span class='dot "+(e.type==="success"?"good":e.type==="warning"?"warn":"")+"' style='margin-top:4px'></span><div><b>"+escapeHtml(e.title)+"</b><p>"+escapeHtml(e.body)+"</p></div><time>"+escapeHtml(e.relative)+"</time></div>").join("");}
   function renderAll(){renderEnvironment();renderSummary();updateTopology();if(state.view==="nodes")renderNodes();if(state.view==="objects")renderObjects();if(state.view==="repairs")renderRepairs();if(state.view==="integrity")renderIntegrity();if(state.view==="rebalance")renderRebalance();if(state.view==="events")renderEvents();renderTimeline();$("#objects-kpi").textContent=DATA.dashboard.objects.toLocaleString();}
-  function setFilter(group,value){state[group]=value;const id=group==="nodeFilter"?"node-filters":group==="objectFilter"?"object-filters":"event-filters";const box=$("#"+id);$$("button",box).forEach(b=>b.classList.toggle("active",b.dataset.filter===value));renderAll();}
+  function setFilter(group,value){state[group]=value;const id=group==="nodeFilter"?"node-filters":group==="objectFilter"?"object-filters":"event-filters";const box=$("#"+id);$("button",box).forEach(b=>{const active=b.dataset.filter===value;b.classList.toggle("active",active);b.setAttribute("aria-pressed",String(active));});renderAll();}
   function jobIdFromResponse(name,result){const keys={repair:["repair_id","job_id","id"],integrity:["integrity_id","job_id","id"],rebalance:["rebalance_id","job_id","id"]};return(keys[name]||[]).map(k=>result?.[k]).find(Boolean)||null;}
   async function pollJob(name,id){
     if(CONFIG.mode!=="api"||!id)return;
@@ -355,6 +355,14 @@
       const map={u:openModal,d:openDrill,r:()=>API.sync().then(()=>{renderAll();toast("Refreshed","Telemetry synchronized.");}).catch(err=>toast("Refresh failed",err.message)),i:()=>runAction("integrity")};
       if(map[key]&&!((e.ctrlKey||e.metaKey)))map[key]();
     }
+  });
+  window.addEventListener("error",event=>{
+    if(!event?.error)return;
+    toast("Unexpected frontend error","The interface recovered; refresh to retry the last action.");
+  });
+  window.addEventListener("unhandledrejection",event=>{
+    const reason=event?.reason;
+    if(reason)toast("Unexpected async error",reason.message||String(reason));
   });
   renderAll();
   const hash=location.hash.slice(1);showView(ROUTES.includes(hash)?hash:"overview");
