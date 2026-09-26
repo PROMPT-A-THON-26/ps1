@@ -80,21 +80,7 @@ def build_gateway_router(
     def list_objects(request: Request) -> JSONResponse:
         request_id = _request_id(request)
         with session_factory() as session:
-            payload = [
-                {
-                    "object_id": str(obj.object_id),
-                    "name": obj.name,
-                    "state": obj.state.value,
-                    "current_version_id": (
-                        None
-                        if obj.current_version_id is None
-                        else str(obj.current_version_id)
-                    ),
-                    "created_at": obj.created_at,
-                    "updated_at": obj.updated_at,
-                }
-                for obj in GatewayService(session).list_objects()
-            ]
+            payload = GatewayService(session).list_object_summaries()
         return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
 
     @router.get("/objects/{name}/metadata")
