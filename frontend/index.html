@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="./css/app.css">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to main content</a>
 <div class="app-shell">
   <aside class="sidebar" aria-label="Primary navigation">
     <div class="brand">
@@ -18,7 +19,7 @@
       <div><strong>VAULT</strong><span>Resilience Control Center</span></div>
     </div>
     <div class="env" id="env-badge"><span class="live"></span><div><b id="env-label">DEMO MODE</b><small id="env-detail">Safe local simulation</small></div></div>
-    <nav class="nav-groups">
+    <nav class="nav-groups" aria-label="Vault sections">
       <section>
         <p class="nav-label">OPERATIONS</p>
         <button class="nav-item active" data-view="overview"><span>⌂</span>Overview</button>
@@ -40,7 +41,7 @@
     </div>
   </aside>
 
-  <main class="main">
+  <main class="main" id="main-content" tabindex="-1">
     <header class="topbar">
       <div class="crumb"><span>VAULT</span><i>/</i><strong id="view-title">Overview</strong></div>
       <div class="top-actions">
@@ -58,18 +59,18 @@
           <div class="actions"><button class="btn primary" data-action="upload">＋ Upload object</button><button class="btn" data-action="integrity">✓ Run integrity scan</button><button class="btn ghost" data-action="drill">⚡ Resilience drill</button></div>
         </div>
 
-        <div class="signal-strip">
+        <section class="signal-strip" aria-label="Cluster signals">
           <div><span class="signal blue" id="signal-control-icon">✓</span><div><small>CONTROL PLANE</small><b id="signal-control">Connected</b></div></div>
           <div><span class="signal green">↻</span><div><small>SELF-HEAL</small><b id="signal-heal">2 repairs today</b></div></div>
           <div><span class="signal amber">◒</span><div><small>HEADROOM</small><b id="signal-headroom">28% remaining</b></div></div>
           <div><span class="signal violet">3×</span><div><small>POLICY</small><b id="signal-policy">RF 3 · W2 · R1</b></div></div>
-        </div>
+        </section>
         <div class="ops-banner" id="ops-banner"><div class="ops-banner-icon">!</div><div><small>OPERATIONAL SIGNAL</small><b id="ops-banner-title">node-04 is above the 80% watermark</b><span id="ops-banner-copy">Rebalance is eligible before capacity pressure becomes a failure mode.</span></div><button class="link" data-view="rebalance">Review</button></div>
 
         <div class="grid kpis">
-          <article class="metric"><div class="metric-head"><span>Resilience score</span><b class="up" id="score-delta">+1.8%</b></div><strong id="resilience-score">98.7<small>/100</small></strong><div class="meter"><i id="score-meter" style="width:98.7%"></i></div><p>Healthy replicas + recovery success</p></article>
+          <article class="metric"><div class="metric-head"><span>Resilience score</span><b class="up" id="score-delta">+1.8%</b></div><strong id="resilience-score">98.7<small>/100</small></strong><div class="meter" role="progressbar" aria-label="Resilience score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="98.7"><i id="score-meter" style="width:98.7%"></i></div><p>Healthy replicas + recovery success</p></article>
           <article class="metric"><div class="metric-head"><span>Objects</span><b class="chip">LIVE</b></div><strong id="objects-kpi">12,842</strong><div class="spark"></div><p>+184 objects in the last 24h</p></article>
-          <article class="metric"><div class="metric-head"><span>Storage used</span><b class="chip amber" id="storage-chip">72%</b></div><strong id="storage-used">1.44<small> TB</small></strong><div class="meter amber-meter"><i id="storage-meter" style="width:72%"></i></div><p id="storage-caption">2.0 TB logical capacity</p></article>
+          <article class="metric"><div class="metric-head"><span>Storage used</span><b class="chip amber" id="storage-chip">72%</b></div><strong id="storage-used">1.44<small> TB</small></strong><div class="meter amber-meter" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="72"><i id="storage-meter" style="width:72%"></i></div><p id="storage-caption">2.0 TB logical capacity</p></article>
           <article class="metric"><div class="metric-head"><span>Healthy replicas</span><b class="chip green" id="replica-chip">SYNC</b></div><strong id="healthy-replicas">99.4<small>%</small></strong><div class="replica-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>Protected objects stay at RF 3</p></article>
         </div>
 
@@ -91,7 +92,7 @@
 
           <article class="panel">
             <div class="panel-head"><div><p class="eyebrow">FAILURE DOMAIN</p><h2>Cluster health</h2></div><span class="badge green" id="cluster-badge">HEALTHY</span></div>
-            <div class="health-summary"><div class="ring" id="health-ring"><div><strong id="health-ring-score">98.7</strong><small>/100</small></div></div><div><b id="cluster-summary">All core services operational</b><p id="cluster-copy">node-04 is above the rebalance watermark. No loss of read availability.</p></div></div>
+            <div class="health-summary"><div class="ring" role="progressbar" aria-label="Cluster resilience score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="98.7" id="health-ring"><div><strong id="health-ring-score">98.7</strong><small>/100</small></div></div><div><b id="cluster-summary">All core services operational</b><p id="cluster-copy">node-04 is above the rebalance watermark. No loss of read availability.</p></div></div>
             <div class="service-list">
               <div><span>Metadata</span><b><i class="service good"></i>Healthy</b></div>
               <div><span>Replication</span><b><i class="service good"></i>Healthy</b></div>
@@ -111,12 +112,12 @@
       <section class="view" id="view-nodes">
         <div class="page-head"><div><p class="eyebrow">DATA PLANE</p><h1>Storage nodes</h1><p>Capacity, lifecycle and heartbeat state across the cluster.</p></div><button class="btn primary" data-action="refresh">Refresh telemetry</button></div>
         <div class="grid kpis compact"><article class="metric"><span>Nodes</span><strong id="nodes-count">4</strong><p id="nodes-summary">3 healthy · 1 needs rebalance</p></article><article class="metric"><span>Available capacity</span><strong id="available-capacity">560<small> GB</small></strong><p id="capacity-summary">28% cluster headroom</p></article><article class="metric"><span>Write acceptance</span><strong id="write-acceptance">100<small>%</small></strong><p id="write-summary">All nodes accepting writes</p></article><article class="metric"><span>Median heartbeat</span><strong id="median-heartbeat">2.1<small>s</small></strong><p>Control-plane pulse</p></article></div>
-        <div class="panel table-panel"><div class="toolbar"><input id="node-search" placeholder="Search node ID or lifecycle state" aria-label="Search nodes"><div id="node-filters" class="filters"><button class="active" data-filter="all">All</button><button data-filter="healthy">Healthy</button><button data-filter="attention">Attention</button></div></div><div class="table-wrap"><table><thead><tr><th>Node</th><th>Status</th><th>Capacity</th><th>Used</th><th>Objects</th><th>Heartbeat</th><th>Lifecycle</th><th></th></tr></thead><tbody id="nodes-body"></tbody></table></div></div>
+        <div class="panel table-panel"><div class="toolbar"><input id="node-search" placeholder="Search node ID or lifecycle state" aria-label="Search nodes"><div id="node-filters" class="filters"><button class="active" data-filter="all">All</button><button data-filter="healthy">Healthy</button><button data-filter="attention">Attention</button></div></div><div class="table-wrap"><table><thead><tr><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Capacity</th><th scope="col">Used</th><th scope="col">Objects</th><th scope="col">Heartbeat</th><th scope="col">Lifecycle</th><th scope="col"></th></tr></thead><tbody id="nodes-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-objects">
         <div class="page-head"><div><p class="eyebrow">OBJECT CATALOG</p><h1>Objects & versions</h1><p>Search placement, versions, checksums and replica health.</p></div><button class="btn primary" data-action="upload">＋ Upload object</button></div>
-        <div class="panel table-panel"><div class="toolbar"><input id="object-search" placeholder="Search object ID, checksum or status" aria-label="Search objects"><div id="object-filters" class="filters"><button class="active" data-filter="all">All</button><button data-filter="healthy">Healthy</button><button data-filter="degraded">Degraded</button><button data-filter="corrupted">Corrupted</button></div></div><div class="table-wrap"><table><thead><tr><th>Object ID</th><th>Size</th><th>Version</th><th>Replicas</th><th>Checksum</th><th>Status</th><th>Updated</th><th></th></tr></thead><tbody id="objects-body"></tbody></table></div></div>
+        <div class="panel table-panel"><div class="toolbar"><input id="object-search" placeholder="Search object ID, checksum or status" aria-label="Search objects"><div id="object-filters" class="filters"><button class="active" data-filter="all">All</button><button data-filter="healthy">Healthy</button><button data-filter="degraded">Degraded</button><button data-filter="corrupted">Corrupted</button></div></div><div class="table-wrap"><table><thead><tr><th scope="col">Object ID</th><th scope="col">Size</th><th scope="col">Version</th><th scope="col">Replicas</th><th scope="col">Checksum</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col"></th></tr></thead><tbody id="objects-body"></tbody></table></div></div>
         <div class="panel detail" id="object-detail" aria-live="polite"><div class="empty"><b>▦</b><h3>Select an object</h3><p>Replica placement and version details will appear here.</p></div></div>
       </section>
 
@@ -128,14 +129,14 @@
 
       <section class="view" id="view-integrity">
         <div class="page-head"><div><p class="eyebrow">TRUST LAYER</p><h1>Integrity center</h1><p>SHA-256 verification across committed replicas — corruption never becomes truth.</p></div><button class="btn primary" data-action="integrity">Run integrity scan</button></div>
-        <div class="integrity-hero"><div><small>INTEGRITY SCORE</small><strong>99.7%</strong><p>38,526 replicas verified</p></div><div><b>Last full scan · 04:12:36</b><p>One mismatch was isolated and repaired before it affected reads.</p><div class="meter"><i style="width:99.7%"></i></div></div><div><small>MISMATCHES</small><strong class="green-text">0</strong><p>currently open</p></div></div>
-        <div class="panel table-panel"><div class="panel-head"><div><p class="eyebrow">VERIFICATION LOG</p><h2>Replica checks</h2></div><span class="chip green">CLEAN</span></div><div class="table-wrap"><table><thead><tr><th>Object</th><th>Replica</th><th>Expected</th><th>Observed</th><th>Result</th><th>Checked</th></tr></thead><tbody id="integrity-body"></tbody></table></div></div>
+        <div class="integrity-hero"><div><small>INTEGRITY SCORE</small><strong>99.7%</strong><p>38,526 replicas verified</p></div><div><b>Last full scan · 04:12:36</b><p>One mismatch was isolated and repaired before it affected reads.</p><div class="meter" role="progressbar" aria-label="Integrity score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="99.7"><i style="width:99.7%"></i></div></div><div><small>MISMATCHES</small><strong class="green-text">0</strong><p>currently open</p></div></div>
+        <div class="panel table-panel"><div class="panel-head"><div><p class="eyebrow">VERIFICATION LOG</p><h2>Replica checks</h2></div><span class="chip green">CLEAN</span></div><div class="table-wrap"><table><thead><tr><th scope="col">Object</th><th scope="col">Replica</th><th scope="col">Expected</th><th scope="col">Observed</th><th scope="col">Result</th><th scope="col">Checked</th></tr></thead><tbody id="integrity-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-rebalance">
         <div class="page-head"><div><p class="eyebrow">CAPACITY CONTROL</p><h1>Rebalance center</h1><p>Move verified replicas before capacity pressure becomes a failure mode.</p></div><button class="btn primary" data-action="rebalance">Start rebalance</button></div>
         <div class="panel"><div class="panel-head"><div><p class="eyebrow">CLUSTER DISTRIBUTION</p><h2>Storage pressure</h2></div><span class="chip amber">HIGH WATERMARK · 80%</span></div><div class="capacity-bars" id="capacity-bars"></div><div class="rule"><span>Policy</span><b>Move verified replicas from &gt;80% nodes to &lt;60% nodes</b><small>Max 8 moves/scan</small></div></div>
-        <div class="panel table-panel top-gap"><div class="panel-head"><div><p class="eyebrow">MIGRATIONS</p><h2>Replica moves</h2></div><span class="chip">DURABLE JOBS</span></div><div class="table-wrap"><table><thead><tr><th>Job</th><th>Object</th><th>Source</th><th>Target</th><th>Progress</th><th>Status</th><th>Updated</th></tr></thead><tbody id="rebalance-body"></tbody></table></div></div>
+        <div class="panel table-panel top-gap"><div class="panel-head"><div><p class="eyebrow">MIGRATIONS</p><h2>Replica moves</h2></div><span class="chip">DURABLE JOBS</span></div><div class="table-wrap"><table><thead><tr><th scope="col">Job</th><th scope="col">Object</th><th scope="col">Source</th><th scope="col">Target</th><th scope="col">Progress</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="rebalance-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-events">
@@ -161,11 +162,11 @@
     <div class="modal-head"><div><p class="eyebrow">OBJECT INGEST</p><h2 id="upload-title">Upload object</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">×</button></div>
     <label class="drop" for="file-input"><input id="file-input" type="file"><span>↑</span><b>Drop a file here</b><small>or click to browse · streamed through Vault</small><strong id="file-name">No file selected</strong></label>
     <div class="upload-meta"><div><small>Replication</small><b>RF 3</b></div><div><small>Write quorum</small><b>W 2</b></div><div><small>Integrity</small><b>SHA-256</b></div></div>
-    <div id="progress-wrap" hidden><div class="progress-label"><span id="progress-text">Uploading</span><b id="progress-value">0%</b></div><div class="meter"><i id="progress-bar" style="width:0%"></i></div></div>
+    <div id="progress-wrap" hidden><div class="progress-label"><span id="progress-text">Uploading</span><b id="progress-value">0%</b></div><div class="meter" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="progress-bar" style="width:0%"></i></div></div>
     <div class="modal-actions"><button class="btn" data-action="close-modal">Cancel</button><button class="btn primary" id="upload-btn" data-action="upload-file" disabled>Start upload</button></div>
   </div>
 </div>
-<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
 
 <div class="modal-bg" id="drill-modal" aria-hidden="true">
   <div class="modal drill-modal" role="dialog" aria-modal="true" aria-labelledby="drill-title">
@@ -177,7 +178,7 @@
       <div class="drill-step" data-step="3"><span>03</span><b>Repair</b><small>Verified copy restores RF 3</small></div>
       <div class="drill-step" data-step="4"><span>04</span><b>Verify</b><small>Checksum confirms recovery</small></div>
     </div>
-    <div class="drill-console" id="drill-console" aria-live="polite"><code>&gt; awaiting start...</code></div>
+    <div class="drill-console" id="drill-console" aria-live="polite" aria-atomic="true"><code>&gt; awaiting start...</code></div>
     <div class="modal-actions"><button class="btn" data-action="close-drill">Close</button><button class="btn primary" id="drill-run" data-action="run-drill">Start drill</button></div>
   </div>
 </div>
@@ -194,7 +195,9 @@
 <script>
   (() => {
     const params = new URLSearchParams(location.search);
-    const mode = params.get("mode") === "mock" ? "mock" : "api";
+    const requestedMode = params.get("mode");
+    const hostedStatic = /\.github\.io$|\.netlify\.app$|\.vercel\.app$/i.test(location.hostname);
+    const mode = requestedMode === "api" ? "api" : (requestedMode === "mock" || hostedStatic ? "mock" : "api");
     const baseUrl = params.get("baseUrl")
       || (location.hostname
         ? location.protocol + "//" + location.hostname + ":8000/api/v1"
@@ -202,6 +205,6 @@
     window.VAULT_CONFIG = { mode, baseUrl };
   })();
 </script>
-<script src="./js/app.js"></script>
+<script src="./js/app.js" defer></script>
 </body>
 </html>
