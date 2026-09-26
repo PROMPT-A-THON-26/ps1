@@ -56,6 +56,7 @@ jobs:
       - name: Wait for gateway and frontend
         run: |
           python - <<'PY'
+          import json
           import time
           import urllib.request
 
