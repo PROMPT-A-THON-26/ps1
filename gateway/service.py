@@ -65,9 +65,9 @@ class GatewayService:
         return obj
 
     def get_live_object(self, name: str) -> Object:
-        obj = self.get_object(normalized_name)
+        obj = self.get_object(name)
         if obj.state is not ObjectState.ACTIVE:
-            raise ObjectNotFound(name.strip())
+            raise ObjectNotFound(obj.name)
         return obj
 
     def object_metadata(self, name: str) -> dict:
@@ -177,7 +177,7 @@ class GatewayService:
     def read_targets(self, name: str) -> tuple[Object, Version, list[StorageNode]]:
         obj, version = self.head(name)
         if version is None:
-            raise ObjectNotFound(name.strip())
+            raise ObjectNotFound(obj.name)
         targets = list(
             self.session.scalars(
                 select(StorageNode)
@@ -196,7 +196,7 @@ class GatewayService:
         if not targets:
             raise VaultError(
                 code=ErrorCode.NODE_UNAVAILABLE,
-                message=f"No healthy replica is available for object '{name.strip()}'.",
+                message=f"No healthy replica is available for object '{obj.name}'.",
                 status_code=503,
             )
         return obj, version, targets
