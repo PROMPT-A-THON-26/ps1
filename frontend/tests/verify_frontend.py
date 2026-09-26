@@ -117,6 +117,14 @@ def test_user_facing_branding_and_help():
     assert 'id="view-about"' in HTML
 
 
+def test_topology_is_live_data_driven():
+    assert 'id="topology-node-grid"' in HTML
+    assert "DATA.nodes.map" in JS
+    assert "topology-node-count" in HTML
+    assert "topology-replication" in HTML
+    assert "replica relationship" not in HTML
+
+
 def test_settings_reflect_backend_and_admin_key():
     for token in (
         'id="policy-rf"',
