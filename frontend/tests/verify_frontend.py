@@ -93,10 +93,12 @@ def test_accessibility_contract():
         'role="progressbar"',
         'aria-valuemin="0"',
         'aria-valuemax="100"',
+        'caption class="sr-only"',
     ):
         assert token in HTML
     assert 'prefers-reduced-motion' in CSS
     assert '.skip-link:focus' in CSS
+    assert '.sr-only' in CSS
     assert 'Content-Security-Policy' in HTML
     assert 'resolveApiBaseUrl' in JS
     assert 'MAX_UPLOAD_BYTES' in JS
@@ -142,6 +144,17 @@ def test_api_input_validation_and_output_safety():
     assert 'validateUploadFile' in JS
     assert 'escapeHtml' in JS
     assert 'X-Request-ID' in JS
+    assert 'crypto.randomUUID' in JS
+
+
+def test_modal_accessibility_contract():
+    assert 'let activeOverlay=null' in JS
+    assert 'FOCUSABLE_SELECTOR' in JS
+    assert 'trapOverlayFocus' in JS
+    assert 'shell.inert=true' in JS
+    assert 'shell.inert=false' in JS
+    assert 'restoreFocus' in JS
+    assert 'aria-modal="true"' in HTML
 
 if __name__ == "__main__":
     tests = [v for k,v in globals().items() if k.startswith("test_") and callable(v)]
