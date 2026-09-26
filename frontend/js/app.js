@@ -199,9 +199,9 @@
     $("#api-badge").textContent=live?(DATA.sync.admin==="locked"?"LIVE API · ADMIN LOCKED":"LIVE API"):"API";
     $("#api-badge").className="chip "+(live?"green":"amber");
     $("#api-base-url").textContent=CONFIG.baseUrl;
-    $("#topology-live-label").textContent=live?"live telemetry":"demo telemetry";
-    $("#request-label").textContent=DATA.sync.at&&live?"req_live_"+String(DATA.sync.at.getTime()).slice(-6):"req_demo_7F2A";
-    $("#request-dot").style.background=live?(ok?"var(--green)":"var(--amber)"):"var(--blue)";
+    $("#topology-live-label").textContent=live?(DATA.sync.at?"live telemetry":"waiting for telemetry"):"API required";
+    $("#request-label").textContent=live?(DATA.sync.at?"Live Part B telemetry":"Waiting for live telemetry"):"API required";
+    $("#request-dot").style.background=live?(ok?"var(--green)":"var(--amber)"):"var(--amber)";
     $("#signal-control").textContent=live?(ok?"Connected":"Degraded"):"Connected";
     $("#signal-control-icon").textContent=live?(ok?"✓":"!"):"✓";
   }
@@ -220,13 +220,24 @@
     const free=totalCapacity-totalUsed;const freeLabel=free>0?formatBytes(free):"—";$("#available-capacity").innerHTML=freeLabel.includes(" ")?freeLabel.replace(" ","<small> ")+"</small>":freeLabel;$("#capacity-summary").textContent=headroom+"% cluster headroom";
     $("#write-acceptance").innerHTML=(nodes.length?(healthy/Math.max(nodes.length,1)*100):0).toFixed(0)+"<small>%</small>";$("#write-summary").textContent=nodes.length?(attention?"Some nodes need attention":"All nodes accepting writes"):"Waiting for live node telemetry";
     const heartbeatSeconds=nodes.map(n=>parseFloat(String(n.heartbeat).replace("s",""))).filter(Number.isFinite);const median=heartbeatSeconds.length?heartbeatSeconds.sort((a,b)=>a-b)[Math.floor(heartbeatSeconds.length/2)]:0;$("#median-heartbeat").innerHTML=median.toFixed(1)+"<small>s</small>";
-    $("#health-ring-score").textContent=nodeHealth;$("#health-ring").setAttribute("aria-valuenow",String(nodeHealth));$("#health-ring").style.background="conic-gradient(var(--green) 0 "+nodeHealth+"%,#193042 "+nodeHealth+"% 100%)";
+    $("#health-ring-score").innerHTML=healthy+"<small>/"+nodes.length+" healthy</small>";$("#health-ring").setAttribute("aria-valuenow",String(nodeHealth));$("#health-ring").style.background="conic-gradient(var(--green) 0 "+nodeHealth+"%,#193042 "+nodeHealth+"% 100%)";
     $("#cluster-badge").textContent=!nodes.length?"WAITING":(attention||liveBad?"ATTENTION":"HEALTHY");$("#cluster-badge").className="badge "+(!nodes.length?"":(attention||liveBad?"amber":"green"));$("#cluster-summary").textContent=!nodes.length?"Waiting for Part B telemetry":(attention||liveBad?"Cluster requires attention":"All reported services operational");
     const attentionNode=nodes.find(n=>n.status==="attention");$("#cluster-copy").textContent=attentionNode?(attentionNode.id+" needs attention. Reads remain available."):(nodes.length?"No current node requires attention.":"Waiting for live node telemetry.");
     const hot=nodes.find(n=>n.percent>=80);$("#ops-banner").classList.toggle("good-news",!hot);$("#ops-banner-title").textContent=hot?hot.id+" is above the configured 80% watermark":(nodes.length?"Cluster is inside the configured capacity watermark":"Waiting for live capacity telemetry");$("#ops-banner-copy").textContent=hot?"Review Rebalance before capacity pressure becomes a failure mode.":(nodes.length?"No node is currently above 80% used.":"No capacity data is available yet.");
   }
   function updateTopology(){
-    DATA.nodes.slice(0,4).forEach(n=>{const el=$("#topology-"+n.id);if(!el)return;const dot=el.querySelector(".dot"),name=el.querySelector("b"),meta=el.querySelector("small");dot.className="dot "+(n.status==="healthy"?"good":"warn");name.textContent=n.id;meta.textContent=n.percent+"% used";el.classList.toggle("attention-node",n.status!=="healthy");});
+    const count=$("#topology-object-count");if(count)count.textContent=DATA.dashboard.objects?DATA.dashboard.objects.toLocaleString()+" objects":"Waiting for objects";
+    const slots=[1,2,3,4];
+    slots.forEach((slot,index)=>{
+      const el=$("#topology-node-"+String(slot).padStart(2,"0"));
+      const n=DATA.nodes[index];
+      if(!el)return;
+      const dot=el.querySelector(".dot"),name=el.querySelector("b"),meta=el.querySelector("small");
+      if(!n){name.textContent="No node data";meta.textContent="Waiting";dot.className="dot warn";el.classList.remove("attention-node");return;}
+      dot.className="dot "+(n.status==="healthy"?"good":"warn");
+      name.textContent=n.id;meta.textContent=n.percent+"% used";
+      el.classList.toggle("attention-node",n.status!=="healthy");
+    });
   }
 
   function objectByVersion(versionId){
