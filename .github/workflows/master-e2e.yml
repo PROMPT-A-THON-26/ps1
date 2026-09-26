@@ -46,6 +46,7 @@ jobs:
           echo "POSTGRES_USER=vault" >> "$GITHUB_ENV"
           echo "POSTGRES_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
           echo "REDIS_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
+          echo "VAULT_ADMIN_API_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
 
       - name: Validate compose
         run: docker compose config --quiet
