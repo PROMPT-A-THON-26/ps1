@@ -225,19 +225,37 @@
   function updateTopology(){
     DATA.nodes.slice(0,4).forEach(n=>{const el=$("#topology-"+n.id);if(!el)return;const dot=el.querySelector(".dot"),name=el.querySelector("b"),meta=el.querySelector("small");dot.className="dot "+(n.status==="healthy"?"good":"warn");name.textContent=n.id;meta.textContent=n.percent+"% used";el.classList.toggle("attention-node",n.status!=="healthy");});
   }
-  function objectByVersion(versionId){return DATA.objects.find(o=>o.currentVersionId===versionId)||null;}
-  function objectLabelForVersion(versionId){const o=objectByVersion(versionId);return o?.name||versionId||"Unknown object";}
+
+  function objectByVersion(versionId){
+    return DATA.objects.find(o=>o.currentVersionId===versionId)||null;
+  }
+  function objectLabelForVersion(versionId){
+    const o=objectByVersion(versionId);
+    return o?.name||versionId||"Unknown object";
+  }
   function buildLiveEvents(){
     const rows=[];
-    DATA.nodes.filter(n=>n.status!=="healthy").forEach(n=>rows.push({type:"warning",icon:"!",title:n.id+" needs attention",body:(n.lifecycle||"NODE")+" · "+n.percent+"% capacity used.",relative:n.lastHeartbeat?formatTimestamp(n.lastHeartbeat):"now"}));
-    DATA.repairs.slice(0,8).forEach(r=>rows.push({type:r.status==="FAILED"?"failure":(["COMPLETED","SUCCEEDED"].includes(String(r.status||"").toUpperCase())?"success":"warning"),icon:"↻",title:"Repair "+String(r.status||"").toLowerCase(),body:objectLabelForVersion(r.version_id)+" · "+(r.source_node_id||"source")+" → "+(r.target_node_id||"target"),relative:formatTimestamp(r.updated_at||r.created_at)}));
-    DATA.integrity.slice(0,8).forEach(r=>rows.push({type:r.status==="FAILED"?"failure":"success",icon:"✓",title:"Integrity check "+String(r.status||"").toLowerCase(),body:(r.node_id||"cluster")+" · checked "+(r.checked_count??0)+" replicas · corrupted "+(r.corrupted_count??0),relative:formatTimestamp(r.updated_at||r.created_at)}));
-    DATA.rebalance.slice(0,8).forEach(r=>rows.push({type:r.status==="FAILED"?"failure":"warning",icon:"⇄",title:"Rebalance "+String(r.status||"").toLowerCase(),body:(r.source_node_id||"source")+" → "+(r.target_node_id||"target"),relative:formatTimestamp(r.updated_at||r.created_at)}));
+    DATA.nodes.filter(n=>n.status!=="healthy").forEach(n=>{
+      rows.push({type:"warning",icon:"!",title:n.id+" needs attention",body:(n.lifecycle||"NODE")+" · "+n.percent+"% capacity used.",relative:n.lastHeartbeat?formatTimestamp(n.lastHeartbeat):"now"});
+    });
+    DATA.repairs.slice(0,8).forEach(r=>{
+      const stateText=String(r.status||"UNKNOWN").toUpperCase();
+      rows.push({type:stateText==="FAILED"||stateText==="ERROR"?"failure":(["COMPLETED","SUCCEEDED"].includes(stateText)?"success":"warning"),icon:"↻",title:"Repair "+stateText.toLowerCase(),body:objectLabelForVersion(r.version_id)+" · "+(r.source_node_id||"source")+" → "+(r.target_node_id||"target"),relative:formatTimestamp(r.updated_at||r.created_at)});
+    });
+    DATA.integrity.slice(0,8).forEach(r=>{
+      const stateText=String(r.status||"UNKNOWN").toUpperCase();
+      rows.push({type:stateText==="FAILED"||stateText==="ERROR"?"failure":"success",icon:"✓",title:"Integrity check "+stateText.toLowerCase(),body:(r.node_id||"cluster")+" · checked "+(r.checked_count??0)+" replicas · corrupted "+(r.corrupted_count??0),relative:formatTimestamp(r.updated_at||r.created_at)});
+    });
+    DATA.rebalance.slice(0,8).forEach(r=>{
+      const stateText=String(r.status||"UNKNOWN").toUpperCase();
+      rows.push({type:stateText==="FAILED"||stateText==="ERROR"?"failure":(["COMPLETED","SUCCEEDED"].includes(stateText)?"success":"warning"),icon:"⇄",title:"Rebalance "+stateText.toLowerCase(),body:(r.source_node_id||"source")+" → "+(r.target_node_id||"target"),relative:formatTimestamp(r.updated_at||r.created_at)});
+    });
     if(!rows.length&&DATA.sync.status==="live")rows.push({type:"success",icon:"✓",title:"Control plane synchronized",body:"No repair, integrity, or rebalance jobs are currently reported by Part B.",relative:formatTimestamp(DATA.sync.at)});
     DATA.events=rows.slice(0,30);
   }
   function renderServiceStatus(){
-    const el=$("#service-status-list");if(!el)return;
+    const el=$("#service-status-list");
+    if(!el)return;
     const apiOk=DATA.sync.status==="live";
     const rows=[
       ["Control plane",apiOk?"Connected":"Unavailable",apiOk?"good":"warn"],
@@ -249,18 +267,25 @@
     el.innerHTML=rows.map(r=>"<div><span>"+escapeHtml(r[0])+"</span><b><i class='service "+r[2]+"'></i>"+escapeHtml(r[1])+"</b></div>").join("");
   }
   function renderWatchlist(){
-    const el=$("#watchlist");if(!el)return;
+    const el=$("#watchlist");
+    if(!el)return;
     const items=[];
-    DATA.nodes.filter(n=>n.percent>=80||n.status!=="healthy").slice(0,3).forEach(n=>items.push("<div class='watch warning'><b>"+escapeHtml(n.id)+" needs attention</b><span>"+escapeHtml(n.lifecycle)+" · "+n.percent+"% used</span><button data-view='rebalance'>Review</button></div>"));
-    DATA.repairs.filter(r=>!["SUCCEEDED","COMPLETED"].includes(String(r.status||"").toUpperCase())).slice(0,2).forEach(r=>items.push("<div class='watch'><b>Repair "+escapeHtml(r.status||"pending")+"</b><span>"+escapeHtml(objectLabelForVersion(r.version_id))+"</span><button data-view='repairs'>Open</button></div>"));
+    DATA.nodes.filter(n=>n.percent>=80||n.status!=="healthy").slice(0,3).forEach(n=>{
+      items.push("<div class='watch warning'><b>"+escapeHtml(n.id)+" needs attention</b><span>"+escapeHtml(n.lifecycle)+" · "+n.percent+"% used</span><button data-view='rebalance'>Review</button></div>");
+    });
+    DATA.repairs.filter(r=>!["SUCCEEDED","COMPLETED"].includes(String(r.status||"").toUpperCase())).slice(0,2).forEach(r=>{
+      items.push("<div class='watch'><b>Repair "+escapeHtml(r.status||"PENDING")+"</b><span>"+escapeHtml(objectLabelForVersion(r.version_id))+"</span><button data-view='repairs'>Open</button></div>");
+    });
     if(!items.length)items.push("<div class='empty' style='padding:16px'><b>✓</b><h3>Nothing needs attention</h3><p>Part B reports no current node or repair warning.</p></div>");
     el.innerHTML=items.join("");
   }
   function renderPolicy(){
     const p=DATA.policies;
     const keyLoaded=!!sessionStorage.getItem("vault_admin_key");
-    const keyStatus=$("#admin-key-status");if(keyStatus){keyStatus.textContent=keyLoaded?"Key loaded for this session":"Key not loaded";keyStatus.className=keyLoaded?"green-text":"";}
-    const keyInput=$("#admin-key-input");if(keyInput&&document.activeElement!==keyInput)keyInput.value="";
+    const keyStatus=$("#admin-key-status");
+    if(keyStatus){keyStatus.textContent=keyLoaded?"Key loaded for this session":"Key not loaded";keyStatus.className=keyLoaded?"green-text":"";}
+    const keyInput=$("#admin-key-input");
+    if(keyInput&&document.activeElement!==keyInput)keyInput.value="";
     if(!p)return;
     const set=(id,v)=>{const e=$("#"+id);if(e)e.value=v;};
     set("policy-rf",p.replication_factor);set("policy-wq",p.write_quorum);set("policy-rq",p.read_quorum);set("policy-chunk",formatBytes(p.chunk_size_bytes));
@@ -268,36 +293,79 @@
     $("#signal-policy").textContent="RF "+p.replication_factor+" · W"+p.write_quorum+" · R"+p.read_quorum;
     $("#signal-heal").textContent=DATA.repairs.length+" repair jobs";
   }
-
   function renderNodes(){
     const q=($("#node-search")?.value||"").toLowerCase();
-    const rows=DATA.nodes.filter(n=>(state.nodeFilter==="all"||(state.nodeFilter==="healthy"&&n.status==="healthy")||(state.nodeFilter==="attention"&&n.status==="attention"))&&(!q||(n.id+" "+n.lifecycle).toLowerCase().includes(q)));
-    $("#nodes-body").innerHTML=rows.length?rows.map(n=>{const actionLabel=n.lifecycle==="DRAINING"?"Resume":"Drain";return "<tr><td class='objid'>"+escapeHtml(n.id)+"</td><td>"+status(n.status)+"</td><td>"+n.capacity+"</td><td><b>"+n.used+"</b> <small>"+n.percent+"%</small></td><td>"+(typeof n.objects==="number"?n.objects.toLocaleString():"—")+"</td><td>"+escapeHtml(n.heartbeat)+"</td><td><span class='chip "+(n.lifecycle==="HEALTHY"?"green":"amber")+"'>"+escapeHtml(n.lifecycle)+"</span></td><td><button class='table-action' data-node='"+escapeHtml(n.id)+"' data-node-action='"+actionLabel.toLowerCase()+"' aria-label='"+actionLabel+" "+escapeHtml(n.id)+"'>"+actionLabel+"</button></td></tr>";}).join(""):"<tr><td colspan='8' class='empty-row'>No nodes match this filter.</td></tr>";
+    const rows=DATA.nodes.filter(n=>{
+      const filterOk=state.nodeFilter==="all"||(state.nodeFilter==="healthy"&&n.status==="healthy")||(state.nodeFilter==="attention"&&n.status==="attention");
+      const searchOk=!q||(n.id+" "+n.lifecycle).toLowerCase().includes(q);
+      return filterOk&&searchOk;
+    });
+    $("#nodes-body").innerHTML=rows.length?rows.map(n=>{
+      const actionLabel=n.lifecycle==="DRAINING"?"Resume":"Drain";
+      return "<tr><td class='objid'>"+escapeHtml(n.id)+"</td><td>"+status(n.status)+"</td><td>"+n.capacity+"</td><td><b>"+n.used+"</b> <small>"+n.percent+"%</small></td><td>"+(typeof n.objects==="number"?n.objects.toLocaleString():"—")+"</td><td>"+escapeHtml(n.heartbeat)+"</td><td><span class='chip "+(n.lifecycle==="HEALTHY"?"green":"amber")+"'>"+escapeHtml(n.lifecycle)+"</span></td><td><button class='table-action' data-node='"+escapeHtml(n.id)+"' data-node-action='"+actionLabel.toLowerCase()+"' aria-label='"+actionLabel+" "+escapeHtml(n.id)+"'>"+actionLabel+"</button></td></tr>";
+    }).join(""):"<tr><td colspan='8' class='empty-row'>No nodes match this filter.</td></tr>";
   }
   function renderObjects(){
-    const q=($("#object-search")?.value||"").toLowerCase(),rows=DATA.objects.filter(o=>(state.objectFilter==="all"||o.status===state.objectFilter)&&(!q||((o.name||o.id)+" "+o.id+" "+o.checksum+" "+o.status).toLowerCase().includes(q)));
+    const q=($("#object-search")?.value||"").toLowerCase();
+    const rows=DATA.objects.filter(o=>{
+      const filterOk=state.objectFilter==="all"||o.status===state.objectFilter;
+      const searchOk=!q||((o.name||o.id)+" "+o.id+" "+o.checksum+" "+o.status).toLowerCase().includes(q);
+      return filterOk&&searchOk;
+    });
     $("#objects-body").innerHTML=rows.length?rows.map(o=>"<tr><td class='objid'><b>"+escapeHtml(o.name||o.id)+"</b><small class='object-id'>"+escapeHtml(o.id)+"</small></td><td>"+escapeHtml(o.size)+"</td><td>"+escapeHtml(o.version)+"</td><td>"+escapeHtml(o.replicas)+"</td><td class='hash'>"+escapeHtml(o.checksum)+"</td><td>"+status(o.status)+"</td><td>"+escapeHtml(o.updated)+"</td><td><button class='table-action' data-object='"+escapeHtml(o.id)+"' aria-label='Inspect "+escapeHtml(o.name||o.id)+"'>Inspect</button></td></tr>").join(""):"<tr><td colspan='8' class='empty-row'>No objects match this filter.</td></tr>";
     const selected=DATA.objects.find(o=>o.id===state.selectedObject);
-    if(state.detailLoading)$("#object-detail").innerHTML="<div class='empty loading-state'><b>↻</b><h3>Loading object details</h3><p>Fetching metadata and version history from Part B…</p></div>";
+    if(state.detailLoading)$("#object-detail").innerHTML="<div class='empty loading-state'><b>↻</b><h3>Loading object details</h3><p>Fetching metadata, versions and replicas from Part B…</p></div>";
     else if(selected)renderDetail(selected);
     else $("#object-detail").innerHTML="<div class='empty'><b>▦</b><h3>Select an object</h3><p>Replica placement and version details will appear here.</p></div>";
   }
   function renderDetail(o){
     const liveVersion=o.currentVersion||{};
-    const replicaCards=o.replicaRows?.length?o.replicaRows.map(r=>"<div class='replica'><b>"+escapeHtml(r[0])+"</b><small>"+escapeHtml(r[2]||"—")+"</small>"+status(r[1]==="HEALTHY"?"healthy":r[1]==="CORRUPTED"?"corrupted":"attention")+"</div>").join(""):"<div class='empty' style='grid-column:1/-1;padding:16px'><b>i</b><h3>Replica placement not returned</h3><p>Part B did not return replica details for this version.</p></div>";
-    $("#object-detail").innerHTML="<div class='detail-grid'><div><div class='detail-hero'><p class='eyebrow'>OBJECT DETAIL</p><h2>"+escapeHtml(o.name||o.id)+"</h2><p class='object-id detail-id'>Object ID: "+escapeHtml(o.objectId||o.id)+"</p><div class='detail-meta'><span>"+escapeHtml(o.size)+"</span><span>Version "+escapeHtml(o.version)+"</span><span>"+status(o.status)+"</span><span>SHA-256 "+escapeHtml(o.checksum)+"</span></div></div><div style='padding-top:12px'><p class='eyebrow'>REPLICA PLACEMENT</p><div class='replicas'>"+replicaCards+"</div></div></div><div><p class='eyebrow'>METADATA</p><div class='service-list'><div><span>Content type</span><b>"+escapeHtml(o.type)+"</b></div><div><span>Created</span><b>"+escapeHtml(o.created)+"</b></div><div><span>Version ID</span><b>"+escapeHtml(o.currentVersionId||"—")+"</b></div><div><span>Version number</span><b>"+escapeHtml(liveVersion.version_number?("v"+liveVersion.version_number):o.version)+"</b></div><div><span>Healthy replicas</span><b>"+escapeHtml(o.replicas)+"</b></div><div><span>Placement policy</span><b>"+escapeHtml(DATA.policies?("RF "+DATA.policies.replication_factor+" · W"+DATA.policies.write_quorum+" · R"+DATA.policies.read_quorum):"—")+"</b></div></div></div></div>";
+    const replicaCards=o.replicaRows?.length?o.replicaRows.map(r=>{
+      const replicaStatus=String(r[1]||"").toUpperCase();
+      return "<div class='replica'><b>"+escapeHtml(r[0])+"</b><small>"+escapeHtml(r[2]||"—")+"</small>"+status(replicaStatus==="HEALTHY"?"healthy":replicaStatus==="CORRUPTED"?"corrupted":"attention")+"</div>";
+    }).join(""):"<div class='empty' style='grid-column:1/-1;padding:16px'><b>i</b><h3>Replica placement not returned</h3><p>Part B did not return replica details for this version.</p></div>";
+    const placementPolicy=DATA.policies?"RF "+DATA.policies.replication_factor+" · W"+DATA.policies.write_quorum+" · R"+DATA.policies.read_quorum:"—";
+    $("#object-detail").innerHTML="<div class='detail-grid'><div><div class='detail-hero'><p class='eyebrow'>OBJECT DETAIL</p><h2>"+escapeHtml(o.name||o.id)+"</h2><p class='object-id detail-id'>Object ID: "+escapeHtml(o.objectId||o.id)+"</p><div class='detail-meta'><span>"+escapeHtml(o.size)+"</span><span>Version "+escapeHtml(o.version)+"</span><span>"+status(o.status)+"</span><span>SHA-256 "+escapeHtml(o.checksum)+"</span></div></div><div style='padding-top:12px'><p class='eyebrow'>REPLICA PLACEMENT</p><div class='replicas'>"+replicaCards+"</div></div></div><div><p class='eyebrow'>METADATA</p><div class='service-list'><div><span>Content type</span><b>"+escapeHtml(o.type)+"</b></div><div><span>Created</span><b>"+escapeHtml(o.created)+"</b></div><div><span>Version ID</span><b>"+escapeHtml(o.currentVersionId||"—")+"</b></div><div><span>Version number</span><b>"+escapeHtml(liveVersion.version_number?("v"+liveVersion.version_number):o.version)+"</b></div><div><span>Healthy replicas</span><b>"+escapeHtml(o.replicas)+"</b></div><div><span>Placement policy</span><b>"+escapeHtml(placementPolicy)+"</b></div></div></div></div>";
   }
-  function objectLabel(id){const o=DATA.objects.find(item=>item.id===id);return o?.name||id;}
-  function renderRepairs(){$("#repair-active").textContent=DATA.repairs.filter(r=>r.status==="RUNNING").length;$("#repair-grid").innerHTML=DATA.repairs.map(r=>"<article class='repair-card'><div class='repair-top'><div><p class='eyebrow'>"+escapeHtml(r.id)+"</p><h3>"+escapeHtml(objectLabel(r.object))+"</h3><small class='object-id'>"+escapeHtml(r.object)+"</small></div>"+status(r.status==="RUNNING"?"running":"success")+"</div><p>"+escapeHtml(r.note)+"</p><div class='route'><b>"+escapeHtml(r.source)+"</b><span>→ verified stream →</span><b>"+escapeHtml(r.target)+"</b></div><div class='progress-label'><span>Recovery progress</span><b>"+r.progress+"%</b></div><div class='meter' role='progressbar' aria-label='Recovery progress for "+escapeHtml(r.id)+"' aria-valuemin='0' aria-valuemax='100' aria-valuenow='"+r.progress+"'><i style='width:"+r.progress+"%'></i></div><footer><span>"+(r.status==="RUNNING"?"ETA "+escapeHtml(r.eta):"Durability floor restored")+"</span><span>checksum verified</span></footer></article>").join("");}
+  function renderRepairs(){
+    const active=DATA.repairs.filter(r=>!["SUCCEEDED","COMPLETED","FAILED","ERROR"].includes(String(r.status||"").toUpperCase())).length;
+    $("#repair-active").textContent=active;
+    $("#repair-total").textContent=DATA.repairs.length;
+    $("#repair-completed").textContent=DATA.repairs.filter(r=>["SUCCEEDED","COMPLETED"].includes(String(r.status||"").toUpperCase())).length;
+    $("#repair-failed").textContent=DATA.repairs.filter(r=>["FAILED","ERROR"].includes(String(r.status||"").toUpperCase())).length;
+    $("#repair-grid").innerHTML=DATA.repairs.length?DATA.repairs.map(r=>{
+      const stateText=String(r.status||"UNKNOWN").toUpperCase();
+      const stateClass=["SUCCEEDED","COMPLETED"].includes(stateText)?"success":(["FAILED","ERROR"].includes(stateText)?"corrupted":"running");
+      return "<article class='repair-card'><div class='repair-top'><div><p class='eyebrow'>"+escapeHtml(r.repair_id||"repair job")+"</p><h3>"+escapeHtml(objectLabelForVersion(r.version_id))+"</h3><small class='object-id'>Version: "+escapeHtml(r.version_id||"—")+"</small></div>"+status(stateClass)+"</div><p>"+escapeHtml(r.reason||r.last_error||"Durable repair job")+"</p><div class='route'><b>"+escapeHtml(r.source_node_id||"source pending")+"</b><span>→ verify →</span><b>"+escapeHtml(r.target_node_id||"target pending")+"</b></div><div class='service-list'><div><span>Attempts</span><b>"+escapeHtml(r.attempts??0)+"</b></div><div><span>Updated</span><b>"+escapeHtml(formatTimestamp(r.updated_at||r.created_at))+"</b></div><div><span>Last error</span><b>"+escapeHtml(r.last_error||"—")+"</b></div></div></article>";
+    }).join(""):"<div class='empty-row'>Part B has no repair jobs.</div>";
+  }
   function renderIntegrity(){
-    const checked=DATA.integrity.reduce((sum,r)=>sum+Number(r.checked_count||0),0),corrupted=DATA.integrity.reduce((sum,r)=>sum+Number(r.corrupted_count||0),0);
+    const checked=DATA.integrity.reduce((sum,r)=>sum+Number(r.checked_count||0),0);
+    const corrupted=DATA.integrity.reduce((sum,r)=>sum+Number(r.corrupted_count||0),0);
     $("#integrity-checked").textContent=checked.toLocaleString();
     $("#integrity-corrupted").textContent=corrupted.toLocaleString();
-    const latest=DATA.integrity[0];$("#integrity-latest").textContent=latest?"Latest job "+(latest.integrity_id||""):"No integrity job reported yet";
+    const latest=DATA.integrity[0];
+    $("#integrity-latest").textContent=latest?"Latest job "+(latest.integrity_id||""):"No integrity job reported yet";
     $("#integrity-copy").textContent=latest?((latest.status||"").toUpperCase()+" · "+(latest.node_id||"cluster")+" · updated "+formatTimestamp(latest.updated_at||latest.created_at)):"Run a check to create a durable verification job.";
     $("#integrity-meter").style.width=latest?(["SUCCEEDED","COMPLETED"].includes(String(latest.status||"").toUpperCase())?"100%":"25%"):"0%";
-    $("#integrity-body").innerHTML=DATA.integrity.length?DATA.integrity.map(r=>"<tr><td class='objid'><b>"+escapeHtml(objectLabel(r.object))+"</b><small class='object-id'>"+escapeHtml(r.object)+"</small></td><td>"+escapeHtml(r.replica)+"</td><td class='hash'>"+escapeHtml(r.expected)+"</td><td class='hash'>"+escapeHtml(r.observed)+"</td><td>"+(r.result==="VALID"?status("healthy"):status("corrupted"))+"</td><td>"+escapeHtml(r.checked)+"</td></tr>").join("");}
-  function renderRebalance(){$("#capacity-bars").innerHTML=DATA.nodes.map(n=>"<div class='capacity-row'><b>"+escapeHtml(n.id)+"</b><div class='capacity "+(n.percent>=80?"high":"")+"' role='progressbar' aria-label='Storage usage for "+escapeHtml(n.id)+"' aria-valuemin='0' aria-valuemax='100' aria-valuenow='"+n.percent+"'><i style='width:"+n.percent+"%'></i></div><span class='capacity-value'>"+n.percent+"%</span></div>").join("");$("#rebalance-body").innerHTML=DATA.rebalance.map(r=>"<tr><td class='objid'>"+escapeHtml(r.job)+"</td><td><b>"+escapeHtml(objectLabel(r.object))+"</b><small class='object-id'>"+escapeHtml(r.object)+"</small></td><td>"+escapeHtml(r.source)+"</td><td>"+escapeHtml(r.target)+"</td><td style='min-width:120px'><div class='meter'><i style='width:"+r.progress+"%'></i></div><small>"+r.progress+"%</small></td><td>"+status(r.status==="RUNNING"?"running":"success")+"</td><td>"+escapeHtml(r.updated)+"</td></tr>").join("");}
+    $("#integrity-body").innerHTML=DATA.integrity.length?DATA.integrity.map(r=>{
+      const stateText=String(r.status||"UNKNOWN").toUpperCase();
+      const stateClass=["SUCCEEDED","COMPLETED"].includes(stateText)?"success":(["FAILED","ERROR"].includes(stateText)?"corrupted":"running");
+      return "<tr><td class='objid'>"+escapeHtml(r.integrity_id||"integrity job")+"</td><td>"+escapeHtml(r.node_id||"cluster")+"</td><td class='hash'>"+escapeHtml(r.version_id||"all versions")+"</td><td>"+escapeHtml(r.checked_count??0)+"</td><td>"+escapeHtml(r.corrupted_count??0)+"</td><td>"+status(stateClass)+"</td><td>"+escapeHtml(formatTimestamp(r.updated_at||r.created_at))+"</td></tr>";
+    }).join(""):"<tr><td colspan='7' class='empty-row'>Part B has no integrity jobs.</td></tr>";
+  }
+  function renderRebalance(){
+    $("#capacity-bars").innerHTML=DATA.nodes.length?DATA.nodes.map(n=>{
+      return "<div class='capacity-row'><b>"+escapeHtml(n.id)+"</b><div class='capacity "+(n.percent>=80?"high":"")+"' role='progressbar' aria-label='Storage usage for "+escapeHtml(n.id)+"' aria-valuemin='0' aria-valuemax='100' aria-valuenow='"+n.percent+"'><i style='width:"+n.percent+"%'></i></div><span class='capacity-value'>"+n.percent+"%</span></div>";
+    }).join(""):"<div class='empty-row'>Waiting for node capacity telemetry.</div>";
+    const policy=DATA.policies;
+    $("#rebalance-policy-note").textContent=policy?("RF "+policy.replication_factor+" · "+policy.max_concurrent_jobs+" parallel jobs"):"Waiting for policy telemetry";
+    $("#rebalance-body").innerHTML=DATA.rebalance.length?DATA.rebalance.map(r=>{
+      const stateText=String(r.status||"UNKNOWN").toUpperCase();
+      const stateClass=["SUCCEEDED","COMPLETED"].includes(stateText)?"success":(["FAILED","ERROR"].includes(stateText)?"corrupted":"running");
+      return "<tr><td class='objid'>"+escapeHtml(r.rebalance_id||"rebalance job")+"</td><td class='hash'>"+escapeHtml(r.version_id||"—")+"</td><td>"+escapeHtml(r.source_node_id||"—")+"</td><td>"+escapeHtml(r.target_node_id||"—")+"</td><td>"+escapeHtml(r.attempts??0)+"</td><td>"+status(stateClass)+"</td><td>"+escapeHtml(formatTimestamp(r.updated_at||r.created_at))+"</td></tr>";
+    }).join(""):"<tr><td colspan='7' class='empty-row'>Part B has no rebalance jobs.</td></tr>";
+  }
   function renderEvents(){const rows=DATA.events.filter(e=>state.eventFilter==="all"||e.type===state.eventFilter);$("#event-feed").innerHTML=rows.length?rows.map(e=>"<article class='event'><span class='event-icon "+e.type+"'>"+escapeHtml(e.icon)+"</span><div><b>"+escapeHtml(e.title)+"</b><p>"+escapeHtml(e.body)+"</p></div><time>"+escapeHtml(e.relative)+"</time></article>").join(""):"<div class='empty'><b>≋</b><h3>No events in this filter</h3><p>The event feed is clear.</p></div>";}
   function renderTimeline(){$("#timeline").innerHTML=DATA.events.slice(0,4).map(e=>"<div class='event' style='grid-template-columns:8px 1fr auto;background:transparent;border:0;border-bottom:1px solid rgba(167,192,216,.07);border-radius:0;padding:10px 0'><span class='dot "+(e.type==="success"?"good":e.type==="warning"?"warn":"")+"' style='margin-top:4px'></span><div><b>"+escapeHtml(e.title)+"</b><p>"+escapeHtml(e.body)+"</p></div><time>"+escapeHtml(e.relative)+"</time></div>").join("");}
   function renderAll(){renderEnvironment();renderSummary();updateTopology();renderCurrentView();renderTimeline();renderServiceStatus();renderWatchlist();renderPolicy();$("#objects-kpi").textContent=DATA.dashboard.objects.toLocaleString();}
