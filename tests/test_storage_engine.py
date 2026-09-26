@@ -38,3 +38,16 @@ def test_capacity_reservation_rejects_an_oversized_stream_before_write(tmp_path)
 
     with pytest.raises(StorageFullError):
         engine.write_bytes("too-large", "v1", b"123456789")
+
+
+def test_identifier_length_is_bounded(tmp_path):
+    from storage.storage_engine import StorageEngine
+
+    engine = StorageEngine(tmp_path, capacity_bytes=1024, chunk_size_bytes=8)
+    too_long = "x" * (engine.MAX_IDENTIFIER_LENGTH + 1)
+
+    with pytest.raises(ValueError):
+        engine.object_path(too_long, "version")
+
+    with pytest.raises(ValueError):
+        engine.object_path("object", too_long)
