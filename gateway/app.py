@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from sqlalchemy import select
 
 from common.constants import NodeState
 from common.settings import settings
@@ -16,6 +17,7 @@ from gateway.api import build_gateway_router
 from replication.node_client import StorageNodeClient, StorageNodeClientError
 from metadata.database import create_schema, session_scope
 from metadata.manager import MetadataManager
+from metadata.models import StorageNode
 from replication import ReplicationPolicy
 
 
@@ -83,8 +85,7 @@ async def _bootstrap_nodes() -> None:
         manager = MetadataManager(session)
         for node_id, address in configured_nodes:
             existing = session.scalar(
-                __import__("sqlalchemy").select(__import__("metadata.models", fromlist=["StorageNode"]).StorageNode)
-                .where(__import__("metadata.models", fromlist=["StorageNode"]).StorageNode.address == address)
+                select(StorageNode).where(StorageNode.address == address)
             )
             if existing is not None:
                 continue
