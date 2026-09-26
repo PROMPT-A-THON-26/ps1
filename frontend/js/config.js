@@ -8,6 +8,6 @@
       ? window.location.protocol + "//" + window.location.hostname + ":8000/api/v1"
       : "http://localhost:8000/api/v1");
 
-  // Live Part B is the only production mode. No demo/mock data is loaded.
+  // Live Part B is the only runtime mode.
   window.VAULT_CONFIG = { mode: "api", baseUrl };
 })();
