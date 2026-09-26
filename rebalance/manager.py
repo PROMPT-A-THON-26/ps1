@@ -100,25 +100,30 @@ class RebalanceManager:
         *,
         excluded_node_ids: set[str],
     ) -> StorageNode:
-        candidates = list(
-            self.session.scalars(
-                select(StorageNode).where(StorageNode.status == NodeState.HEALTHY)
-            ).all()
+        statement = (
+            select(StorageNode)
+            .where(
+                StorageNode.status == NodeState.HEALTHY,
+                StorageNode.capacity_bytes - StorageNode.used_bytes >= version.size_bytes,
+            )
+            .order_by(
+                (StorageNode.capacity_bytes - StorageNode.used_bytes).desc(),
+                StorageNode.node_id.asc(),
+            )
+            .limit(1)
         )
-        candidates = [
-            node
-            for node in candidates
-            if node.node_id not in excluded_node_ids
-            and node.free_bytes >= version.size_bytes
-        ]
-        candidates.sort(key=lambda node: (-node.free_bytes, node.node_id))
-        if not candidates:
+        if excluded_node_ids:
+            statement = statement.where(
+                StorageNode.node_id.not_in(excluded_node_ids)
+            )
+        candidate = self.session.scalar(statement)
+        if candidate is None:
             raise VaultError(
                 code=ErrorCode.INSUFFICIENT_REPLICAS,
                 message=f"No healthy target node can hold version {version.version_id}.",
                 status_code=503,
             )
-        return candidates[0]
+        return candidate
 
     def create_job(
         self,
