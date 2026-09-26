@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import httpx
 import pytest
+import os
 from fastapi import FastAPI
 from httpx import ASGITransport
 
@@ -29,8 +30,10 @@ async def test_heartbeat_router_accepts_registered_node(db_session):
     app.include_router(build_heartbeat_router(session_factory))
 
     async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        os.environ["VAULT_INTERNAL_API_KEY"] = "test-heartbeat-key"
         response = await client.post(
             "/internal/v1/heartbeat",
+            headers={"X-Internal-API-Key": "test-heartbeat-key"},
             json={
                 "node_id": "api-node",
                 "capacity_bytes": 1000,
