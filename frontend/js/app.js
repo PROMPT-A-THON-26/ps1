@@ -157,8 +157,8 @@
           return {id:n.node_id,status:healthy?"healthy":"attention",capacity:formatBytes(capacity),used:formatBytes(used),percent,objects:"—",heartbeat:formatHeartbeat(n.last_heartbeat_at),lifecycle:rawStatus,capacityBytes:capacity,usedBytes:used,address:n.address,lastHeartbeat:n.last_heartbeat_at};
         });
       }else errors.push("nodes");
-      if(objects.status==="fulfilled"&&Array.isArray(objects.value)){DATA.objects=objects.value.map(normalizeLiveObject);DATA.dashboard.objects=DATA.objects.length;}else errors.push("objects");
       if(policies.status==="fulfilled")DATA.policies=policies.value;else errors.push("policies");
+      if(objects.status==="fulfilled"&&Array.isArray(objects.value)){DATA.objects=objects.value.map(normalizeLiveObject);DATA.dashboard.objects=DATA.objects.length;}else errors.push("objects");
       DATA.sync.admin="unknown";
       if(repairs.status==="fulfilled"&&Array.isArray(repairs.value)){DATA.repairs=repairs.value;DATA.sync.admin="ready";}else if(repairs.status==="rejected")DATA.sync.admin="locked";
       if(integrity.status==="fulfilled"&&Array.isArray(integrity.value))DATA.integrity=integrity.value;
