@@ -37,7 +37,7 @@ button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus
 
 
 /* ========================================================================
-   VAULTOPS 2026 CONTROL CENTER REDESIGN
+   VAULTGUARD 2026 CONTROL CENTER
    Visual-only layer: preserves existing IDs, data bindings and interactions.
    ======================================================================== */
 :root{
@@ -365,7 +365,7 @@ td{
   .topology{height:255px}
 }
 
-/* End VaultOps 2026 redesign */
+/* End VaultGuard 2026 redesign */
 
 
 /* Live cluster topology: all values are rendered from Part B telemetry. */
