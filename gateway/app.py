@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -12,6 +13,7 @@ from fastapi.responses import Response
 from common.constants import NodeState
 from common.settings import settings
 from gateway.api import build_gateway_router
+from replication.node_client import StorageNodeClient, StorageNodeClientError
 from metadata.database import create_schema, session_scope
 from metadata.manager import MetadataManager
 from replication import ReplicationPolicy
@@ -41,26 +43,72 @@ def _parse_storage_nodes() -> list[tuple[str, str]]:
     return nodes
 
 
-def _bootstrap_nodes() -> None:
+async def _verify_storage_node(
+    node_id: str,
+    address: str,
+) -> tuple[str, str, int] | None:
+    """Verify a fresh node before allowing it to enter HEALTHY state."""
+    client = StorageNodeClient(
+        address,
+        timeout_seconds=settings.storage_request_timeout_seconds,
+    )
+    try:
+        health, stats = await asyncio.gather(client.health(), client.stats())
+        if health.node_id != node_id or health.status.lower() != "healthy":
+            return None
+        return node_id, address, stats.capacity_bytes
+    except StorageNodeClientError:
+        return None
+    finally:
+        await client.aclose()
+
+
+async def _bootstrap_nodes() -> None:
     create_schema()
-    capacity = int(os.getenv("VAULT_NODE_CAPACITY_BYTES", str(10 * 1024**3)))
+    configured_capacity = int(
+        os.getenv("VAULT_NODE_CAPACITY_BYTES", str(10 * 1024**3))
+    )
+    configured_nodes = _parse_storage_nodes()
+    verified = await asyncio.gather(
+        *(_verify_storage_node(node_id, address) for node_id, address in configured_nodes)
+    )
+    verified_by_id = {
+        node_id: (address, capacity)
+        for result in verified
+        if result is not None
+        for node_id, address, capacity in [result]
+    }
+
     with session_scope() as session:
         manager = MetadataManager(session)
-        for node_id, address in _parse_storage_nodes():
+        for node_id, address in configured_nodes:
+            existing = session.scalar(
+                __import__("sqlalchemy").select(__import__("metadata.models", fromlist=["StorageNode"]).StorageNode)
+                .where(__import__("metadata.models", fromlist=["StorageNode"]).StorageNode.address == address)
+            )
+            if existing is not None:
+                continue
+            verified_result = verified_by_id.get(node_id)
             manager.register_node(
                 node_id=node_id,
                 address=address,
-                capacity_bytes=capacity,
-                # Nodes enter JOINING until a real storage-node heartbeat is
-                # accepted by the health service. Never assert HEALTHY at bootstrap.
-                status=NodeState.JOINING,
+                capacity_bytes=(
+                    verified_result[1] if verified_result is not None else configured_capacity
+                ),
+                # A new node is HEALTHY only after the storage-node API has
+                # been contacted and its identity/status/capacity verified.
+                status=(
+                    NodeState.HEALTHY
+                    if verified_result is not None
+                    else NodeState.JOINING
+                ),
             )
         session.commit()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    _bootstrap_nodes()
+    await _bootstrap_nodes()
     yield
 
 
