@@ -173,7 +173,10 @@
   function normalizeLiveObject(o){
     const active=String(o.state||"").toUpperCase()==="ACTIVE";
     const name=o.name||"";
-    return {id:name||o.object_id||"unknown",name:name||o.object_id||"unknown",objectId:o.object_id||"",size:"—",version:"—",replicas:"—",checksum:"—",status:active?"healthy":"attention",updated:formatTimestamp(o.updated_at),type:"object",created:formatTimestamp(o.created_at),currentVersionId:o.current_version_id||null,currentVersion:null,replicaRows:[],live:true};
+    const healthyReplicas=Number(o.healthy_replicas);
+    const versionState=String(o.version_state||"").toUpperCase();
+    const statusValue=versionState==="CORRUPTED"?"corrupted":(Number.isFinite(healthyReplicas)&&DATA.policies&&healthyReplicas<DATA.policies.replication_factor?"degraded":(active?"healthy":"attention"));
+    return {id:name||o.object_id||"unknown",name:name||o.object_id||"unknown",objectId:o.object_id||"",size:Number.isFinite(Number(o.size_bytes))?formatBytes(Number(o.size_bytes)):"—",version:Number.isFinite(Number(o.current_version))?("v"+o.current_version):(o.current_version_id?"current":"—"),replicas:Number.isFinite(healthyReplicas)?healthyReplicas+"/"+(DATA.policies?.replication_factor||3):"—",checksum:o.checksum||"—",status:statusValue,updated:formatTimestamp(o.updated_at),type:"object",created:formatTimestamp(o.created_at),currentVersionId:o.current_version_id||null,currentVersion:o.current_version?{version_number:o.current_version,size_bytes:o.size_bytes,checksum:o.checksum,state:o.version_state}:null,replicaRows:[],live:true};
   }
   function toast(title,message){const t=document.createElement("div");t.className="toast";t.innerHTML="<b>"+escapeHtml(title)+"</b><small>"+escapeHtml(message)+"</small>";$("#toasts").appendChild(t);setTimeout(()=>t.remove(),4200);}
   function stateBusy(flag){document.body.classList.toggle("is-syncing",!!flag);const refresh=$("#refresh");if(refresh)refresh.disabled=!!flag;const main=document.getElementById("main-content");if(main)main.setAttribute("aria-busy",String(!!flag));}
