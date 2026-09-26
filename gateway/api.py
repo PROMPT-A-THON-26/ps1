@@ -333,6 +333,54 @@ def build_gateway_router(
             return _invalid_request_response(exc, request_id)
 
 
+    @router.get("/admin/repair")
+    def admin_list_repairs(request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
+        with session_factory() as session:
+            result = AdminService(session).list_repairs()
+        return JSONResponse(result, headers={"X-Request-ID": rid})
+
+    @router.get("/admin/integrity/check")
+    def admin_list_integrity(request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
+        with session_factory() as session:
+            result = AdminService(session).list_integrity()
+        return JSONResponse(result, headers={"X-Request-ID": rid})
+
+    @router.get("/admin/rebalance")
+    def admin_list_rebalances(request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
+        with session_factory() as session:
+            result = AdminService(session).list_rebalances()
+        return JSONResponse(result, headers={"X-Request-ID": rid})
+
+    @router.get("/policies")
+    def policies(request: Request) -> JSONResponse:
+        rid = _request_id(request)
+        from common.settings import settings
+        from common.constants import DEFAULT_CHUNK_SIZE_MB
+        payload = {
+            "replication_factor": settings.replication_factor,
+            "write_quorum": settings.write_quorum,
+            "read_quorum": settings.read_quorum,
+            "chunk_size_bytes": DEFAULT_CHUNK_SIZE_MB * 1024 * 1024,
+            "heartbeat_interval_seconds": settings.heartbeat_interval_seconds,
+            "suspect_after_seconds": settings.suspect_after_seconds,
+            "unavailable_after_seconds": settings.unavailable_after_seconds,
+            "max_concurrent_jobs": settings.max_concurrent_jobs,
+            "max_upload_bytes": settings.max_upload_bytes,
+        }
+        return JSONResponse(payload, headers={"X-Request-ID": rid})
+
     @router.post("/admin/repair", status_code=status.HTTP_202_ACCEPTED)
     def admin_create_repair(payload: RepairRequest, request: Request) -> JSONResponse:
         rid = _request_id(request)
