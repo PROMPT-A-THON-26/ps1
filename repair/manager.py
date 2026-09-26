@@ -19,7 +19,6 @@ from replication.node_client import (
     StorageNodeClient,
     StorageNodeClientError,
     StorageNodeIntegrityError,
-    StorageObjectAlreadyExistsError,
 )
 
 
