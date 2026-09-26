@@ -52,3 +52,8 @@ button,.nav-btn,.icon-btn,.filter-btn,.action-btn,.toolbar input,.command-palett
 
 /* Object names: show the human filename first, stable object ID second. */
 .object-id{display:block;margin-top:3px;color:#6f879b;font:500 9px/1.2 "SFMono-Regular",Consolas,monospace;letter-spacing:.01em}.detail-id{margin:0 0 7px}.objid b{display:block;color:#dce7ef;font-weight:800}.objid .object-id{font-weight:500}.repair-card .object-id{margin-bottom:6px}
+
+
+/* VaultOps help/settings presentation */
+.guide-step{display:grid;gap:4px;padding:12px 0;border-bottom:1px solid rgba(167,192,216,.07)}.guide-step:last-child{border-bottom:0}.guide-step b{font-size:10px;color:#dce7ef}.guide-step span{font-size:9px;color:#829db0}.guide-list>div{align-items:flex-start;gap:18px}.guide-list b{max-width:62%;text-align:right;font-size:9px}.about-copy{max-width:760px;color:#829db0;font-size:11px;line-height:1.7}.admin-key-row{display:flex;gap:7px;align-items:center}.admin-key-row input{min-width:220px;height:32px;border:1px solid var(--line);background:#081522;color:var(--text);border-radius:8px;padding:0 9px;font-size:9px}.admin-key-row .btn{height:32px}.object-id.detail-id{font-size:9px}.integrity-hero strong{white-space:nowrap}
+@media(max-width:680px){.admin-key-row{flex-direction:column;align-items:stretch}.admin-key-row input{min-width:0;width:100%}.guide-list b{max-width:55%}}
