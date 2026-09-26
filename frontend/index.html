@@ -8,9 +8,9 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'none'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
   <title>VaultGuard — Distributed Storage Console</title>
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=2">
-  <link rel="apple-touch-icon" href="./favicon.svg?v=2">
-  <link rel="stylesheet" href="./css/app.css?v=20260926-12">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=3">
+  <link rel="apple-touch-icon" href="./favicon.svg?v=3">
+  <link rel="stylesheet" href="./css/app.css?v=20260926-13">
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -152,7 +152,7 @@
             <div class="guide-step"><b>2. Objects</b><span>Upload a file or inspect an object. Details are loaded from the connected control plane.</span></div>
             <div class="guide-step"><b>3. Integrity</b><span>Start a checksum verification job and follow its durable status.</span></div>
             <div class="guide-step"><b>4. Repairs</b><span>Use repair only when a committed version is under-replicated or a replica is unhealthy.</span></div>
-            <div class="guide-step"><b>5. Rebalance</b><span>Move a verified replica when capacity pressure or placement requires it.</span></div>
+            <div class="guide-step"><b>5. Rebalance</b><span>Move a healthy replica only when Part B exposes a valid source and target node.</span></div>
           </article>
           <article class="panel"><div class="panel-head"><div><p class="eyebrow">TERMS</p><h2>Simple language</h2></div></div>
             <div class="service-list guide-list">
@@ -160,7 +160,7 @@
               <div><span>Replica</span><b>A protected copy on a storage node</b></div>
               <div><span>RF 3</span><b>The configured replication factor is targeted</b></div>
               <div><span>W2</span><b>The configured write quorum must be met</b></div>
-              <div><span>Healthy</span><b>Stored data passed verification</b></div>
+              <div><span>Healthy</span><b>Part B reports the required healthy copies</b></div>
               <div><span>Corrupted</span><b>The checksum does not match</b></div>
               <div><span>Repair</span><b>Rebuild a missing or damaged replica</b></div>
               <div><span>Rebalance</span><b>Move a verified replica to improve placement or capacity</b></div>
@@ -170,7 +170,7 @@
       </section>
 
       <section class="view" id="view-about">
-        <div class="page-head"><div><p class="eyebrow">ABOUT THE PROJECT</p><h1>About VaultGuard</h1><p>A user-facing control center for Vault's fault-tolerant distributed object storage system.</p></div></div>
+        <div class="page-head"><div><p class="eyebrow">ABOUT THE PROJECT</p><h1>About us</h1><p>VaultGuard is the user-facing console for Vault's fault-tolerant distributed object storage system.</p></div></div>
         <div class="grid two">
           <article class="panel"><div class="panel-head"><div><p class="eyebrow">WHY IT EXISTS</p><h2>Protect data through failure</h2></div></div><p class="about-copy">VaultGuard makes the distributed system visible: where objects are stored, how many healthy copies exist, which nodes need attention, and what the control plane is doing to recover from failure.</p><div class="service-list"><div><span>Storage layer</span><b>Storage nodes</b></div><div><span>Control plane</span><b>FastAPI + PostgreSQL + Celery</b></div><div><span>Integrity</span><b>SHA-256 verification</b></div><div><span>Recovery rule</span><b>Copy → verify → commit → remove</b></div></div></article>
           <article class="panel"><div class="panel-head"><div><p class="eyebrow">PART BOUNDARY</p><h2>Who owns what</h2></div></div><div class="guide-step"><b>Part A</b><span>Stores and transfers object bytes on storage nodes.</span></div><div class="guide-step"><b>Part B</b><span>Owns metadata, placement, health, integrity, repair, and rebalancing.</span></div><div class="guide-step"><b>Part C</b><span>Explains and operates those capabilities through this interface.</span></div><p class="note">Operational numbers shown in VaultGuard come from the connected control plane; the frontend does not fabricate cluster state.</p></article>
