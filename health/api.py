@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-import hmac
-import os
 from typing import Callable
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
@@ -28,11 +26,8 @@ def build_heartbeat_router(
         response_model=HeartbeatResult,
         status_code=status.HTTP_200_OK,
     )
-    async def heartbeat(payload: HeartbeatPayload, request: Request, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-API-Key")) -> HeartbeatResult:
+    async def heartbeat(payload: HeartbeatPayload, request: Request) -> HeartbeatResult:
         request_id = normalize_request_id(request.headers.get("X-Request-ID"))
-        configured_key = os.getenv("VAULT_INTERNAL_API_KEY", "").strip()
-        if not configured_key or not x_internal_api_key or not hmac.compare_digest(x_internal_api_key, configured_key):
-            raise HTTPException(status_code=401, detail="Valid internal API credentials are required.")
         try:
             with session_factory() as session:
                 return await HeartbeatService(session).ingest_and_recover(payload)
