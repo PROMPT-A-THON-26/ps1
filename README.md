@@ -110,6 +110,10 @@ The public frontend mirrors these reliability concepts through dedicated Nodes, 
 
 ---
 
+## Performance and Code-Quality Hardening
+
+The current implementation uses explicit low-overhead paths for common control-plane operations: storage usage is tracked with in-memory accounting instead of rescanning the full object tree for each reservation, version history computes healthy-replica counts with a grouped query, health status is aggregated in SQL, replica writes and verification run concurrently, integrity verification avoids a large temporary expected-name set, and gateway deletion batches metadata lookup while reusing node clients.
+
 # 4. High-Level Architecture
 
 ```text
