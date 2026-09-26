@@ -224,13 +224,16 @@ class ReplicationManager:
             replication_factor=factor,
         )
 
-        replicas = [
-            self.metadata.create_replica(version_id, node.node_id)
-            for node in nodes
-        ]
-        # Metadata transitions happen sequentially; only network I/O is concurrent.
-        for replica in replicas:
-            self.metadata.set_replica_state(replica.replica_id, ReplicaState.COPYING)
+        replicas = self.metadata.create_replicas(
+            version_id,
+            [node.node_id for node in nodes],
+        )
+        # Validate and persist the lifecycle edge in one metadata operation;
+        # network writes remain concurrent below.
+        self.metadata.set_replica_states(
+            [replica.replica_id for replica in replicas],
+            ReplicaState.COPYING,
+        )
 
         pending_results = await asyncio.gather(
             *(
