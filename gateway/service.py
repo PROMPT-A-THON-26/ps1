@@ -22,6 +22,7 @@ from common.constants import (
     ReplicaState,
     VersionState,
 )
+from common.validation import normalize_object_name
 from common.errors import (
     ObjectAlreadyExists,
     ObjectNotFound,
@@ -57,15 +58,14 @@ class GatewayService:
         )
 
     def get_object(self, name: str) -> Object:
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError("object name must not be empty")
-        obj = self.session.scalar(select(Object).where(Object.name == name.strip()))
+        normalized_name = normalize_object_name(name)
+        obj = self.session.scalar(select(Object).where(Object.name == normalized_name))
         if obj is None:
-            raise ObjectNotFound(name.strip())
+            raise ObjectNotFound(normalized_name)
         return obj
 
     def get_live_object(self, name: str) -> Object:
-        obj = self.get_object(name)
+        obj = self.get_object(normalized_name)
         if obj.state is not ObjectState.ACTIVE:
             raise ObjectNotFound(name.strip())
         return obj
@@ -251,8 +251,7 @@ class GatewayService:
         replication_policy: ReplicationPolicy | None = None,
         client_factory=StorageNodeClient,
     ) -> dict:
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError("object name must not be empty")
+        normalized_name = normalize_object_name(name)
 
         staged = await self.stage_upload(chunks)
         created_object = False
@@ -260,14 +259,14 @@ class GatewayService:
         succeeded = False
         try:
             obj = self.session.scalar(
-                select(Object).where(Object.name == name.strip())
+                select(Object).where(Object.name == normalized_name)
             )
             if obj is None:
                 try:
-                    obj = self.metadata.create_object(name)
+                    obj = self.metadata.create_object(normalized_name)
                     created_object = True
                 except ObjectAlreadyExists:
-                    obj = self.get_object(name)
+                    obj = self.get_object(normalized_name)
 
             version = self.metadata.create_version(
                 obj.object_id,
