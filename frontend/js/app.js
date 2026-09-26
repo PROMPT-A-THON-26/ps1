@@ -223,7 +223,7 @@
     $("#health-ring-score").innerHTML=healthy+"<small>/"+nodes.length+" healthy</small>";$("#health-ring").setAttribute("aria-valuenow",String(nodeHealth));$("#health-ring").style.background="conic-gradient(var(--green) 0 "+nodeHealth+"%,#193042 "+nodeHealth+"% 100%)";
     $("#cluster-badge").textContent=!nodes.length?"WAITING":(attention||liveBad?"ATTENTION":"HEALTHY");$("#cluster-badge").className="badge "+(!nodes.length?"":(attention||liveBad?"amber":"green"));$("#cluster-summary").textContent=!nodes.length?"Waiting for Part B telemetry":(attention||liveBad?"Cluster requires attention":"All reported services operational");
     const attentionNode=nodes.find(n=>n.status==="attention");$("#cluster-copy").textContent=attentionNode?(attentionNode.id+" needs attention. Reads remain available."):(nodes.length?"No current node requires attention.":"Waiting for live node telemetry.");
-    const hottest=nodes.slice().sort((a,b)=>b.percent-a.percent)[0];$("#ops-banner").classList.toggle("good-news",true);$("#ops-banner-title").textContent=hottest?hottest.id+" is using "+hottest.percent+"% of reported capacity":"Waiting for live capacity telemetry";$("#ops-banner-copy").textContent=hottest?"Use Rebalance to inspect placement and durable migration jobs.":"No capacity data is available yet.";
+    const hottest=nodes.slice().sort((a,b)=>b.percent-a.percent)[0];$("#ops-banner").classList.toggle("good-news",true);$("#ops-banner-title").textContent=hottest?hottest.id+" is using "+hottest.percent+"% of reported capacity":"Waiting for live capacity telemetry";$("#ops-banner-copy").textContent=hottest?"Review live node capacity and replica placement before starting a migration.":"No capacity data is available yet.";
   }
   function updateTopology(){
     const count=$("#topology-object-count");if(count)count.textContent=DATA.dashboard.objects?DATA.dashboard.objects.toLocaleString()+" objects":"Waiting for objects";
@@ -271,12 +271,13 @@
     const el=$("#service-status-list");
     if(!el)return;
     const apiOk=DATA.sync.status==="live";
+    const adminReady=DATA.sync.admin==="ready";
     const rows=[
       ["Control plane",apiOk?"Connected":"Unavailable",apiOk?"good":"warn"],
       ["Storage nodes",DATA.nodes.length?DATA.nodes.filter(n=>n.status==="healthy").length+" / "+DATA.nodes.length+" healthy":"No telemetry",DATA.nodes.length&&DATA.nodes.every(n=>n.status==="healthy")?"good":"warn"],
-      ["Repair jobs",DATA.repairs.length+" recorded",DATA.sync.admin==="ready"?"good":"warn"],
-      ["Integrity jobs",DATA.integrity.length+" recorded",DATA.sync.admin==="ready"?"good":"warn"],
-      ["Rebalance jobs",DATA.rebalance.length+" recorded",DATA.sync.admin==="ready"?"good":"warn"]
+      ["Repair jobs",adminReady?DATA.repairs.length+" recorded":"Admin access required",adminReady?"good":"warn"],
+      ["Integrity jobs",adminReady?DATA.integrity.length+" recorded":"Admin access required",adminReady?"good":"warn"],
+      ["Rebalance jobs",adminReady?DATA.rebalance.length+" recorded":"Admin access required",adminReady?"good":"warn"]
     ];
     el.innerHTML=rows.map(r=>"<div><span>"+escapeHtml(r[0])+"</span><b><i class='service "+r[2]+"'></i>"+escapeHtml(r[1])+"</b></div>").join("");
   }
@@ -290,6 +291,7 @@
     DATA.repairs.filter(r=>!["SUCCEEDED","COMPLETED"].includes(String(r.status||"").toUpperCase())).slice(0,2).forEach(r=>{
       items.push("<div class='watch'><b>Repair "+escapeHtml(r.status||"PENDING")+"</b><span>"+escapeHtml(objectLabelForVersion(r.version_id))+"</span><button data-view='repairs'>Open</button></div>");
     });
+    if(!items.length&&DATA.sync.admin!=="ready")items.push("<div class='watch warning'><b>Admin controls need access</b><span>Enter the Part B admin key in Settings to see and operate protected jobs.</span><button data-view='policies'>Open settings</button></div>");
     if(!items.length)items.push("<div class='empty' style='padding:16px'><b>✓</b><h3>Nothing needs attention</h3><p>Part B reports no current node or repair warning.</p></div>");
     el.innerHTML=items.join("");
   }
@@ -339,7 +341,12 @@
       return "<div class='replica'><b>"+escapeHtml(r[0])+"</b><small>"+escapeHtml(r[2]||"—")+"</small>"+status(replicaStatus==="HEALTHY"?"healthy":replicaStatus==="CORRUPTED"?"corrupted":"attention")+"</div>";
     }).join(""):"<div class='empty' style='grid-column:1/-1;padding:16px'><b>i</b><h3>Replica placement not returned</h3><p>Part B did not return replica details for this version.</p></div>";
     const placementPolicy=DATA.policies?"RF "+DATA.policies.replication_factor+" · W"+DATA.policies.write_quorum+" · R"+DATA.policies.read_quorum:"—";
-    $("#object-detail").innerHTML="<div class='detail-grid'><div><div class='detail-hero'><p class='eyebrow'>FILE DETAILS</p><h2>"+escapeHtml(o.name||o.id)+"</h2><div class='detail-meta'><span>"+escapeHtml(o.size)+"</span><span>Version "+escapeHtml(o.version)+"</span><span>"+status(o.status)+"</span><span>SHA-256 "+escapeHtml(o.checksum)+"</span></div><div class='detail-actions'><button class='btn' data-action='repair'>Repair this version</button><button class='btn' data-action='rebalance'>Rebalance this version</button></div></div><div style='padding-top:12px'><p class='eyebrow'>PROTECTED COPIES</p><div class='replicas'>"+replicaCards+"</div></div></div><div><p class='eyebrow'>METADATA</p><div class='service-list'><div><span>Content type</span><b>"+escapeHtml(o.type)+"</b></div><div><span>Created</span><b>"+escapeHtml(o.created)+"</b></div><div><span>Version ID</span><b>"+escapeHtml(o.currentVersionId||"—")+"</b></div><div><span>Version number</span><b>"+escapeHtml(liveVersion.version_number?("v"+liveVersion.version_number):o.version)+"</b></div><div><span>Healthy replicas</span><b>"+escapeHtml(o.replicas)+"</b></div><div><span>Placement policy</span><b>"+escapeHtml(placementPolicy)+"</b></div></div></div></div>";
+    const healthyReplicaCount=Number((String(o.replicas||"").split("/")[0]));
+    const repairNeeded=Number.isFinite(healthyReplicaCount)&&DATA.policies&&healthyReplicaCount<Number(DATA.policies.replication_factor)||o.status==="corrupted";
+    const replicaNodeIds=new Set((o.replicaRows||[]).filter(r=>String(r[1]||"").toUpperCase()==="HEALTHY").map(r=>r[0]));
+    const rebalancePossible=(o.replicaRows||[]).length>0&&DATA.nodes.some(n=>n.status==="healthy"&&!replicaNodeIds.has(n.id));
+    const actionButtons=(repairNeeded||rebalancePossible)?"<div class='detail-actions'>"+(repairNeeded?"<button class='btn' data-action='repair'>Repair this version</button>":"")+(rebalancePossible?"<button class='btn' data-action='rebalance'>Rebalance placement</button>":"")+"</div>":"";
+    $("#object-detail").innerHTML="<div class='detail-grid'><div><div class='detail-hero'><p class='eyebrow'>FILE DETAILS</p><h2>"+escapeHtml(o.name||o.id)+"</h2><div class='detail-meta'><span>"+escapeHtml(o.size)+"</span><span>Version "+escapeHtml(o.version)+"</span><span>"+status(o.status)+"</span><span>SHA-256 "+escapeHtml(o.checksum)+"</span></div>"+actionButtons+"</div><div style='padding-top:12px'><p class='eyebrow'>PROTECTED COPIES</p><div class='replicas'>"+replicaCards+"</div></div></div><div><p class='eyebrow'>METADATA</p><div class='service-list'><div><span>Content type</span><b>"+escapeHtml(o.type)+"</b></div><div><span>Created</span><b>"+escapeHtml(o.created)+"</b></div><div><span>Version ID</span><b>"+escapeHtml(o.currentVersionId||"—")+"</b></div><div><span>Version number</span><b>"+escapeHtml(liveVersion.version_number?("v"+liveVersion.version_number):o.version)+"</b></div><div><span>Healthy replicas</span><b>"+escapeHtml(o.replicas)+"</b></div><div><span>Placement policy</span><b>"+escapeHtml(placementPolicy)+"</b></div></div></div></div>";
   }
   function renderRepairs(){
     const active=DATA.repairs.filter(r=>!["SUCCEEDED","COMPLETED","FAILED","ERROR"].includes(String(r.status||"").toUpperCase())).length;
