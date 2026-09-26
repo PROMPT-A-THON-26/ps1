@@ -7,6 +7,8 @@ from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+from common.ids import normalize_request_id
+
 from .config import StorageNodeConfig
 from .storage_engine import (
     ObjectAlreadyExistsError,
@@ -58,8 +60,9 @@ class VerifyResponse(BaseModel):
 
 
 def _request_id_headers(request: Request) -> dict[str, str]:
+    """Propagate only validated, bounded request IDs to storage responses."""
     request_id = request.headers.get("X-Request-ID")
-    return {"X-Request-ID": request_id} if request_id else {}
+    return {"X-Request-ID": normalize_request_id(request_id)}
 
 
 @app.get("/internal/v1/health", response_model=HealthResponse)
