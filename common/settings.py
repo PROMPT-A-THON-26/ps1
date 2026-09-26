@@ -52,6 +52,7 @@ class VaultSettings:
     under_replicated_scan_interval_seconds: float = DEFAULT_UNDER_REPLICATED_SCAN_INTERVAL_SECONDS
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
+    max_upload_bytes: int = 100 * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "VaultSettings":
@@ -118,6 +119,7 @@ class VaultSettings:
             ),
             celery_broker_url=broker,
             celery_result_backend=backend,
+            max_upload_bytes=_env_int("MAX_UPLOAD_BYTES", defaults.max_upload_bytes, minimum=1),
         )
 
 
