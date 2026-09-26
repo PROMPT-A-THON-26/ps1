@@ -93,6 +93,12 @@ class AdminService:
             **_dispatch("repair_version", str(request.version_id), repair_id=str(job.repair_id)),
         }
 
+    def list_repairs(self, limit: int = 100) -> list[dict[str, Any]]:
+        jobs = self.session.scalars(
+            select(RepairJob).order_by(RepairJob.created_at.desc()).limit(limit)
+        ).all()
+        return [_serialize_job(job) for job in jobs]
+
     def get_repair(self, repair_id: UUID) -> dict[str, Any]:
         job = self.session.scalar(select(RepairJob).where(RepairJob.repair_id == repair_id))
         if job is None:
@@ -107,6 +113,12 @@ class AdminService:
             **_serialize_job(job),
             **_dispatch("run_integrity_check", str(job.integrity_id)),
         }
+
+    def list_integrity(self, limit: int = 100) -> list[dict[str, Any]]:
+        jobs = self.session.scalars(
+            select(IntegrityJob).order_by(IntegrityJob.created_at.desc()).limit(limit)
+        ).all()
+        return [_serialize_job(job) for job in jobs]
 
     def get_integrity(self, integrity_id: UUID) -> dict[str, Any]:
         job = self.session.scalar(select(IntegrityJob).where(IntegrityJob.integrity_id == integrity_id))
@@ -140,6 +152,12 @@ class AdminService:
                 rebalance_id=str(job.rebalance_id),
             ),
         }
+
+    def list_rebalances(self, limit: int = 100) -> list[dict[str, Any]]:
+        jobs = self.session.scalars(
+            select(RebalanceJob).order_by(RebalanceJob.created_at.desc()).limit(limit)
+        ).all()
+        return [_serialize_job(job) for job in jobs]
 
     def get_rebalance(self, rebalance_id: UUID) -> dict[str, Any]:
         job = self.session.scalar(
