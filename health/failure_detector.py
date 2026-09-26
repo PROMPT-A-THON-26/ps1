@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from datetime import datetime, timezone
 from typing import Callable, Optional
 from uuid import UUID
@@ -17,6 +18,9 @@ from metadata.models import Replica, StorageNode, Version
 from repair import RepairManager
 
 from .node_registry import NodeRegistry
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +89,13 @@ class FailureDetector:
                     replication_factor=self.replication_factor,
                     reason="node-unavailable",
                 )
-            except VaultError:
+            except VaultError as exc:
+                logger.warning(
+                    "Repair scheduling was blocked for version %s on unavailable node %s: %s",
+                    replica.version_id,
+                    node_id,
+                    exc.message,
+                )
                 continue
             if job is not None:
                 repair_ids.append(job.repair_id)
