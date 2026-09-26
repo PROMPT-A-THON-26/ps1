@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from re import fullmatch
+import re
 from uuid import UUID, uuid4
 
 REQUEST_ID_PATTERN = r"^[A-Za-z0-9_.:-]{1,64}$"
+_REQUEST_ID_RE = re.compile(REQUEST_ID_PATTERN)
 
 
 def new_uuid() -> UUID:
@@ -21,4 +22,4 @@ def new_request_id() -> str:
 def normalize_request_id(value: str | None) -> str:
     """Accept only short, log-safe request IDs; otherwise create a fresh ID."""
     candidate = value.strip() if isinstance(value, str) else ""
-    return candidate if fullmatch(REQUEST_ID_PATTERN, candidate) else new_request_id()
+    return candidate if _REQUEST_ID_RE.fullmatch(candidate) else new_request_id()
