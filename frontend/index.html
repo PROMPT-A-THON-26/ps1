@@ -219,21 +219,6 @@
 </div>
 <div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
 
-<div class="modal-bg" id="drill-modal" aria-hidden="true">
-  <div class="modal drill-modal" role="dialog" aria-modal="true" aria-labelledby="drill-title" aria-describedby="drill-description">
-    <div class="modal-head"><div><p class="eyebrow">SAFE DEMO SCENARIO</p><h2 id="drill-title">Resilience drill</h2><p class="modal-subtitle" id="drill-description">A local, non-destructive failure simulation. No API calls are made.</p></div><button class="icon-btn" data-action="close-drill" aria-label="Close resilience drill">×</button></div>
-    <div class="drill-status"><span class="signal blue">⚡</span><div><b id="drill-status-title">Ready to simulate a node failure</b><small id="drill-status-copy">Detect → isolate → repair → verify.</small></div></div>
-    <div class="drill-steps" id="drill-steps">
-      <div class="drill-step active" data-step="1"><span>01</span><b>Detect</b><small>Heartbeat miss is detected</small></div>
-      <div class="drill-step" data-step="2"><span>02</span><b>Isolate</b><small>Reads stay on healthy replicas</small></div>
-      <div class="drill-step" data-step="3"><span>03</span><b>Repair</b><small>Verified copy restores RF 3</small></div>
-      <div class="drill-step" data-step="4"><span>04</span><b>Verify</b><small>Checksum confirms recovery</small></div>
-    </div>
-    <div class="drill-console" id="drill-console" aria-live="polite" aria-atomic="true"><code>&gt; awaiting start...</code></div>
-    <div class="modal-actions"><button class="btn" data-action="close-drill">Close</button><button class="btn primary" id="drill-run" data-action="run-drill">Start drill</button></div>
-  </div>
-</div>
-
 <div class="command-bg" id="command-modal" aria-hidden="true">
   <div class="command-palette" role="dialog" aria-modal="true" aria-labelledby="command-title" aria-describedby="command-description">
     <div class="command-head"><div><p class="eyebrow">OPERATIONS</p><h2 id="command-title">Command palette</h2><p id="command-description" class="sr-only">Search keyboard commands to navigate the Vault control center or start supported operations.</p></div><kbd>Esc</kbd></div>
@@ -244,6 +229,6 @@
 </div>
 
 <script src="./js/config.js" defer></script>
-<script src="./js/app.js?v=20260926-8" defer></script>
+<script src="./js/app.js?v=20260926-9" defer></script>
 </body>
 </html>
