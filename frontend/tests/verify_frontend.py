@@ -41,7 +41,7 @@ def test_live_mode_is_the_only_runtime_mode():
     assert "requestedMode" not in CONFIG
     assert "hostedStatic" not in CONFIG
     assert "mock" not in CONFIG.lower()
-    assert "mode==="mock"" not in JS
+    assert 'mode==="mock"' not in JS
     assert "runDemoAction" not in JS
     assert "SAFE DEMO SCENARIO" not in HTML
     assert "Demo-only control" not in JS
