@@ -108,18 +108,23 @@ class RepairManager:
                 select(Replica.node_id).where(Replica.version_id == version.version_id)
             ).all()
         )
-        candidates = list(
-            self.session.scalars(
-                select(StorageNode).where(StorageNode.status == NodeState.HEALTHY)
-            ).all()
+        statement = (
+            select(StorageNode)
+            .where(
+                StorageNode.status == NodeState.HEALTHY,
+                StorageNode.capacity_bytes - StorageNode.used_bytes >= version.size_bytes,
+            )
+            .order_by(
+                (StorageNode.capacity_bytes - StorageNode.used_bytes).desc(),
+                StorageNode.node_id.asc(),
+            )
+            .limit(1)
         )
-        candidates = [
-            node
-            for node in candidates
-            if node.node_id not in existing_node_ids
-            and node.free_bytes >= version.size_bytes
-        ]
-        candidates.sort(key=lambda node: (-node.free_bytes, node.node_id))
+        if existing_node_ids:
+            statement = statement.where(
+                StorageNode.node_id.not_in(existing_node_ids)
+            )
+        candidates = list(self.session.scalars(statement).all())
         if not candidates:
             raise VaultError(
                 code=ErrorCode.INSUFFICIENT_REPLICAS,
