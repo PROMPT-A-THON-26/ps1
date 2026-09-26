@@ -124,7 +124,7 @@
     baseUrl:resolveApiBaseUrl(CONFIG.baseUrl),
     async request(path,options={}){
       const headers=new Headers(options.headers||{});
-      const requestId=options.requestId||"req_"+Math.random().toString(16).slice(2,10);
+      const requestId=options.requestId||("req_"+(crypto.randomUUID?crypto.randomUUID().replaceAll("-",""):Date.now().toString(36)));
       headers.set("Accept","application/json");
       headers.set("Cache-Control","no-cache");
       headers.set("X-Request-ID",requestId);
