@@ -1,8 +1,8 @@
-name: Vault MASTER end-to-end
+name: Vault end-to-end
 
 on:
   push:
-    branches: [MASTER]
+    branches: [main]
   pull_request:
     branches: [MASTER]
 
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: vault-master-e2e
+  group: vault-main-e2e
   cancel-in-progress: true
 
 jobs:
