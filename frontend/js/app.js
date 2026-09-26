@@ -548,7 +548,7 @@
   $("#node-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("nodeFilter",b.dataset.filter);});
   $("#object-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("objectFilter",b.dataset.filter);});
   $("#event-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("eventFilter",b.dataset.filter);});
-  $("#refresh").addEventListener("click",async()=>{try{await API.sync();renderAll();toast("Refreshed",CONFIG.mode==="api"?"Live Vault telemetry synchronized.":"Demo telemetry refreshed.");}catch(error){renderAll();toast("Refresh failed",error.message);}});
+  $("#refresh").addEventListener("click",async()=>{try{await API.sync();renderAll();toast("Refreshed","Live Part B telemetry synchronized.");}catch(error){renderAll();toast("Refresh failed",error.message);}});
   $("#command-open").addEventListener("click",openCommand);
   $("#command-input").addEventListener("keydown",e=>{const items=$$("#command-list .command-item");if(e.key==="ArrowDown"){e.preventDefault();state.commandIndex=Math.min(state.commandIndex+1,Math.max(0,items.length-1));renderCommands();}if(e.key==="ArrowUp"){e.preventDefault();state.commandIndex=Math.max(0,state.commandIndex-1);renderCommands();}if(e.key==="Enter"){e.preventDefault();items[state.commandIndex]?.click();}});
   const drop=document.querySelector(".drop");
