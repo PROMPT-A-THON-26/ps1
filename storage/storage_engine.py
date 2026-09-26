@@ -296,6 +296,9 @@ class StorageEngine:
         if not isinstance(expected_chunk_checksums, list):
             errors.append("invalid chunk_checksums metadata")
             expected_chunk_checksums = []
+        elif len(expected_chunk_checksums) > self.MAX_VERIFY_CHUNKS:
+            errors.append("chunk_checksums exceeds verification limit")
+            expected_chunk_checksums = []
         else:
             for index, checksum in enumerate(expected_chunk_checksums):
                 if not self._is_sha256(checksum):
@@ -324,24 +327,14 @@ class StorageEngine:
                 errors=tuple(errors),
             )
 
-        actual_chunk_names = {
-            entry.name
-            for entry in entries
-            if entry.name.startswith(self.CHUNK_PREFIX)
-        }
-        expected_names = (
-            {
-                self._chunk_name(index)
-                for index in range(chunk_count)
-            }
-            if chunk_count is not None and chunk_count >= 0
-            else set()
-        )
-        for extra_name in sorted(actual_chunk_names - expected_names):
-            errors.append(f"unexpected chunk {extra_name}")
-            parsed = self._parse_chunk_index(extra_name)
-            if parsed is not None:
-                corrupt.add(parsed)
+        for entry in entries:
+            if not entry.name.startswith(self.CHUNK_PREFIX):
+                continue
+            parsed = self._parse_chunk_index(entry.name)
+            if chunk_count is None or parsed is None or parsed >= chunk_count:
+                errors.append(f"unexpected chunk {entry.name}")
+                if parsed is not None:
+                    corrupt.add(parsed)
 
         object_digest = hashlib.sha256()
         actual_checksum: str | None = None
