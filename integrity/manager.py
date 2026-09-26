@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import suppress
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -182,8 +181,7 @@ class IntegrityManager:
                 size_bytes=actual_size,
             )
         finally:
-            with suppress(Exception):
-                await client.aclose()
+            await client.aclose()
 
     def create_job(self, *, node_id: str | None = None, version_id: UUID | None = None) -> IntegrityJob:
         if node_id is not None:
