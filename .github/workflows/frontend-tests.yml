@@ -1,0 +1,30 @@
+name: Frontend verification
+
+on:
+  push:
+    branches: ["main", "MASTER"]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-tests.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run frontend contract verifier
+        run: python frontend/tests/verify_frontend.py
