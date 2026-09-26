@@ -13,4 +13,4 @@ RUN chown -R vault:vault /app
 
 USER vault
 
-CMD ["celery", "-A", "worker.celery_app:celery_app", "worker", "--beat", "--loglevel=INFO"]
+CMD ["celery", "-A", "worker.celery_app:celery_app", "worker", "--beat", "--schedule=/tmp/celerybeat-schedule", "--loglevel=INFO"]
