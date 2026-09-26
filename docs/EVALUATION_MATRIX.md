@@ -18,9 +18,9 @@ This document is an internal engineering map from the Vault implementation to th
 |---|---|
 | Input validation | Object names, request IDs, storage-node identifiers, upload size/type metadata, and API base URLs are validated. |
 | Browser hardening | CSP metadata, strict referrer policy, no inline JavaScript, safe output escaping, redirect blocking, and security headers are present. |
-| API hardening | Restricted CORS, bounded request rate limiting, `nosniff`, frame-denial, no-store responses, browser isolation headers, and explicit HTTP(S) URL validation are used. |
+| API hardening | Restricted CORS, bounded request rate limiting, `nosniff`, frame-denial, no-store responses, browser isolation headers, explicit HTTP(S) URL validation, and authenticated storage-node control traffic are used. |
 | Container hardening | Gateway, worker, frontend, and storage nodes run as non-root with dropped capabilities, no-new-privileges, read-only root filesystems, and hardened temporary filesystems. |
-| Secret handling | Compose service credentials are supplied at runtime rather than committed as fixed database/Redis passwords. |
+| Secret handling | Compose service credentials are supplied at runtime rather than committed as fixed database/Redis passwords; internal node and admin keys are runtime-only. |
 | Safe retries | Mutating PUT is not blindly retried after ambiguous network failure; safe/idempotent operations use bounded retry policies. |
 
 ## Efficiency
@@ -43,7 +43,7 @@ This document is an internal engineering map from the Vault implementation to th
 | Storage contract tests | Tests cover streaming, protocol validation, corruption, retries, timeouts, traversal protection, and request tracing. |
 | Gateway contract tests | Tests cover replication/commit, version conflicts, read failover, delete failure states, and public API behavior. |
 | Frontend contract tests | `frontend/tests/verify_frontend.py` statically checks API contract, security, accessibility, rendering, and demo/live separation. |
-| CI gates | Backend, frontend, and end-to-end workflows are checked on push/PR; Docker Compose is validated and the full stack has public API smoke tests. |
+| CI gates | Backend, frontend, and full-stack end-to-end workflows run on the submitted `main` branch; dependency auditing, Docker Compose validation, API smoke tests, and object write/read/delete smoke tests are included. |
 | Negative paths | The suite intentionally covers insufficient replicas, unreachable nodes, corruption, malformed responses, stale versions, and failed deletion/repair paths. |
 
 ## Accessibility
