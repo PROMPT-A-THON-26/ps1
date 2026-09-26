@@ -146,12 +146,17 @@ class GatewayService:
         return node
 
     def health(self) -> dict:
-        nodes = self.list_nodes()
         counts = {state.value: 0 for state in NodeState}
-        for node in nodes:
-            counts[node.status.value] += 1
+        rows = self.session.execute(
+            select(StorageNode.status, func.count(StorageNode.node_id))
+            .group_by(StorageNode.status)
+        ).all()
+        for node_state, count in rows:
+            counts[node_state.value] = int(count)
+
+        total_nodes = sum(counts.values())
         overall = "ok" if counts[NodeState.HEALTHY.value] else "degraded"
-        return {"status": overall, "nodes": len(nodes), "node_states": counts}
+        return {"status": overall, "nodes": total_nodes, "node_states": counts}
 
     def head(self, name: str) -> tuple[Object, Version | None]:
         obj = self.get_live_object(name)
