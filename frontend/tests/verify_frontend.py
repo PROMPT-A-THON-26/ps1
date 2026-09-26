@@ -114,12 +114,6 @@ def test_command_palette_and_drill_are_connected():
     assert "const commands=" in JS
     assert "openCommand" in JS
 
-if __name__ == "__main__":
-    tests = [v for k,v in globals().items() if k.startswith("test_") and callable(v)]
-    for test in tests:
-        test()
-    print("frontend verifier: %d checks passed" % len(tests))
-
 
 def test_client_hardening_contract():
     assert 'Cache-Control","no-cache' in JS
@@ -149,3 +143,9 @@ def test_api_input_validation_and_output_safety():
     assert 'validateUploadFile' in JS
     assert 'escapeHtml' in JS
     assert 'X-Request-ID' in JS
+
+if __name__ == "__main__":
+    tests = [v for k,v in globals().items() if k.startswith("test_") and callable(v)]
+    for test in tests:
+        test()
+    print("frontend verifier: %d checks passed" % len(tests))
