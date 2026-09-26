@@ -50,9 +50,11 @@ def test_no_unsupported_live_object_post():
     assert '"/objects/"+encodeURIComponent(objectName),{method:"PUT"' in JS
 
 def test_demo_mode_exists():
-    # Live API is the production/default mode. Demo mode is an explicit URL opt-in.
-    assert 'const mode = params.get("mode")' in HTML
-    assert 'params.get("mode") === "mock"' in HTML
+    # Static hosting uses a deterministic mock mode by default; live API remains an explicit opt-in.
+    assert 'const requestedMode = params.get("mode")' in HTML
+    assert 'requestedMode === "api"' in HTML
+    assert 'requestedMode === "mock"' in HTML
+    assert 'hostedStatic' in HTML
     assert 'CONFIG.mode==="mock"' in JS
     assert '/api/v1' in HTML
 
@@ -75,14 +77,27 @@ def test_job_polling_exists():
 
 def test_accessibility_contract():
     for token in (
+        'class="skip-link"',
+        'href="#main-content"',
+        'id="main-content"',
+        'aria-label="Vault sections"',
         'aria-label="Primary navigation"',
         'aria-label="Search nodes"',
         'aria-label="Search objects"',
         'aria-hidden="true"',
         'aria-live="polite"',
+        'aria-atomic="true"',
         'aria-label="Open command palette"',
+        'scope="col"',
+        'role="progressbar"',
+        'aria-valuemin="0"',
+        'aria-valuemax="100"',
     ):
         assert token in HTML
+    assert 'prefers-reduced-motion' in CSS
+    assert '.skip-link:focus' in CSS
+    assert 'resolveApiBaseUrl' in JS
+    assert 'MAX_UPLOAD_BYTES' in JS
 
 def test_frontend_framework_free():
     text = (HTML + CSS + JS).lower()
@@ -101,3 +116,10 @@ if __name__ == "__main__":
     for test in tests:
         test()
     print("frontend verifier: %d checks passed" % len(tests))
+
+
+def test_client_hardening_contract():
+    assert 'Cache-Control","no-cache' in JS
+    assert 'validateUploadFile(file)' in JS
+    assert 'Unsupported API protocol.' in JS
+    assert 'File exceeds the 100 MB demo upload limit.' in JS
