@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
+import hmac
+import os
 from typing import Callable
 from uuid import UUID
 
@@ -13,7 +15,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from common.constants import ErrorCode
-from common.errors import VaultError
+from common.errors import Unauthorized, VaultError
 from common.ids import normalize_request_id
 from replication.node_client import StorageNodeClient, StorageNodeClientError
 
@@ -26,6 +28,15 @@ def _request_id(request: Request) -> str:
     """Return a bounded, log-safe request ID for the full request lifecycle."""
     return normalize_request_id(request.headers.get("X-Request-ID"))
 
+
+
+def _admin_auth_response(request: Request, request_id: str) -> JSONResponse | None:
+    """Require an explicit admin API key for administrative control-plane endpoints."""
+    configured = os.getenv("VAULT_ADMIN_API_KEY", "").strip()
+    supplied = request.headers.get("X-Admin-Key", "")
+    if configured and supplied and hmac.compare_digest(supplied, configured):
+        return None
+    return _error_response(Unauthorized(), request_id)
 
 
 def _invalid_request_response(exc: ValueError, request_id: str) -> JSONResponse:
@@ -313,6 +324,9 @@ def build_gateway_router(
     @router.post("/admin/repair", status_code=status.HTTP_202_ACCEPTED)
     def admin_create_repair(payload: RepairRequest, request: Request) -> JSONResponse:
         rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
         try:
             with session_factory() as session:
                 result = AdminService(session).create_repair(payload)
@@ -329,6 +343,9 @@ def build_gateway_router(
     @router.get("/admin/repair/{repair_id}")
     def admin_get_repair(repair_id: UUID, request: Request) -> JSONResponse:
         rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
         try:
             with session_factory() as session:
                 result = AdminService(session).get_repair(repair_id)
@@ -339,6 +356,9 @@ def build_gateway_router(
     @router.post("/admin/integrity/check", status_code=status.HTTP_202_ACCEPTED)
     def admin_create_integrity(payload: IntegrityRequest, request: Request) -> JSONResponse:
         rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
         try:
             with session_factory() as session:
                 result = AdminService(session).create_integrity(payload)
@@ -349,6 +369,9 @@ def build_gateway_router(
     @router.get("/admin/integrity/check/{job_id}")
     def admin_get_integrity(job_id: UUID, request: Request) -> JSONResponse:
         rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
         try:
             with session_factory() as session:
                 result = AdminService(session).get_integrity(job_id)
@@ -359,6 +382,9 @@ def build_gateway_router(
     @router.post("/admin/rebalance", status_code=status.HTTP_202_ACCEPTED)
     def admin_create_rebalance(payload: RebalanceRequest, request: Request) -> JSONResponse:
         rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
         try:
             with session_factory() as session:
                 result = AdminService(session).create_rebalance(payload)
@@ -375,6 +401,9 @@ def build_gateway_router(
     @router.get("/admin/rebalance/{job_id}")
     def admin_get_rebalance(job_id: UUID, request: Request) -> JSONResponse:
         rid = _request_id(request)
+        auth_error = _admin_auth_response(request, rid)
+        if auth_error is not None:
+            return auth_error
         try:
             with session_factory() as session:
                 result = AdminService(session).get_rebalance(job_id)
