@@ -204,7 +204,7 @@ def test_client_hardening_contract():
     assert 'Cache-Control","no-cache' in JS
     assert "validateUploadFile(file)" in JS
     assert "Unsupported API protocol." in JS
-    assert "File exceeds the 100 MB upload limit." in JS
+    assert "File exceeds the configured upload limit." in JS
     assert "escapeHtml" in JS
 
 
