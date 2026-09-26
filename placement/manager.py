@@ -98,17 +98,20 @@ class PlacementManager:
             ).all()
         )
 
-        candidates = list(
-            self.session.scalars(
-                select(StorageNode).where(StorageNode.status == NodeState.HEALTHY)
-            ).all()
+        statement = (
+            select(StorageNode)
+            .where(
+                StorageNode.status == NodeState.HEALTHY,
+                StorageNode.free_bytes >= size_bytes,
+            )
+            .order_by(StorageNode.free_bytes.desc(), StorageNode.node_id.asc())
+            .limit(factor)
         )
-        candidates = [
-            node
-            for node in candidates
-            if node.node_id not in existing_node_ids and node.free_bytes >= size_bytes
-        ]
-        candidates.sort(key=lambda node: (-node.free_bytes, node.node_id))
+        if existing_node_ids:
+            statement = statement.where(
+                StorageNode.node_id.not_in(existing_node_ids)
+            )
+        candidates = list(self.session.scalars(statement).all())
 
         if len(candidates) < factor:
             raise VaultError(
