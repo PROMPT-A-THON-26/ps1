@@ -6,6 +6,7 @@
   <meta name="description" content="Vault distributed object storage resilience control center">
   <meta name="theme-color" content="#07111f">
   <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'none'; connect-src 'self' https: http://localhost:*; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
   <title>Vault — Resilience Control Center</title>
   <link rel="stylesheet" href="./css/app.css">
 </head>
@@ -13,17 +14,17 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <div class="app-shell">
   <aside class="sidebar" aria-label="Primary navigation">
-    <div class="brand">
+    <header class="brand">
       <div class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 32 32"><path d="M16 3 27 8v7c0 7.2-4.5 12.1-11 14C9.5 27.1 5 22.2 5 15V8l11-5Z"/><path d="m10.5 15.7 3.5 3.5 7.7-8"/></svg>
       </div>
       <div><strong>VAULT</strong><span>Resilience Control Center</span></div>
-    </div>
+    </header>
     <div class="env" id="env-badge"><span class="live"></span><div><b id="env-label">DEMO MODE</b><small id="env-detail">Safe local simulation</small></div></div>
     <nav class="nav-groups" aria-label="Vault sections">
       <section>
         <p class="nav-label">OPERATIONS</p>
-        <button class="nav-item active" data-view="overview"><span>⌂</span>Overview</button>
+        <button class="nav-item active" data-view="overview" aria-current="page"><span>⌂</span>Overview</button>
         <button class="nav-item" data-view="nodes"><span>◈</span>Nodes</button>
         <button class="nav-item" data-view="objects"><span>▦</span>Objects</button>
         <button class="nav-item" data-view="repairs"><span>↻</span>Repairs</button>
@@ -36,10 +37,10 @@
         <button class="nav-item" data-view="policies"><span>⚙</span>Policies</button>
       </section>
     </nav>
-    <div class="sidebar-foot">
+    <footer class="sidebar-foot">
       <div class="cluster-mini"><span class="live"></span><div><b>Cluster healthy</b><small>Heartbeat 2.1s</small></div></div>
       <small>Vault · Part C</small>
-    </div>
+    </footer>
   </aside>
 
   <main class="main" id="main-content" tabindex="-1">
@@ -159,9 +160,9 @@
 </div>
 
 <div class="modal-bg" id="modal" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-title">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-title" aria-describedby="upload-description">
     <div class="modal-head"><div><p class="eyebrow">OBJECT INGEST</p><h2 id="upload-title">Upload object</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">×</button></div>
-    <label class="drop" for="file-input"><input id="file-input" type="file"><span>↑</span><b>Drop a file here</b><small>or click to browse · streamed through Vault</small><strong id="file-name">No file selected</strong></label>
+    <label class="drop" for="file-input"><input id="file-input" type="file"><span>↑</span><b>Drop a file here</b><small id="upload-description">or click to browse · streamed through Vault</small><strong id="file-name">No file selected</strong></label>
     <div class="upload-meta"><div><small>Replication</small><b>RF 3</b></div><div><small>Write quorum</small><b>W 2</b></div><div><small>Integrity</small><b>SHA-256</b></div></div>
     <div id="progress-wrap" hidden><div class="progress-label"><span id="progress-text">Uploading</span><b id="progress-value">0%</b></div><div class="meter" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="progress-bar" style="width:0%"></i></div></div>
     <div class="modal-actions"><button class="btn" data-action="close-modal">Cancel</button><button class="btn primary" id="upload-btn" data-action="upload-file" disabled>Start upload</button></div>
@@ -170,8 +171,8 @@
 <div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
 
 <div class="modal-bg" id="drill-modal" aria-hidden="true">
-  <div class="modal drill-modal" role="dialog" aria-modal="true" aria-labelledby="drill-title">
-    <div class="modal-head"><div><p class="eyebrow">SAFE DEMO SCENARIO</p><h2 id="drill-title">Resilience drill</h2><p class="modal-subtitle">A local, non-destructive failure simulation. No API calls are made.</p></div><button class="icon-btn" data-action="close-drill" aria-label="Close resilience drill">×</button></div>
+  <div class="modal drill-modal" role="dialog" aria-modal="true" aria-labelledby="drill-title" aria-describedby="drill-description">
+    <div class="modal-head"><div><p class="eyebrow">SAFE DEMO SCENARIO</p><h2 id="drill-title">Resilience drill</h2><p class="modal-subtitle" id="drill-description">A local, non-destructive failure simulation. No API calls are made.</p></div><button class="icon-btn" data-action="close-drill" aria-label="Close resilience drill">×</button></div>
     <div class="drill-status"><span class="signal blue">⚡</span><div><b id="drill-status-title">Ready to simulate a node failure</b><small id="drill-status-copy">Detect → isolate → repair → verify.</small></div></div>
     <div class="drill-steps" id="drill-steps">
       <div class="drill-step active" data-step="1"><span>01</span><b>Detect</b><small>Heartbeat miss is detected</small></div>
@@ -193,19 +194,7 @@
   </div>
 </div>
 
-<script>
-  (() => {
-    const params = new URLSearchParams(location.search);
-    const requestedMode = params.get("mode");
-    const hostedStatic = /\.github\.io$|\.netlify\.app$|\.vercel\.app$/i.test(location.hostname);
-    const mode = requestedMode === "api" ? "api" : (requestedMode === "mock" || hostedStatic ? "mock" : "api");
-    const baseUrl = params.get("baseUrl")
-      || (location.hostname
-        ? location.protocol + "//" + location.hostname + ":8000/api/v1"
-        : "http://localhost:8000/api/v1");
-    window.VAULT_CONFIG = { mode, baseUrl };
-  })();
-</script>
+<script src="./js/config.js" defer></script>
 <script src="./js/app.js" defer></script>
 </body>
 </html>
