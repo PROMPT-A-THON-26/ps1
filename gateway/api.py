@@ -7,7 +7,7 @@ from typing import Callable
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Header, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
