@@ -282,3 +282,15 @@ def test_gateway_health_reports_degraded_until_all_registered_nodes_are_healthy(
     health = GatewayService(db_session).health()
     assert health["status"] == "degraded"
     assert health["nodes"] == 2
+
+
+@pytest.mark.asyncio
+async def test_stage_upload_rejects_payload_over_configured_limit():
+    async def chunks():
+        yield b"1234"
+        yield b"5678"
+
+    with pytest.raises(Exception) as exc:
+        await GatewayService.stage_upload(chunks(), max_bytes=5)
+
+    assert "PAYLOAD_TOO_LARGE" in str(exc.value)
