@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Vault distributed object storage resilience control center">
+  <meta name="description" content="VaultOps storage reliability center for fault-tolerant distributed object storage">
   <meta name="theme-color" content="#07111f">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'none'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
-  <title>Vault — Resilience Control Center</title>
+  <title>VaultOps — Storage Reliability Center</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="apple-touch-icon" href="./favicon.svg">
   <link rel="stylesheet" href="./css/app.css">
 </head>
 <body>
@@ -18,9 +20,9 @@
       <div class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 32 32"><path d="M16 3 27 8v7c0 7.2-4.5 12.1-11 14C9.5 27.1 5 22.2 5 15V8l11-5Z"/><path d="m10.5 15.7 3.5 3.5 7.7-8"/></svg>
       </div>
-      <div><strong>VAULT</strong><span>Resilience Control Center</span></div>
+      <div><strong>VAULTOPS</strong><span>Storage Reliability Center</span></div>
     </header>
-    <div class="env" id="env-badge" role="status" aria-live="polite"><span class="live"></span><div><b id="env-label">DEMO MODE</b><small id="env-detail">Safe local simulation</small></div></div>
+    <div class="env" id="env-badge" role="status" aria-live="polite"><span class="live"></span><div><b id="env-label">CONNECTING</b><small id="env-detail">Connecting to Part B…</small></div></div>
     <nav class="nav-groups" aria-label="Primary navigation">
       <section>
         <p class="nav-label">OPERATIONS</p>
@@ -33,19 +35,24 @@
       </section>
       <section>
         <p class="nav-label">SYSTEM</p>
-        <button class="nav-item" data-view="events"><span>≋</span>Events</button>
-        <button class="nav-item" data-view="policies"><span>⚙</span>Policies</button>
+        <button class="nav-item" data-view="events"><span>≋</span>Activity</button>
+        <button class="nav-item" data-view="policies"><span>⚙</span>Settings</button>
+      </section>
+      <section>
+        <p class="nav-label">HELP</p>
+        <button class="nav-item" data-view="guide"><span>?</span>User guide</button>
+        <button class="nav-item" data-view="about"><span>ⓘ</span>About us</button>
       </section>
     </nav>
     <footer class="sidebar-foot">
       <div class="cluster-mini"><span class="live"></span><div><b>Cluster healthy</b><small>Heartbeat 2.1s</small></div></div>
-      <small>Vault · Part C</small>
+      <small>VaultOps · Part C connected to Part B</small>
     </footer>
   </aside>
 
   <main class="main" id="main-content" tabindex="-1">
     <header class="topbar">
-      <div class="crumb"><span>VAULT</span><i>/</i><strong id="view-title">Overview</strong></div>
+      <div class="crumb"><span>VAULTOPS</span><i>/</i><strong id="view-title">Overview</strong></div>
       <div class="top-actions">
         <button class="icon-btn" id="command-open" aria-label="Open command palette" aria-controls="command-modal">Ctrl/⌘K</button>
         <button class="icon-btn" id="refresh" aria-label="Refresh">↻</button>
@@ -58,14 +65,14 @@
       <section class="view visible" id="view-overview">
         <div class="hero">
           <div><p class="eyebrow">DISTRIBUTED OBJECT STORAGE</p><h1>Resilience, at a glance.</h1><p>One operations cockpit for storage health, placement, self-healing and data integrity. Designed to show the engineering behind Vault, not hide it behind decorative charts.</p></div>
-          <div class="actions"><button class="btn primary" data-action="upload">＋ Upload object</button><button class="btn" data-action="integrity">✓ Run integrity scan</button><button class="btn ghost" data-action="drill">⚡ Resilience drill</button></div>
+          <div class="actions"><button class="btn primary" data-action="upload">＋ Upload object</button><button class="btn" data-action="integrity">✓ Run integrity scan</button></div>
         </div>
 
         <section class="signal-strip" aria-label="Cluster signals">
           <div><span class="signal blue" id="signal-control-icon">✓</span><div><small>CONTROL PLANE</small><b id="signal-control">Connected</b></div></div>
-          <div><span class="signal green">↻</span><div><small>SELF-HEAL</small><b id="signal-heal">2 repairs today</b></div></div>
+          <div><span class="signal green">↻</span><div><small>SELF-HEAL</small><b id="signal-heal">Loading repair activity…</b></div></div>
           <div><span class="signal amber">◒</span><div><small>HEADROOM</small><b id="signal-headroom">28% remaining</b></div></div>
-          <div><span class="signal violet">3×</span><div><small>POLICY</small><b id="signal-policy">RF 3 · W2 · R1</b></div></div>
+          <div><span class="signal violet">3×</span><div><small>POLICY</small><b id="signal-policy">Loading policy…</b></div></div>
         </section>
         <div class="ops-banner" id="ops-banner"><div class="ops-banner-icon">!</div><div><small>OPERATIONAL SIGNAL</small><b id="ops-banner-title">node-04 is above the 80% watermark</b><span id="ops-banner-copy">Rebalance is eligible before capacity pressure becomes a failure mode.</span></div><button class="link" data-view="rebalance">Review</button></div>
 
@@ -95,19 +102,19 @@
           <article class="panel">
             <div class="panel-head"><div><p class="eyebrow">FAILURE DOMAIN</p><h2>Cluster health</h2></div><span class="badge green" id="cluster-badge">HEALTHY</span></div>
             <div class="health-summary"><div class="ring" role="progressbar" aria-label="Cluster resilience score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="98.7" id="health-ring"><div><strong id="health-ring-score">98.7</strong><small>/100</small></div></div><div><b id="cluster-summary">All core services operational</b><p id="cluster-copy">node-04 is above the rebalance watermark. No loss of read availability.</p></div></div>
-            <div class="service-list">
-              <div><span>Metadata</span><b><i class="service good"></i>Healthy</b></div>
-              <div><span>Replication</span><b><i class="service good"></i>Healthy</b></div>
-              <div><span>Repair worker</span><b><i class="service good"></i>Healthy</b></div>
-              <div><span>Integrity scanner</span><b><i class="service good"></i>Healthy</b></div>
-              <div><span>Rebalancer</span><b><i class="service warn"></i>Running</b></div>
+            <div class="service-list" id="service-status-list">
+              <div><span>Control plane</span><b>Loading…</b></div>
+              <div><span>Storage nodes</span><b>Loading…</b></div>
+              <div><span>Repair jobs</span><b>Loading…</b></div>
+              <div><span>Integrity jobs</span><b>Loading…</b></div>
+              <div><span>Rebalance jobs</span><b>Loading…</b></div>
             </div>
           </article>
         </div>
 
         <div class="grid two lower">
           <article class="panel"><div class="panel-head"><div><p class="eyebrow">LIVE OPERATIONS</p><h2>Recovery timeline</h2></div><button class="link" data-view="events">View all</button></div><div id="timeline"></div></article>
-          <article class="panel"><div class="panel-head"><div><p class="eyebrow">WATCHLIST</p><h2>What needs attention</h2></div></div><div class="watch warning"><b>node-04 above 80%</b><span>Rebalance candidate · 81% used</span><button data-view="rebalance">Review</button></div><div class="watch"><b>repair-203 completed</b><span>Object obj_8fd restored to RF 3</span><button data-view="repairs">Open</button></div><div class="watch"><b>integrity scan clean</b><span>38,526 replicas checked</span><button data-view="integrity">Details</button></div></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">WATCHLIST</p><h2>What needs attention</h2></div></div><div id="watchlist"></div></article>
         </div>
       </section>
 
@@ -141,18 +148,60 @@
         <div class="panel table-panel top-gap"><div class="panel-head"><div><p class="eyebrow">MIGRATIONS</p><h2>Replica moves</h2></div><span class="chip">DURABLE JOBS</span></div><div class="table-wrap"><table><caption class="sr-only">Durable rebalancing migrations</caption><thead><tr><th scope="col">Job</th><th scope="col">Object</th><th scope="col">Source</th><th scope="col">Target</th><th scope="col">Progress</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="rebalance-body"></tbody></table></div></div>
       </section>
 
+      <section class="view" id="view-guide">
+        <div class="page-head"><div><p class="eyebrow">HELP</p><h1>User guide</h1><p>Use VaultOps to inspect storage, upload objects, verify integrity, and operate recovery safely.</p></div></div>
+        <div class="grid two guide-grid">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">START HERE</p><h2>Daily workflow</h2></div></div>
+            <div class="guide-step"><b>1. Overview</b><span>Check the Part B connection, storage capacity, node health and active jobs.</span></div>
+            <div class="guide-step"><b>2. Objects</b><span>Upload a file or inspect an object. Details are loaded from the connected control plane.</span></div>
+            <div class="guide-step"><b>3. Integrity</b><span>Start a checksum verification job and follow its durable status.</span></div>
+            <div class="guide-step"><b>4. Repairs</b><span>Use repair only when a committed version is under-replicated or a replica is unhealthy.</span></div>
+            <div class="guide-step"><b>5. Rebalance</b><span>Move a verified replica when capacity pressure or placement requires it.</span></div>
+          </article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">TERMS</p><h2>Simple language</h2></div></div>
+            <div class="service-list guide-list">
+              <div><span>Object</span><b>A stored file and its version history</b></div>
+              <div><span>Replica</span><b>A protected copy on a storage node</b></div>
+              <div><span>RF 3</span><b>Three replicas are targeted</b></div>
+              <div><span>W2</span><b>Two successful replica writes are required</b></div>
+              <div><span>Healthy</span><b>Stored data passed verification</b></div>
+              <div><span>Corrupted</span><b>The checksum does not match</b></div>
+              <div><span>Repair</span><b>Rebuild a missing or damaged replica</b></div>
+              <div><span>Rebalance</span><b>Move a verified replica to improve placement or capacity</b></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-about">
+        <div class="page-head"><div><p class="eyebrow">ABOUT THE PROJECT</p><h1>About VaultOps</h1><p>A user-facing control center for Vault's fault-tolerant distributed object storage system.</p></div></div>
+        <div class="grid two">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">WHY IT EXISTS</p><h2>Protect data through failure</h2></div></div><p class="about-copy">VaultOps makes the distributed system visible: where objects are stored, how many healthy copies exist, which nodes need attention, and what the control plane is doing to recover from failure.</p><div class="service-list"><div><span>Storage layer</span><b>Storage nodes</b></div><div><span>Control plane</span><b>FastAPI + PostgreSQL + Celery</b></div><div><span>Integrity</span><b>SHA-256 verification</b></div><div><span>Recovery rule</span><b>Copy → verify → commit → remove</b></div></div></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">PART BOUNDARY</p><h2>Who owns what</h2></div></div><div class="guide-step"><b>Part A</b><span>Stores and transfers object bytes on storage nodes.</span></div><div class="guide-step"><b>Part B</b><span>Owns metadata, placement, health, integrity, repair, and rebalancing.</span></div><div class="guide-step"><b>Part C</b><span>Explains and operates those capabilities through this interface.</span></div><p class="note">Operational numbers shown in VaultOps come from the connected control plane; the frontend does not fabricate cluster state.</p></article>
+        </div>
+      </section>
+
       <section class="view" id="view-events">
-        <div class="page-head"><div><p class="eyebrow">OBSERVABILITY</p><h1>System events</h1><p>A single timeline for uploads, failures, repairs and cluster transitions.</p></div><button class="btn" data-action="clear-events">Clear demo alerts</button></div>
+        <div class="page-head"><div><p class="eyebrow">OBSERVABILITY</p><h1>Activity</h1><p>Live control-plane activity derived from node health and durable repair, integrity, and rebalance jobs.</p></div><button class="btn" data-action="refresh">Refresh activity</button></div>
         <div id="event-filters" class="filters event-filter" role="group" aria-label="Event type filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="success" aria-pressed="false">Success</button><button data-filter="warning" aria-pressed="false">Warning</button><button data-filter="failure" aria-pressed="false">Failure</button></div>
         <div class="event-feed" id="event-feed"></div>
       </section>
 
       <section class="view" id="view-policies">
-        <div class="page-head"><div><p class="eyebrow">CONTROL PLANE CONTRACT</p><h1>Policies & connection</h1><p>Part C stays decoupled from Part B through one normalized API boundary.</p></div></div>
+        <div class="page-head"><div><p class="eyebrow">CONTROL PLANE</p><h1>Settings & connection</h1><p>Read the policies reported by Part B and provide an admin key for protected control-plane actions.</p></div></div>
         <div class="grid policy-grid">
-          <article class="panel"><div class="panel-head"><div><p class="eyebrow">REPLICATION</p><h2>Durability policy</h2></div><span class="chip green">ACTIVE</span></div><label>Replication factor<input value="3" readonly></label><label>Write quorum<input value="2" readonly></label><label>Read quorum<input value="1" readonly></label><label>Chunk size<input value="16 MiB" readonly></label></article>
-          <article class="panel"><div class="panel-head"><div><p class="eyebrow">RELIABILITY</p><h2>Failure windows</h2></div><span class="chip">CONFIG</span></div><label>Heartbeat interval<input value="5 s" readonly></label><label>Suspect after<input value="15 s" readonly></label><label>Unavailable after<input value="30 s" readonly></label><label>Max parallel repairs<input value="4" readonly></label></article>
-          <article class="panel wide"><div class="panel-head"><div><p class="eyebrow">API ADAPTER</p><h2>Part B connection</h2></div><span class="chip amber" id="api-badge">MOCK MODE</span></div><div class="connection"><span>Base URL</span><code id="api-base-url">/api/v1</code></div><div class="connection"><span>Request tracing</span><b class="green-text">Enabled</b></div><div class="connection"><span>Admin mutations</span><b class="green-text">API key protected</b></div><div class="connection"><span>Upload ingress</span><b class="green-text">100 MB hard cap</b></div><div class="connection"><span>Error contract</span><code>error.code · message · request_id</code></div><p class="note">Part C uses the documented public Part B contract only. Live mode reads health, nodes and objects, loads object metadata/versions on demand, and polls admin jobs. Node drain/resume stays demo-only because no public Part B endpoint is defined for it.</p></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">REPLICATION</p><h2>Durability policy</h2></div><span class="chip green">FROM PART B</span></div>
+          <label>Replication factor<input id="policy-rf" value="—" readonly></label>
+          <label>Write quorum<input id="policy-wq" value="—" readonly></label>
+          <label>Read quorum<input id="policy-rq" value="—" readonly></label>
+          <label>Chunk size<input id="policy-chunk" value="—" readonly></label></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">RELIABILITY</p><h2>Failure windows</h2></div><span class="chip">FROM PART B</span></div>
+          <label>Heartbeat interval<input id="policy-heartbeat" value="—" readonly></label>
+          <label>Suspect after<input id="policy-suspect" value="—" readonly></label>
+          <label>Unavailable after<input id="policy-unavailable" value="—" readonly></label>
+          <label>Max parallel repairs<input id="policy-parallel" value="—" readonly></label></article>
+<article class="panel wide"><div class="panel-head"><div><p class="eyebrow">API ADAPTER</p><h2>Part B connection</h2></div><span class="chip amber" id="api-badge">MOCK MODE</span></div><div class="connection"><span>Base URL</span><code id="api-base-url">/api/v1</code></div><div class="connection"><span>Request tracing</span><b class="green-text">Enabled</b></div><div class="connection"><span>Admin mutations</span><b id="admin-key-status" class="green-text">Key not loaded</b></div>
+            <div class="connection"><span>Admin access key</span><div class="admin-key-row"><input id="admin-key-input" type="password" autocomplete="off" placeholder="Paste VAULT_ADMIN_API_KEY"><button class="btn" data-action="save-admin-key">Save for session</button></div></div><div class="connection"><span>Upload ingress</span><b class="green-text">100 MB hard cap</b></div><div class="connection"><span>Error contract</span><code>error.code · message · request_id</code></div><p class="note">All operational data is read from the running Part B API. Protected repair, integrity, and rebalance actions require the configured VAULT_ADMIN_API_KEY; the key is kept only in this browser session.</p></article>
         </div>
       </section>
     </div>
@@ -195,6 +244,6 @@
 </div>
 
 <script src="./js/config.js" defer></script>
-<script src="./js/app.js?v=20260926-4" defer></script>
+<script src="./js/app.js?v=20260926-5" defer></script>
 </body>
 </html>
