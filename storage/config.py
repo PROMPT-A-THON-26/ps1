@@ -21,7 +21,7 @@ class StorageNodeConfig:
     @classmethod
     def from_env(cls) -> "StorageNodeConfig":
         node_id = os.getenv("VAULT_NODE_ID", "node-01").strip()
-        host = os.getenv("VAULT_NODE_HOST", "0.0.0.0").strip()
+        host = os.getenv("VAULT_NODE_HOST", "127.0.0.1").strip()
         port = _positive_int(os.getenv("VAULT_NODE_PORT", "9001"), "VAULT_NODE_PORT")
         capacity_bytes = _positive_int(
             os.getenv("VAULT_NODE_CAPACITY_BYTES", str(100 * 1024**3)),
