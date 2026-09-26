@@ -738,8 +738,8 @@ class StorageEngine:
         cls._validate_id(object_id, "object_id")
         cls._validate_id(version_id, "version_id")
 
-    @staticmethod
-    def _validate_id(value: str, field_name: str) -> None:
+    @classmethod
+    def _validate_id(cls, value: str, field_name: str) -> None:
         if (
             not isinstance(value, str)
             or not value
