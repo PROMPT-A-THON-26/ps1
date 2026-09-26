@@ -51,7 +51,9 @@ def _bootstrap_nodes() -> None:
                 node_id=node_id,
                 address=address,
                 capacity_bytes=capacity,
-                status=NodeState.HEALTHY,
+                # Nodes enter JOINING until a real storage-node heartbeat is
+                # accepted by the health service. Never assert HEALTHY at bootstrap.
+                status=NodeState.JOINING,
             )
         session.commit()
 
