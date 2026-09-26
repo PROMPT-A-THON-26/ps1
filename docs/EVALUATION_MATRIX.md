@@ -18,7 +18,7 @@ This document is an internal engineering map from the Vault implementation to th
 |---|---|
 | Input validation | Object names, request IDs, storage-node identifiers, upload size/type metadata, and API base URLs are validated. |
 | Browser hardening | CSP metadata, strict referrer policy, no inline JavaScript, safe output escaping, redirect blocking, and security headers are present. |
-| API hardening | Restricted CORS, `nosniff`, frame-denial, no-store responses, browser isolation headers, and explicit HTTP(S) URL validation are used. |
+| API hardening | Restricted CORS, bounded request rate limiting, `nosniff`, frame-denial, no-store responses, browser isolation headers, and explicit HTTP(S) URL validation are used. |
 | Container hardening | Gateway, worker, frontend, and storage nodes run as non-root with dropped capabilities, no-new-privileges, read-only root filesystems, and hardened temporary filesystems. |
 | Secret handling | Compose service credentials are supplied at runtime rather than committed as fixed database/Redis passwords. |
 | Safe retries | Mutating PUT is not blindly retried after ambiguous network failure; safe/idempotent operations use bounded retry policies. |
@@ -32,7 +32,7 @@ This document is an internal engineering map from the Vault implementation to th
 | Query batching | Version replica counts and under-replication counts are grouped instead of issuing one count query per version. |
 | SQL aggregation | Cluster health is aggregated in SQL rather than materializing all nodes. |
 | Cached storage accounting | Storage usage is cached and updated under a lock instead of scanning the filesystem for every statistics request. |
-| Concurrency | Independent replica network writes are performed concurrently while metadata transitions remain centralized. |
+| Concurrency | Independent replica network writes are performed concurrently while metadata transitions remain centralized; delete traffic is parallelized while reusing node clients. |
 | Reduced client overhead | Delete paths reuse node clients and close them together. |
 
 ## Testing
@@ -63,7 +63,7 @@ Vault is implemented around the distributed object-storage control-plane require
 
 - **Store/replicate/retrieve:** gateway + replication manager + storage-node client.
 - **Quorum durability:** configurable RF/WQ/RQ with commit only after verified healthy replicas satisfy write quorum.
-- **Verification before HEALTHY:** a replica is marked healthy only after storage-node verification, checksum, and size validation.
+- **Verification before HEALTHY:** a replica is marked healthy only after storage-node verification, checksum, and size validation; fresh storage nodes are verified before gateway bootstrap can mark them HEALTHY.
 - **Self-healing:** health/failure detection, durable repair jobs, integrity checks, and recovery workflows.
 - **Network partition/recovery:** node health state transitions and recovery reconciliation.
 - **Rebalancing:** verified replica migration away from draining/high-pressure nodes.
