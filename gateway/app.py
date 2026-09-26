@@ -132,7 +132,7 @@ app.add_middleware(
     allow_origins=cors_origins,
     allow_credentials=False,
     allow_methods=["GET", "HEAD", "PUT", "DELETE", "POST", "OPTIONS"],
-    allow_headers=["Accept", "Content-Type", "X-Expected-Version", "X-Request-ID"],
+    allow_headers=["Accept", "Content-Type", "X-Expected-Version", "X-Request-ID", "X-Admin-Key"],
 )
 
 rate_limiter = SlidingWindowRateLimiter(
