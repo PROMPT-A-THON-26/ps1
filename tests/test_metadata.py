@@ -257,6 +257,36 @@ def test_duplicate_replica_is_rejected_before_database_error(db_session):
         manager.create_replica(version.version_id, node.node_id)
 
 
+
+def test_batch_replica_creation_and_transition_is_atomic(db_session):
+    manager = MetadataManager(db_session)
+    obj = manager.create_object("batch-replicas.bin")
+    nodes = [
+        manager.register_node(
+            node_id=f"node-batch-{index}",
+            address=f"http://node-batch-{index}:9001",
+            capacity_bytes=10_000,
+            status=NodeState.HEALTHY,
+        )
+        for index in range(3)
+    ]
+    version = manager.create_version(obj.object_id, size_bytes=100, checksum=SHA_A)
+
+    replicas = manager.create_replicas(
+        version.version_id,
+        [node.node_id for node in nodes],
+    )
+    assert [replica.node_id for replica in replicas] == [node.node_id for node in nodes]
+    assert all(replica.status is ReplicaState.PENDING for replica in replicas)
+
+    transitioned = manager.set_replica_states(
+        [replica.replica_id for replica in replicas],
+        ReplicaState.COPYING,
+    )
+    assert len(transitioned) == 3
+    assert all(replica.status is ReplicaState.COPYING for replica in transitioned)
+
+
 def test_database_unique_constraint_still_protects_direct_inserts(db_session):
     manager = MetadataManager(db_session)
     obj = manager.create_object("photo-direct.jpg")
