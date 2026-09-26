@@ -95,8 +95,8 @@ def test_replica_details_are_backend_driven():
 
 
 def test_admin_controls_are_contextual():
-    assert 'data-action="repair"' in JS
-    assert 'data-action="rebalance"' in JS
+    assert "data-action='repair'" in JS
+    assert "data-action='rebalance'" in JS
     assert "Repair this version" in JS
     assert "Rebalance this version" in JS
     assert 'data-action="refresh"' in HTML
