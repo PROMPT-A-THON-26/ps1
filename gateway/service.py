@@ -117,6 +117,22 @@ class GatewayService:
             ).all()
         )
 
+        replicas_by_version = {}
+        replicas = self.session.scalars(
+            select(Replica)
+            .where(Replica.version_id.in_(version_ids))
+            .order_by(Replica.version_id, Replica.node_id)
+        ).all()
+        for replica in replicas:
+            replicas_by_version.setdefault(replica.version_id, []).append({
+                "replica_id": str(replica.replica_id),
+                "node_id": replica.node_id,
+                "status": replica.status.value,
+                "checksum": replica.checksum,
+                "size_bytes": replica.size_bytes,
+                "last_verified_at": replica.last_verified_at,
+            })
+
         return [
             {
                 "version_id": str(version.version_id),
@@ -125,6 +141,7 @@ class GatewayService:
                 "checksum": version.checksum,
                 "state": version.state.value,
                 "healthy_replicas": int(replica_counts.get(version.version_id, 0)),
+                "replicas": replicas_by_version.get(version.version_id, []),
                 "created_at": version.created_at,
                 "committed_at": version.committed_at,
             }
