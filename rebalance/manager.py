@@ -18,7 +18,6 @@ from replication.node_client import (
     StorageNodeClient,
     StorageNodeClientError,
     StorageNodeIntegrityError,
-    StorageObjectNotFoundError,
 )
 
 
@@ -132,7 +131,7 @@ class RebalanceManager:
         if source_node_id == target_node_id:
             raise ValueError("rebalance source and target must be different nodes")
 
-        source_node = self._node(source_node_id)
+        self._node(source_node_id)
         target_node = self._node(target_node_id)
 
         source_replica = self.session.scalar(
