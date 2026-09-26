@@ -73,7 +73,7 @@ def test_live_contract_is_mapped_to_part_b():
     assert 'method:"PUT"' in JS
     assert 'method:"POST"' in JS
     assert 'X-Admin-Key' in JS
-    assert 'API.jobs(name)' in JS
+    assert "async jobs(name)" in JS
 
 
 def test_object_catalog_uses_backend_summary_fields():
