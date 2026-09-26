@@ -72,6 +72,8 @@ class ReplicaWriteResult:
     status: ReplicaState
     verified: bool
     error: str | None = None
+    checksum: str | None = None
+    size_bytes: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,9 +137,8 @@ class ReplicationManager:
         version: Version,
         node: StorageNode,
         payload_factory: PayloadFactory,
-        replica: Replica,
     ) -> ReplicaWriteResult:
-        self.metadata.set_replica_state(replica.replica_id, ReplicaState.COPYING)
+        """Write and verify one replica without touching shared metadata state."""
         client = self.client_factory(node.address)
         try:
             try:
@@ -147,6 +148,7 @@ class ReplicationManager:
                     payload_factory(),
                 )
             except StorageObjectAlreadyExistsError:
+                # An ambiguous prior PUT is reconciled by the mandatory VERIFY.
                 pass
 
             verified = await client.verify_object(
@@ -167,24 +169,21 @@ class ReplicationManager:
                     "Storage-node verification size does not match metadata.",
                     detail={"expected": version.size_bytes, "actual": verified.size_bytes},
                 )
-
-            self.metadata.mark_replica_healthy(
-                replica.replica_id,
-                checksum=verified.checksum,
-                size_bytes=verified.size_bytes,
+            return ReplicaWriteResult(
+                node.node_id,
+                ReplicaState.HEALTHY,
+                True,
+                None,
+                verified.checksum,
+                verified.size_bytes,
             )
-            return ReplicaWriteResult(node.node_id, ReplicaState.HEALTHY, True)
         except (StorageNodeClientError, VaultError) as exc:
-            self.metadata.set_replica_state(replica.replica_id, ReplicaState.FAILED)
             return ReplicaWriteResult(
                 node.node_id,
                 ReplicaState.FAILED,
                 False,
                 str(exc),
             )
-        except Exception:
-            self.metadata.set_replica_state(replica.replica_id, ReplicaState.FAILED)
-            raise
         finally:
             await client.aclose()
 
@@ -229,27 +228,57 @@ class ReplicationManager:
             self.metadata.create_replica(version_id, node.node_id)
             for node in nodes
         ]
+        # Metadata transitions happen sequentially; only network I/O is concurrent.
+        for replica in replicas:
+            self.metadata.set_replica_state(replica.replica_id, ReplicaState.COPYING)
+
         pending_results = await asyncio.gather(
             *(
                 self._write_one(
                     version=version,
                     node=node,
                     payload_factory=payload_factory,
-                    replica=replica,
                 )
-                for node, replica in zip(nodes, replicas, strict=True)
+                for node in nodes
             ),
             return_exceptions=True,
         )
-        for result in pending_results:
-            if isinstance(result, BaseException):
-                raise result
 
-        results = [
-            result
-            for result in pending_results
-            if isinstance(result, ReplicaWriteResult)
-        ]
+        results: list[ReplicaWriteResult] = []
+        unexpected: list[BaseException] = []
+        for replica, result in zip(replicas, pending_results, strict=True):
+            if isinstance(result, BaseException):
+                self.metadata.set_replica_state(replica.replica_id, ReplicaState.FAILED)
+                unexpected.append(result)
+                results.append(
+                    ReplicaWriteResult(
+                        replica.node_id,
+                        ReplicaState.FAILED,
+                        False,
+                        str(result),
+                    )
+                )
+                continue
+
+            results.append(result)
+            if result.verified:
+                if result.checksum is None or result.size_bytes is None:
+                    raise VaultError(
+                        code=ErrorCode.INTERNAL_ERROR,
+                        message="Replica verification omitted checksum or size metadata.",
+                        status_code=500,
+                    )
+                self.metadata.mark_replica_healthy(
+                    replica.replica_id,
+                    checksum=result.checksum,
+                    size_bytes=result.size_bytes,
+                )
+            else:
+                self.metadata.set_replica_state(replica.replica_id, ReplicaState.FAILED)
+
+        if unexpected:
+            raise unexpected[0]
+
         healthy = tuple(item.node_id for item in results if item.verified)
         failed = tuple(item.node_id for item in results if not item.verified)
         if len(healthy) < quorum:
