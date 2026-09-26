@@ -8,7 +8,7 @@ services:
     volumes:
       - vault_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vault -d vault"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d vault"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -192,7 +192,7 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
     environment:
-      DATABASE_URL: postgresql+psycopg://vault:vault@postgres:5432/vault
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/vault
       VAULT_STORAGE_NODES: node-01=http://vault-node-01:9001,node-02=http://vault-node-02:9001,node-03=http://vault-node-03:9001,node-04=http://vault-node-04:9001
       REPLICATION_FACTOR: 3
       WRITE_QUORUM: 2
@@ -200,8 +200,8 @@ services:
       HEARTBEAT_INTERVAL_SECONDS: 5
       SUSPECT_AFTER_SECONDS: 15
       UNAVAILABLE_AFTER_SECONDS: 30
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/1
     depends_on:
       postgres:
         condition: service_healthy
