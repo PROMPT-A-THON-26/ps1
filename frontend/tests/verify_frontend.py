@@ -91,25 +91,28 @@ def test_object_catalog_uses_backend_summary_fields():
 def test_replica_details_are_backend_driven():
     assert "current.replicas" in JS
     assert "replicaRows" in JS
-    assert "REPLICA PLACEMENT" in JS
+    assert "PROTECTED COPIES" in JS
+    assert "current.replicas" in JS
 
 
 def test_admin_controls_are_contextual():
     assert "data-action='repair'" in JS
     assert "data-action='rebalance'" in JS
     assert "Repair this version" in JS
-    assert "Rebalance this version" in JS
+    assert "Rebalance placement" in JS
     assert 'data-action="refresh"' in HTML
     assert "Run repair pass" not in HTML
     assert "Start rebalance" not in HTML
 
 
 def test_user_facing_branding_and_help():
-    assert "<title>VaultOps — Storage Reliability Center</title>" in HTML
-    assert 'href="./favicon.svg?v=2"' in HTML
-    assert "VAULTOPS" in HTML
+    assert "<title>VaultGuard — Distributed Storage Console</title>" in HTML
+    assert 'href="./favicon.svg?v=3"' in HTML
+    assert "VAULTGUARD" in HTML
+    assert "Distributed Storage Console" in HTML
     assert "User guide" in HTML
     assert "About us" in HTML
+    assert "Live cluster topology" not in HTML
     assert 'id="view-guide"' in HTML
     assert 'id="view-about"' in HTML
 
