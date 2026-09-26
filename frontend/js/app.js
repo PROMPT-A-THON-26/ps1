@@ -4,7 +4,7 @@
   const CONFIG = window.VAULT_CONFIG || { mode: "mock", baseUrl: "/api/v1" };
 
   const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-  const SAFE_FILENAME = /^[^\\x00-\\x1f\\x7f]+$/;
+  const SAFE_FILENAME = /^[^\x00-\x1f\x7f]+$/;
 
   function resolveApiBaseUrl(raw) {
     const candidate = new URL(String(raw || "/api/v1"), window.location.origin);
@@ -14,7 +14,7 @@
     candidate.hash = "";
     candidate.username = "";
     candidate.password = "";
-    return candidate.href.replace(/\\/$/, "");
+    return candidate.href.replace(/\/$/, "");
   }
 
   function validateUploadFile(file) {
