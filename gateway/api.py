@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from common.errors import ObjectNotFound, VaultError
-from common.ids import new_request_id
+from common.ids import normalize_request_id
 from replication.node_client import StorageNodeClient, StorageNodeClientError
 
 from .admin_service import AdminService, IntegrityRequest, RebalanceRequest, RepairRequest
@@ -22,8 +22,8 @@ from .service import GatewayService
 
 
 def _request_id(request: Request) -> str:
-    value = request.headers.get("X-Request-ID")
-    return value.strip() if value and value.strip() else new_request_id()
+    """Return a bounded, log-safe request ID for the full request lifecycle."""
+    return normalize_request_id(request.headers.get("X-Request-ID"))
 
 
 def _error_response(exc: VaultError, request_id: str) -> JSONResponse:
