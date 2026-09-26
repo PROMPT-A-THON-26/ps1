@@ -226,18 +226,15 @@
     const hottest=nodes.slice().sort((a,b)=>b.percent-a.percent)[0];$("#ops-banner").classList.toggle("good-news",true);$("#ops-banner-title").textContent=hottest?hottest.id+" is using "+hottest.percent+"% of reported capacity":"Waiting for live capacity telemetry";$("#ops-banner-copy").textContent=hottest?"Review live node capacity and replica placement before starting a migration.":"No capacity data is available yet.";
   }
   function updateTopology(){
-    const count=$("#topology-object-count");if(count)count.textContent=DATA.dashboard.objects?DATA.dashboard.objects.toLocaleString()+" objects":"Waiting for objects";
-    const slots=[1,2,3,4];
-    slots.forEach((slot,index)=>{
-      const el=$("#topology-node-"+String(slot).padStart(2,"0"));
-      const n=DATA.nodes[index];
-      if(!el)return;
-      const dot=el.querySelector(".dot"),name=el.querySelector("b"),meta=el.querySelector("small");
-      if(!n){name.textContent="No node data";meta.textContent="Waiting";dot.className="dot warn";el.classList.remove("attention-node");return;}
-      dot.className="dot "+(n.status==="healthy"?"good":"warn");
-      name.textContent=n.id;meta.textContent=n.percent+"% used";
-      el.classList.toggle("attention-node",n.status!=="healthy");
-    });
+    const count=$("#topology-object-count"),nodeCount=$("#topology-node-count"),replication=$("#topology-replication"),grid=$("#topology-node-grid");
+    if(count)count.textContent=DATA.dashboard.objects?DATA.dashboard.objects.toLocaleString():"—";
+    if(nodeCount)nodeCount.textContent=DATA.nodes.length?String(DATA.nodes.length):"—";
+    if(replication)replication.textContent=DATA.policies?"RF "+DATA.policies.replication_factor:"—";
+    if(!grid)return;
+    grid.innerHTML=DATA.nodes.length?DATA.nodes.map(n=>{
+      const statusLabel=n.status==="healthy"?"HEALTHY":"ATTENTION";
+      return "<article class='node-card "+(n.status!=="healthy"?"attention-node":"")+"'><div class='node-card-head'><span class='dot "+(n.status==="healthy"?"good":"warn")+"'></span><b>"+escapeHtml(n.id)+"</b><span class='chip "+(n.status==="healthy"?"green":"amber")+"'>"+statusLabel+"</span></div><div class='node-card-meta'><span>"+escapeHtml(n.lifecycle)+"</span><span>"+escapeHtml(n.heartbeat)+"</span></div><div class='capacity-row-inline'><span>Capacity</span><b>"+escapeHtml(n.percent+"% used")+"</b></div><div class='meter' role='progressbar' aria-label='Storage usage for "+escapeHtml(n.id)+"' aria-valuemin='0' aria-valuemax='100' aria-valuenow='"+n.percent+"'><i style='width:"+n.percent+"%'></i></div></article>";
+    }).join(""):"<div class='empty-row'>Waiting for live node telemetry.</div>";
   }
 
   function objectByVersion(versionId){
@@ -318,8 +315,8 @@
       return filterOk&&searchOk;
     });
     $("#nodes-body").innerHTML=rows.length?rows.map(n=>{
-      return "<tr><td class='objid'>"+escapeHtml(n.id)+"</td><td>"+status(n.status)+"</td><td>"+n.capacity+"</td><td><b>"+n.used+"</b> <small>"+n.percent+"%</small></td><td>"+(typeof n.objects==="number"?n.objects.toLocaleString():"—")+"</td><td>"+escapeHtml(n.heartbeat)+"</td><td><span class='chip "+(n.lifecycle==="HEALTHY"?"green":"amber")+"'>"+escapeHtml(n.lifecycle)+"</span></td></tr>";
-    }).join(""):"<tr><td colspan='7' class='empty-row'>No nodes match this filter.</td></tr>";
+      return "<tr><td class='objid'>"+escapeHtml(n.id)+"</td><td>"+status(n.status)+"</td><td>"+n.capacity+"</td><td><b>"+n.used+"</b> <small>"+n.percent+"%</small></td><td>"+escapeHtml(n.heartbeat)+"</td><td><span class='chip "+(n.lifecycle==="HEALTHY"?"green":"amber")+"'>"+escapeHtml(n.lifecycle)+"</span></td></tr>";
+    }).join(""):"<tr><td colspan='6' class='empty-row'>No nodes match this filter.</td></tr>";
   }
   function renderObjects(){
     const q=($("#object-search")?.value||"").toLowerCase();
