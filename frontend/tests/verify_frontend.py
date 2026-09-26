@@ -150,7 +150,7 @@ def test_upload_is_live_and_meaningful():
     assert 'method:"PUT"' in JS
     assert 'Uploading through Part B' in JS
     assert 'live object catalog' in JS
-    assert "File exceeds the 100 MB upload limit." in JS
+    assert "File exceeds the configured upload limit." in JS
 
 
 def test_job_polling_exists():
