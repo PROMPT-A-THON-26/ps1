@@ -12,7 +12,7 @@ from collections.abc import AsyncIterable, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 import json
-import random
+from secrets import SystemRandom
 from typing import Any
 from urllib.parse import quote, urlparse
 
@@ -20,6 +20,8 @@ import httpx
 
 from common.ids import new_request_id, validate_request_id
 from common.settings import settings
+
+_SYSTEM_RANDOM = SystemRandom()
 
 
 class StorageNodeClientError(Exception):
@@ -384,14 +386,16 @@ class StorageNodeClient:
                 # the caller received the response.
                 try:
                     await context.__aexit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as cleanup_error:
+                    # Cleanup failures must not hide the protocol/network error.
+                    self._log_cleanup_failure(cleanup_error, rid)
                 raise
             except Exception:
                 try:
                     await context.__aexit__(None, None, None)
-                except Exception:
-                    pass
+                except Exception as cleanup_error:
+                    # Cleanup failures must not hide the original exception.
+                    self._log_cleanup_failure(cleanup_error, rid)
                 raise
 
     async def head_object(
@@ -834,6 +838,16 @@ class StorageNodeClient:
             f"{quote(version_id, safe='')}"
         )
 
+    @staticmethod
+    def _log_cleanup_failure(error: Exception, request_id: str) -> None:
+        import logging
+
+        logging.getLogger(__name__).debug(
+            "storage-node response cleanup failed",
+            exc_info=(type(error), error, error.__traceback__),
+            extra={"request_id": request_id},
+        )
+
     async def _sleep_before_retry(self, attempt: int) -> None:
         base = min(
             self.config.retry_policy.max_delay_seconds,
@@ -842,7 +856,7 @@ class StorageNodeClient:
         if base <= 0:
             return
         ratio = self.config.retry_policy.jitter_ratio
-        delay = random.uniform(base * (1 - ratio), base * (1 + ratio))
+        delay = _SYSTEM_RANDOM.uniform(base * (1 - ratio), base * (1 + ratio))
         delay = min(delay, self.config.retry_policy.max_delay_seconds)
         await asyncio.sleep(delay)
 
