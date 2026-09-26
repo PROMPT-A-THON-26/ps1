@@ -6,9 +6,17 @@ on:
   pull_request:
     branches: [MASTER]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: vault-master-e2e
+  cancel-in-progress: true
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
