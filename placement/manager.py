@@ -102,9 +102,9 @@ class PlacementManager:
             select(StorageNode)
             .where(
                 StorageNode.status == NodeState.HEALTHY,
-                StorageNode.free_bytes >= size_bytes,
+                StorageNode.capacity_bytes - StorageNode.used_bytes >= size_bytes,
             )
-            .order_by(StorageNode.free_bytes.desc(), StorageNode.node_id.asc())
+            .order_by((StorageNode.capacity_bytes - StorageNode.used_bytes).desc(), StorageNode.node_id.asc())
             .limit(factor)
         )
         if existing_node_ids:
