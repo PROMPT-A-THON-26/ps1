@@ -92,25 +92,24 @@ class PlacementManager:
         )
         self._validate_factor(factor)
 
-        existing_node_ids = set(
-            self.session.scalars(
-                select(Replica.node_id).where(Replica.version_id == version_id)
-            ).all()
-        )
+        replica_on_node = select(Replica.replica_id).where(
+            Replica.version_id == version_id,
+            Replica.node_id == StorageNode.node_id,
+        ).exists()
 
         statement = (
             select(StorageNode)
             .where(
                 StorageNode.status == NodeState.HEALTHY,
                 StorageNode.capacity_bytes - StorageNode.used_bytes >= size_bytes,
+                ~replica_on_node,
             )
-            .order_by((StorageNode.capacity_bytes - StorageNode.used_bytes).desc(), StorageNode.node_id.asc())
+            .order_by(
+                (StorageNode.capacity_bytes - StorageNode.used_bytes).desc(),
+                StorageNode.node_id.asc(),
+            )
             .limit(factor)
         )
-        if existing_node_ids:
-            statement = statement.where(
-                StorageNode.node_id.not_in(existing_node_ids)
-            )
         candidates = list(self.session.scalars(statement).all())
 
         if len(candidates) < factor:
