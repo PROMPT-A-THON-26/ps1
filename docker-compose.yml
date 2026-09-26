@@ -37,6 +37,7 @@ services:
       dockerfile: docker/node.Dockerfile
     environment:
       VAULT_NODE_ID: node-01
+      VAULT_INTERNAL_API_KEY: ${VAULT_INTERNAL_API_KEY:?Set VAULT_INTERNAL_API_KEY}
       VAULT_NODE_HOST: 0.0.0.0
       VAULT_NODE_PORT: 9001
       VAULT_NODE_CAPACITY_BYTES: 10737418240
@@ -47,7 +48,7 @@ services:
       - vault_node_01_data:/data/vault
       - vault_node_01_state:/var/lib/vault
     healthcheck:
-      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
+      test: ["CMD", "python", "-c", "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:9001/internal/v1/health', headers={'X-Internal-API-Key': os.environ['VAULT_INTERNAL_API_KEY']}); d=json.load(urllib.request.urlopen(r, timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -66,6 +67,7 @@ services:
       dockerfile: docker/node.Dockerfile
     environment:
       VAULT_NODE_ID: node-02
+      VAULT_INTERNAL_API_KEY: ${VAULT_INTERNAL_API_KEY:?Set VAULT_INTERNAL_API_KEY}
       VAULT_NODE_HOST: 0.0.0.0
       VAULT_NODE_PORT: 9001
       VAULT_NODE_CAPACITY_BYTES: 10737418240
@@ -76,7 +78,7 @@ services:
       - vault_node_02_data:/data/vault
       - vault_node_02_state:/var/lib/vault
     healthcheck:
-      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
+      test: ["CMD", "python", "-c", "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:9001/internal/v1/health', headers={'X-Internal-API-Key': os.environ['VAULT_INTERNAL_API_KEY']}); d=json.load(urllib.request.urlopen(r, timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -95,6 +97,7 @@ services:
       dockerfile: docker/node.Dockerfile
     environment:
       VAULT_NODE_ID: node-03
+      VAULT_INTERNAL_API_KEY: ${VAULT_INTERNAL_API_KEY:?Set VAULT_INTERNAL_API_KEY}
       VAULT_NODE_HOST: 0.0.0.0
       VAULT_NODE_PORT: 9001
       VAULT_NODE_CAPACITY_BYTES: 10737418240
@@ -105,7 +108,7 @@ services:
       - vault_node_03_data:/data/vault
       - vault_node_03_state:/var/lib/vault
     healthcheck:
-      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
+      test: ["CMD", "python", "-c", "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:9001/internal/v1/health', headers={'X-Internal-API-Key': os.environ['VAULT_INTERNAL_API_KEY']}); d=json.load(urllib.request.urlopen(r, timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -124,6 +127,7 @@ services:
       dockerfile: docker/node.Dockerfile
     environment:
       VAULT_NODE_ID: node-04
+      VAULT_INTERNAL_API_KEY: ${VAULT_INTERNAL_API_KEY:?Set VAULT_INTERNAL_API_KEY}
       VAULT_NODE_HOST: 0.0.0.0
       VAULT_NODE_PORT: 9001
       VAULT_NODE_CAPACITY_BYTES: 10737418240
@@ -134,7 +138,7 @@ services:
       - vault_node_04_data:/data/vault
       - vault_node_04_state:/var/lib/vault
     healthcheck:
-      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:9001/internal/v1/health', timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
+      test: ["CMD", "python", "-c", "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:9001/internal/v1/health', headers={'X-Internal-API-Key': os.environ['VAULT_INTERNAL_API_KEY']}); d=json.load(urllib.request.urlopen(r, timeout=2)); raise SystemExit(0 if d['status']=='healthy' else 1)"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -162,6 +166,7 @@ services:
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/1
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       VAULT_ADMIN_API_KEY: ${VAULT_ADMIN_API_KEY:?Set VAULT_ADMIN_API_KEY}
+      VAULT_INTERNAL_API_KEY: ${VAULT_INTERNAL_API_KEY:?Set VAULT_INTERNAL_API_KEY}
     ports:
       - "8000:8000"
     depends_on:
@@ -205,6 +210,7 @@ services:
       UNAVAILABLE_AFTER_SECONDS: 30
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/1
+      VAULT_INTERNAL_API_KEY: ${VAULT_INTERNAL_API_KEY:?Set VAULT_INTERNAL_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
