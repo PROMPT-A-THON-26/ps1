@@ -482,6 +482,8 @@ class StorageEngine:
             object_digest = hashlib.sha256()
             chunk_digest = hashlib.sha256()
             reserved_bytes = 0
+            published = False
+            completed = False
 
             try:
                 for incoming in chunks:
@@ -528,16 +530,20 @@ class StorageEngine:
                 }
                 self._write_metadata(staging_dir, metadata)
                 self._publish_staging(object_id, version_id, staging_dir)
+                published = True
                 self._release_capacity(reserved_bytes)
+                reserved_bytes = 0
                 self._used_bytes += size
                 self._inflight_objects.discard((object_id, version_id))
-                reserved_bytes = 0
+                completed = True
                 return size
-            except Exception:
-                self._remove_tree(staging_dir)
-                self._release_capacity(reserved_bytes)
-                self._inflight_objects.discard((object_id, version_id))
-                raise
+            finally:
+                if not published:
+                    self._remove_tree(staging_dir)
+                if reserved_bytes:
+                    self._release_capacity(reserved_bytes)
+                if not completed:
+                    self._inflight_objects.discard((object_id, version_id))
 
     def _ensure_new_object(self, object_id: str, version_id: str) -> None:
         key = (object_id, version_id)
