@@ -53,6 +53,7 @@ class StorageEngine:
     METADATA_NAME = "metadata.json"
     CHUNK_PREFIX = "chunk-"
     MAX_VERIFY_CHUNKS = 1_000_000
+    MAX_IDENTIFIER_LENGTH = 128
 
     def __init__(
         self,
@@ -742,6 +743,7 @@ class StorageEngine:
         if (
             not isinstance(value, str)
             or not value
+            or len(value) > cls.MAX_IDENTIFIER_LENGTH
             or value in {".", ".."}
             or "/" in value
             or "\\"
