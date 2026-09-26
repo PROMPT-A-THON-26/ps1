@@ -56,8 +56,8 @@
       <div class="top-actions">
         <button class="icon-btn" id="command-open" aria-label="Open command palette" aria-controls="command-modal">Ctrl/⌘K</button>
         <button class="icon-btn" id="refresh" aria-label="Refresh">↻</button>
-        <button class="request" id="request-pill"><span class="status-dot" id="request-dot"></span><span id="request-label">req_demo_7F2A</span></button>
-        <button class="avatar" aria-label="Administrator">VK</button>
+        <div class="request" id="request-pill" role="status"><span class="status-dot" id="request-dot"></span><span id="request-label">Waiting for live telemetry</span></div>
+        
       </div>
     </header>
 
@@ -71,16 +71,16 @@
         <section class="signal-strip" aria-label="Cluster signals">
           <div><span class="signal blue" id="signal-control-icon">✓</span><div><small>CONTROL PLANE</small><b id="signal-control">Connected</b></div></div>
           <div><span class="signal green">↻</span><div><small>SELF-HEAL</small><b id="signal-heal">Loading repair activity…</b></div></div>
-          <div><span class="signal amber">◒</span><div><small>HEADROOM</small><b id="signal-headroom">28% remaining</b></div></div>
+          <div><span class="signal amber">◒</span><div><small>HEADROOM</small><b id="signal-headroom">Loading…</b></div></div>
           <div><span class="signal violet">3×</span><div><small>POLICY</small><b id="signal-policy">Loading policy…</b></div></div>
         </section>
         <div class="ops-banner" id="ops-banner"><div class="ops-banner-icon">!</div><div><small>OPERATIONAL SIGNAL</small><b id="ops-banner-title">node-04 is above the 80% watermark</b><span id="ops-banner-copy">Rebalance is eligible before capacity pressure becomes a failure mode.</span></div><button class="link" data-view="rebalance">Review</button></div>
 
         <div class="grid kpis">
           <article class="metric"><div class="metric-head"><span>Healthy nodes</span><b class="up" id="score-delta">LIVE</b></div><strong id="resilience-score">—<small>/—</small></strong><div class="meter" role="progressbar" aria-label="Healthy nodes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="score-meter" style="width:0%"></i></div><p>Current Part B node health</p></article>
-          <article class="metric"><div class="metric-head"><span>Objects</span><b class="chip">LIVE</b></div><strong id="objects-kpi">12,842</strong><div class="spark"></div><p>+184 objects in the last 24h</p></article>
-          <article class="metric"><div class="metric-head"><span>Storage used</span><b class="chip amber" id="storage-chip">72%</b></div><strong id="storage-used">1.44<small> TB</small></strong><div class="meter amber-meter" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="72"><i id="storage-meter" style="width:72%"></i></div><p id="storage-caption">2.0 TB logical capacity</p></article>
-          <article class="metric"><div class="metric-head"><span>Healthy replicas</span><b class="chip green" id="replica-chip">SYNC</b></div><strong id="healthy-replicas">99.4<small>%</small></strong><div class="replica-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>Protected objects stay at RF 3</p></article>
+          <article class="metric"><div class="metric-head"><span>Objects</span><b class="chip">LIVE</b></div><strong id="objects-kpi">0</strong><div class="spark"></div><p>Current object catalog</p></article>
+          <article class="metric"><div class="metric-head"><span>Storage used</span><b class="chip amber" id="storage-chip">—</b></div><strong id="storage-used">—</strong><div class="meter amber-meter" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="storage-meter" style="width:0%"></i></div><p id="storage-caption">Waiting for live capacity telemetry</p></article>
+          <article class="metric"><div class="metric-head"><span>Healthy replicas</span><b class="chip green" id="replica-chip">LIVE</b></div><strong id="healthy-replicas">—</strong><div class="replica-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p>Protected objects stay at RF 3</p></article>
         </div>
 
         <div class="grid two">
@@ -90,18 +90,18 @@
               <svg class="lines" viewBox="0 0 760 320" preserveAspectRatio="none" aria-hidden="true">
                 <path d="M380 160 C260 92 164 76 78 62"/><path d="M380 160 C322 102 263 66 215 46"/><path d="M380 160 C454 102 522 78 600 65"/><path d="M380 160 C500 163 606 175 684 206"/>
               </svg>
-              <div class="orbit one"></div><div class="orbit two"></div><div class="core"><span>OBJ</span><b>Vault</b><small>12.8k active</small></div>
-              <div class="node n1" id="topology-node-01"><span class="dot good"></span><b>node-01</b><small>41% used</small></div>
-              <div class="node n2" id="topology-node-02"><span class="dot good"></span><b>node-02</b><small>68% used</small></div>
-              <div class="node n3" id="topology-node-03"><span class="dot good"></span><b>node-03</b><small>57% used</small></div>
-              <div class="node n4" id="topology-node-04"><span class="dot warn"></span><b>node-04</b><small>81% used</small></div>
+              <div class="orbit one"></div><div class="orbit two"></div><div class="core"><span>OBJ</span><b>VaultOps</b><small id="topology-object-count">Waiting for objects</small></div>
+              <div class="node n1" id="topology-node-01"><span class="dot warn"></span><b>Loading node</b><small>Waiting for telemetry</small></div>
+              <div class="node n2" id="topology-node-02"><span class="dot warn"></span><b>Loading node</b><small>Waiting for telemetry</small></div>
+              <div class="node n3" id="topology-node-03"><span class="dot warn"></span><b>Loading node</b><small>Waiting for telemetry</small></div>
+              <div class="node n4" id="topology-node-04"><span class="dot warn"></span><b>Loading node</b><small>Waiting for telemetry</small></div>
             </div>
             <div class="legend"><span><i class="dot good"></i> healthy</span><span><i class="dot warn"></i> attention</span><span><i class="dash"></i> replica relationship</span></div>
           </article>
 
           <article class="panel">
             <div class="panel-head"><div><p class="eyebrow">FAILURE DOMAIN</p><h2>Cluster health</h2></div><span class="badge green" id="cluster-badge">HEALTHY</span></div>
-            <div class="health-summary"><div class="ring" role="progressbar" aria-label="Cluster resilience score" aria-valuemin="0" aria-valuemax="100" aria-valuenow="98.7" id="health-ring"><div><strong id="health-ring-score">98.7</strong><small>/100</small></div></div><div><b id="cluster-summary">All core services operational</b><p id="cluster-copy">node-04 is above the rebalance watermark. No loss of read availability.</p></div></div>
+            <div class="health-summary"><div class="ring" role="progressbar" aria-label="Healthy node ratio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="health-ring"><div><strong id="health-ring-score">—</strong><small> healthy</small></div></div><div><b id="cluster-summary">Waiting for Part B telemetry</b><p id="cluster-copy">The live control plane has not returned node health yet.</p></div></div>
             <div class="service-list" id="service-status-list">
               <div><span>Control plane</span><b>Loading…</b></div>
               <div><span>Storage nodes</span><b>Loading…</b></div>
@@ -200,7 +200,7 @@
           <label>Suspect after<input id="policy-suspect" value="—" readonly></label>
           <label>Unavailable after<input id="policy-unavailable" value="—" readonly></label>
           <label>Max parallel repairs<input id="policy-parallel" value="—" readonly></label></article>
-<article class="panel wide"><div class="panel-head"><div><p class="eyebrow">API ADAPTER</p><h2>Part B connection</h2></div><span class="chip amber" id="api-badge">MOCK MODE</span></div><div class="connection"><span>Base URL</span><code id="api-base-url">/api/v1</code></div><div class="connection"><span>Request tracing</span><b class="green-text">Enabled</b></div><div class="connection"><span>Admin mutations</span><b id="admin-key-status" class="green-text">Key not loaded</b></div>
+<article class="panel wide"><div class="panel-head"><div><p class="eyebrow">API ADAPTER</p><h2>Part B connection</h2></div><span class="chip amber" id="api-badge">CONNECTING</span></div><div class="connection"><span>Base URL</span><code id="api-base-url">/api/v1</code></div><div class="connection"><span>Request tracing</span><b class="green-text">Enabled</b></div><div class="connection"><span>Admin mutations</span><b id="admin-key-status" class="green-text">Key not loaded</b></div>
             <div class="connection"><span>Admin access key</span><div class="admin-key-row"><input id="admin-key-input" type="password" autocomplete="off" placeholder="Paste VAULT_ADMIN_API_KEY"><button class="btn" data-action="save-admin-key">Save for session</button></div></div><div class="connection"><span>Upload ingress</span><b class="green-text">100 MB hard cap</b></div><div class="connection"><span>Error contract</span><code>error.code · message · request_id</code></div><p class="note">All operational data is read from the running Part B API. Protected repair, integrity, and rebalance actions require the configured VAULT_ADMIN_API_KEY; the key is kept only in this browser session.</p></article>
         </div>
       </section>
@@ -244,6 +244,6 @@
 </div>
 
 <script src="./js/config.js" defer></script>
-<script src="./js/app.js?v=20260926-7" defer></script>
+<script src="./js/app.js?v=20260926-8" defer></script>
 </body>
 </html>
