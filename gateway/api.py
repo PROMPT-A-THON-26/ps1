@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from common.constants import ErrorCode
-from common.errors import ObjectNotFound, VaultError
+from common.errors import VaultError
 from common.ids import normalize_request_id
 from replication.node_client import StorageNodeClient, StorageNodeClientError
 
