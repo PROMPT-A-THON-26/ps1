@@ -413,20 +413,20 @@
     try{
       const selected=DATA.objects.find(o=>o.id===state.selectedObject);
       const versionId=selected?.currentVersionId;
-      if(!versionId){
-        showView("objects");
-        throw new Error("Select and inspect an object version before starting this operation.");
-      }
       if(!sessionStorage.getItem("vault_admin_key")){
         showView("policies");
         throw new Error("Admin key required. Save the Part B key in Settings first.");
+      }
+      if((name==="repair"||name==="rebalance")&&!versionId){
+        showView("objects");
+        throw new Error("Select and inspect an object version before starting this operation.");
       }
       if(name==="integrity")showView("integrity");
       if(name==="repair")showView("repairs");
       if(name==="rebalance")showView("rebalance");
       let payload={};
       if(name==="repair")payload={version_id:versionId,reason:"admin-request"};
-      if(name==="integrity")payload={version_id:versionId};
+      if(name==="integrity"&&versionId)payload={version_id:versionId};
       if(name==="rebalance"){
         const source=DATA.nodes.find(n=>n.percent>=80)||DATA.nodes.find(n=>n.status==="attention");
         const target=DATA.nodes.find(n=>n.id!==source?.id&&n.percent<60);
