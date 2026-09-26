@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from storage.storage_engine import StorageEngine
+import pytest
+
+from storage.storage_engine import StorageEngine, StorageFullError
 
 
 def test_usage_stats_are_cached_between_operations(tmp_path):
@@ -34,9 +36,5 @@ def test_capacity_reservation_rejects_an_oversized_stream_before_write(tmp_path)
         chunk_size_bytes=4,
     )
 
-    try:
+    with pytest.raises(StorageFullError):
         engine.write_bytes("too-large", "v1", b"123456789")
-    except Exception as exc:
-        assert exc.__class__.__name__ == "StorageFullError"
-    else:
-        raise AssertionError("expected StorageFullError")
