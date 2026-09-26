@@ -19,6 +19,7 @@ from common.errors import (
     VersionConflict,
 )
 from common.ids import new_uuid
+from common.validation import normalize_object_name
 
 from .models import Object, Replica, StorageNode, Version
 
@@ -49,9 +50,7 @@ class MetadataManager:
                 yield self.session
 
     def get_object(self, name: str) -> Optional[Object]:
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError("object name must not be empty")
-        normalized_name = name.strip()
+        normalized_name = normalize_object_name(name)
         with self._transaction():
             return self.session.scalar(select(Object).where(Object.name == normalized_name))
 
@@ -62,9 +61,7 @@ class MetadataManager:
         return obj
 
     def create_object(self, name: str) -> Object:
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError("object name must not be empty")
-        normalized_name = name.strip()
+        normalized_name = normalize_object_name(name)
         with self._transaction():
             existing = self.session.scalar(
                 select(Object).where(Object.name == normalized_name).with_for_update()
