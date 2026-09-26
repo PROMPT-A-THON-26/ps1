@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="VaultOps storage control center for live distributed file storage, integrity and recovery operations">
+  <meta name="description" content="VaultGuard storage control center for live distributed file storage, integrity and recovery operations">
   <meta name="theme-color" content="#07111f">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'none'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
-  <title>VaultOps — Storage Control Center</title>
+  <title>VaultGuard — Distributed Storage Console</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=2">
   <link rel="apple-touch-icon" href="./favicon.svg?v=2">
   <link rel="stylesheet" href="./css/app.css?v=20260926-12">
@@ -20,39 +20,39 @@
       <div class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 32 32"><path d="M16 3 27 8v7c0 7.2-4.5 12.1-11 14C9.5 27.1 5 22.2 5 15V8l11-5Z"/><path d="m10.5 15.7 3.5 3.5 7.7-8"/></svg>
       </div>
-      <div><strong>VAULTOPS</strong><span>Storage Control Center</span></div>
+      <div><strong>VAULTGUARD</strong><span>Storage Control Center</span></div>
     </header>
     <div class="env" id="env-badge" role="status" aria-live="polite"><span class="live"></span><div><b id="env-label">CONNECTING</b><small id="env-detail">Connecting to Part B…</small></div></div>
     <nav class="nav-groups" aria-label="Primary navigation">
       <section>
         <p class="nav-label">OPERATIONS</p>
-        <button class="nav-item active" data-view="overview" aria-current="page"><span>⌂</span>Overview</button>
-        <button class="nav-item" data-view="nodes"><span>◈</span>Infrastructure</button>
-        <button class="nav-item" data-view="objects"><span>▦</span>Files</button>
-        <button class="nav-item" data-view="repairs"><span>↻</span>Recovery</button>
-        <button class="nav-item" data-view="integrity"><span>✓</span>Integrity</button>
-        <button class="nav-item" data-view="rebalance"><span>⇄</span>Placement</button>
+        <button class="nav-item active" data-view="overview" aria-current="page"><span>⌂</span>Dashboard</button>
+        <button class="nav-item" data-view="nodes"><span>◈</span>Storage nodes</button>
+        <button class="nav-item" data-view="objects"><span>▦</span>Files & versions</button>
+        <button class="nav-item" data-view="repairs"><span>↻</span>Recovery jobs</button>
+        <button class="nav-item" data-view="integrity"><span>✓</span>Integrity checks</button>
+        <button class="nav-item" data-view="rebalance"><span>⇄</span>Rebalancing</button>
       </section>
       <section>
         <p class="nav-label">MONITORING</p>
         <button class="nav-item" data-view="events"><span>≋</span>Activity</button>
-        <button class="nav-item" data-view="policies"><span>⚙</span>Settings</button>
+        <button class="nav-item" data-view="policies"><span>⚙</span>Settings & connection</button>
       </section>
       <section>
         <p class="nav-label">SUPPORT</p>
         <button class="nav-item" data-view="guide"><span>?</span>User guide</button>
-        <button class="nav-item" data-view="about"><span>ⓘ</span>About VaultOps</button>
+        <button class="nav-item" data-view="about"><span>ⓘ</span>About us</button>
       </section>
     </nav>
     <footer class="sidebar-foot">
       <div class="cluster-mini"><span class="live"></span><div><b>Cluster healthy</b><small>Heartbeat 2.1s</small></div></div>
-      <small>VaultOps · Part C connected to Part B</small>
+      <small>VaultGuard · live control console</small>
     </footer>
   </aside>
 
   <main class="main" id="main-content" tabindex="-1">
     <header class="topbar">
-      <div class="crumb"><span>VAULTOPS</span><i>/</i><strong id="view-title">Overview</strong></div>
+      <div class="crumb"><span>VAULTGUARD</span><i>/</i><strong id="view-title">Overview</strong></div>
       <div class="top-actions">
         <button class="icon-btn" id="command-open" aria-label="Open command palette" aria-controls="command-modal">Ctrl/⌘K</button>
         <button class="icon-btn" id="refresh" aria-label="Refresh">↻</button>
@@ -64,7 +64,7 @@
     <div class="content">
       <section class="view visible" id="view-overview">
         <div class="hero">
-          <div><p class="eyebrow">VAULTOPS CONTROL CENTER</p><h1>Your storage, clearly under control.</h1><p>See what is healthy, what needs attention, and where every protected file lives — using live data from the Vault control plane.</p></div>
+          <div><p class="eyebrow">VAULTGUARD CONTROL CENTER</p><h1>Your storage, clearly under control.</h1><p>See what is healthy, what needs attention, and where every protected file lives — using live data from the Vault control plane.</p></div>
           <div class="actions"><button class="btn primary" data-action="upload">＋ Upload file</button><button class="btn" data-action="integrity">✓ Run integrity scan</button></div>
         </div>
 
@@ -86,17 +86,13 @@
         <div class="grid two">
           <article class="panel topology-panel">
             <div class="panel-head"><div><p class="eyebrow">PLACEMENT MAP</p><h2>Replica topology</h2></div><span class="live-chip"><span class="live"></span><span id="topology-live-label">waiting for telemetry</span></span></div>
-            <div class="topology">
-              <svg class="lines" viewBox="0 0 760 320" preserveAspectRatio="none" aria-hidden="true">
-                <path d="M380 160 C260 92 164 76 78 62"/><path d="M380 160 C322 102 263 66 215 46"/><path d="M380 160 C454 102 522 78 600 65"/><path d="M380 160 C500 163 606 175 684 206"/>
-              </svg>
-              <div class="orbit one"></div><div class="orbit two"></div><div class="core"><span>OBJ</span><b>VaultOps</b><small id="topology-object-count">Waiting for objects</small></div>
-              <div class="node n1" id="topology-node-01"><span class="dot warn"></span><b>Loading node</b><small>Waiting for telemetry</small></div>
-              <div class="node n2" id="topology-node-02"><span class="dot warn"></span><b>Loading node</b><small>Waiting for telemetry</small></div>
-              <div class="node n3" id="topology-node-03"><span class="dot warn"></span><b>Loading node</b><small>Waiting for telemetry</small></div>
-              <div class="node n4" id="topology-node-04"><span class="dot warn"></span><b>Loading node</b><small>Waiting for telemetry</small></div>
+            <div class="topology live-topology" id="live-topology">
+              <div class="topology-summary"><div><span>OBJECTS</span><b id="topology-object-count">—</b></div><div><span>NODES</span><b id="topology-node-count">—</b></div><div><span>REPLICATION</span><b id="topology-replication">—</b></div></div>
+              <div class="node-grid" id="topology-node-grid">
+                <div class="empty-row">Waiting for live node telemetry.</div>
+              </div>
             </div>
-            <div class="legend"><span><i class="dot good"></i> healthy</span><span><i class="dot warn"></i> attention</span><span><i class="dash"></i> replica relationship</span></div>
+            <div class="legend"><span><i class="dot good"></i> healthy</span><span><i class="dot warn"></i> attention</span><span>Node capacity and state are reported by Part B</span></div>
           </article>
 
           <article class="panel">
@@ -121,7 +117,7 @@
       <section class="view" id="view-nodes">
         <div class="page-head"><div><p class="eyebrow">DATA PLANE</p><h1>Storage infrastructure</h1><p>Capacity, availability and heartbeat state across the cluster.</p></div><button class="btn primary" data-action="refresh">Refresh telemetry</button></div>
         <div class="grid kpis compact"><article class="metric"><span>Nodes</span><strong id="nodes-count">0</strong><p id="nodes-summary">Waiting for Part B telemetry</p></article><article class="metric"><span>Available capacity</span><strong id="available-capacity">—</strong><p id="capacity-summary">Waiting for live capacity telemetry</p></article><article class="metric"><span>Write quorum</span><strong id="write-acceptance">—</strong><p id="write-summary">Waiting for node health and policy</p></article><article class="metric"><span>Median heartbeat</span><strong id="median-heartbeat">—</strong><p>Control-plane pulse</p></article></div>
-        <div class="panel table-panel"><div class="toolbar"><input id="node-search" placeholder="Search node ID or lifecycle state" aria-label="Search nodes"><div id="node-filters" class="filters" role="group" aria-label="Node status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="attention" aria-pressed="false">Attention</button></div></div><div class="table-wrap"><table><caption class="sr-only">Storage node health and lifecycle</caption><thead><tr><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Capacity</th><th scope="col">Used</th><th scope="col">Objects</th><th scope="col">Heartbeat</th><th scope="col">Lifecycle</th></tr></thead><tbody id="nodes-body"></tbody></table></div></div>
+        <div class="panel table-panel"><div class="toolbar"><input id="node-search" placeholder="Search node ID or lifecycle state" aria-label="Search nodes"><div id="node-filters" class="filters" role="group" aria-label="Node status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="attention" aria-pressed="false">Attention</button></div></div><div class="table-wrap"><table><caption class="sr-only">Storage node health and lifecycle</caption><thead><tr><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Capacity</th><th scope="col">Used</th><th scope="col">Heartbeat</th><th scope="col">Lifecycle</th></tr></thead><tbody id="nodes-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-objects">
@@ -149,7 +145,7 @@
       </section>
 
       <section class="view" id="view-guide">
-        <div class="page-head"><div><p class="eyebrow">HELP</p><h1>User guide</h1><p>Use VaultOps to inspect storage, upload objects, verify integrity, and operate recovery safely.</p></div></div>
+        <div class="page-head"><div><p class="eyebrow">HELP</p><h1>User guide</h1><p>Use VaultGuard to inspect storage, upload objects, verify integrity, and operate recovery safely.</p></div></div>
         <div class="grid two guide-grid">
           <article class="panel"><div class="panel-head"><div><p class="eyebrow">START HERE</p><h2>Daily workflow</h2></div></div>
             <div class="guide-step"><b>1. Overview</b><span>Check the Part B connection, storage capacity, node health and active jobs.</span></div>
@@ -174,10 +170,10 @@
       </section>
 
       <section class="view" id="view-about">
-        <div class="page-head"><div><p class="eyebrow">ABOUT THE PROJECT</p><h1>About VaultOps</h1><p>A user-facing control center for Vault's fault-tolerant distributed object storage system.</p></div></div>
+        <div class="page-head"><div><p class="eyebrow">ABOUT THE PROJECT</p><h1>About VaultGuard</h1><p>A user-facing control center for Vault's fault-tolerant distributed object storage system.</p></div></div>
         <div class="grid two">
-          <article class="panel"><div class="panel-head"><div><p class="eyebrow">WHY IT EXISTS</p><h2>Protect data through failure</h2></div></div><p class="about-copy">VaultOps makes the distributed system visible: where objects are stored, how many healthy copies exist, which nodes need attention, and what the control plane is doing to recover from failure.</p><div class="service-list"><div><span>Storage layer</span><b>Storage nodes</b></div><div><span>Control plane</span><b>FastAPI + PostgreSQL + Celery</b></div><div><span>Integrity</span><b>SHA-256 verification</b></div><div><span>Recovery rule</span><b>Copy → verify → commit → remove</b></div></div></article>
-          <article class="panel"><div class="panel-head"><div><p class="eyebrow">PART BOUNDARY</p><h2>Who owns what</h2></div></div><div class="guide-step"><b>Part A</b><span>Stores and transfers object bytes on storage nodes.</span></div><div class="guide-step"><b>Part B</b><span>Owns metadata, placement, health, integrity, repair, and rebalancing.</span></div><div class="guide-step"><b>Part C</b><span>Explains and operates those capabilities through this interface.</span></div><p class="note">Operational numbers shown in VaultOps come from the connected control plane; the frontend does not fabricate cluster state.</p></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">WHY IT EXISTS</p><h2>Protect data through failure</h2></div></div><p class="about-copy">VaultGuard makes the distributed system visible: where objects are stored, how many healthy copies exist, which nodes need attention, and what the control plane is doing to recover from failure.</p><div class="service-list"><div><span>Storage layer</span><b>Storage nodes</b></div><div><span>Control plane</span><b>FastAPI + PostgreSQL + Celery</b></div><div><span>Integrity</span><b>SHA-256 verification</b></div><div><span>Recovery rule</span><b>Copy → verify → commit → remove</b></div></div></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">PART BOUNDARY</p><h2>Who owns what</h2></div></div><div class="guide-step"><b>Part A</b><span>Stores and transfers object bytes on storage nodes.</span></div><div class="guide-step"><b>Part B</b><span>Owns metadata, placement, health, integrity, repair, and rebalancing.</span></div><div class="guide-step"><b>Part C</b><span>Explains and operates those capabilities through this interface.</span></div><p class="note">Operational numbers shown in VaultGuard come from the connected control plane; the frontend does not fabricate cluster state.</p></article>
         </div>
       </section>
 
@@ -229,6 +225,6 @@
 </div>
 
 <script src="./js/config.js" defer></script>
-<script src="./js/app.js?v=20260926-12" defer></script>
+<script src="./js/app.js?v=20260926-13" defer></script>
 </body>
 </html>
