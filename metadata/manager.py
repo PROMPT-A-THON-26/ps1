@@ -268,11 +268,15 @@ class MetadataManager:
         """Create a new replica row for each unique target in one transaction."""
         if not isinstance(version_id, UUID):
             raise ValueError("version_id must be a UUID")
-        normalized = [node_id.strip() for node_id in node_ids if isinstance(node_id, str) and node_id.strip()]
+        raw_node_ids = list(node_ids)
+        if not raw_node_ids or any(
+            not isinstance(node_id, str) or not node_id.strip()
+            for node_id in raw_node_ids
+        ):
+            raise ValueError("node_ids must contain only non-empty strings")
+        normalized = [node_id.strip() for node_id in raw_node_ids]
         if len(normalized) != len(set(normalized)):
             raise ValueError("node_ids must be unique non-empty strings")
-        if not normalized:
-            raise ValueError("node_ids must contain at least one node ID")
 
         with self._transaction():
             if self.session.scalar(
