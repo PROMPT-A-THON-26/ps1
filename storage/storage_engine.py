@@ -10,7 +10,6 @@ from collections.abc import AsyncIterable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from .checksum import sha256_bytes
 
 
 class StorageError(Exception):
@@ -473,6 +472,7 @@ class StorageEngine:
             chunk_buffer = bytearray()
             chunk_digests: list[str] = []
             object_digest = hashlib.sha256()
+            chunk_digest = hashlib.sha256()
             reserved_bytes = 0
 
             try:
@@ -490,6 +490,7 @@ class StorageEngine:
                         remaining = self.chunk_size_bytes - len(chunk_buffer)
                         piece = incoming[offset : offset + remaining]
                         chunk_buffer.extend(piece)
+                        chunk_digest.update(piece)
                         object_digest.update(piece)
                         size += len(piece)
                         offset += len(piece)
@@ -497,14 +498,15 @@ class StorageEngine:
                         if len(chunk_buffer) == self.chunk_size_bytes:
                             data = bytes(chunk_buffer)
                             self._write_chunk(staging_dir, chunk_index, data)
-                            chunk_digests.append(sha256_bytes(data))
+                            chunk_digests.append(chunk_digest.hexdigest())
                             chunk_buffer.clear()
+                            chunk_digest = hashlib.sha256()
                             chunk_index += 1
 
                 if chunk_buffer:
                     data = bytes(chunk_buffer)
                     self._write_chunk(staging_dir, chunk_index, data)
-                    chunk_digests.append(sha256_bytes(data))
+                    chunk_digests.append(chunk_digest.hexdigest())
                     chunk_index += 1
 
                 metadata = {
