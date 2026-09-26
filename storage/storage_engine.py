@@ -78,6 +78,7 @@ class StorageEngine:
         if objects_dir.exists() and objects_dir.is_symlink():
             raise StorageError("Objects directory must not be a symlink")
         self._cleanup_staging_directories()
+        self._used_bytes = self._scan_used_payload_bytes()
 
     def object_path(self, object_id: str, version_id: str) -> Path:
         self._validate_ids(object_id, version_id)
@@ -132,6 +133,10 @@ class StorageEngine:
                 if not incoming:
                     continue
 
+                with self._lock:
+                    self._reserve_capacity(len(incoming))
+                    reserved_bytes += len(incoming)
+
                 offset = 0
                 while offset < len(incoming):
                     if chunk_handle is None:
@@ -142,10 +147,6 @@ class StorageEngine:
 
                     remaining = self.chunk_size_bytes - chunk_written
                     piece = incoming[offset : offset + remaining]
-
-                    with self._lock:
-                        self._reserve_capacity(len(piece))
-                        reserved_bytes += len(piece)
 
                     written = chunk_handle.write(piece)
                     if written != len(piece):
@@ -189,6 +190,7 @@ class StorageEngine:
 
             with self._lock:
                 self._release_capacity(reserved_bytes)
+                self._used_bytes += size
                 self._inflight_objects.discard((object_id, version_id))
             reserved_bytes = 0
             return size
@@ -436,8 +438,10 @@ class StorageEngine:
                     f"Object version not found: {object_id}/{version_id}"
                 )
 
+            released_bytes = self._payload_bytes(version_dir)
             self._remove_tree(version_dir)
             self._fsync_directory(version_dir.parent)
+            self._used_bytes = max(0, self._used_bytes - released_bytes)
 
             try:
                 version_dir.parent.rmdir()
@@ -448,14 +452,7 @@ class StorageEngine:
     def stats(self) -> StorageStats:
         with self._lock:
             usage = shutil.disk_usage(self.data_dir)
-            used_bytes = sum(
-                path.stat().st_size
-                for path in self.data_dir.rglob("*")
-                if path.is_file()
-                and not path.is_symlink()
-                and path.name.startswith(self.CHUNK_PREFIX)
-                and not path.parent.name.endswith(".upload")
-            )
+            used_bytes = self._used_bytes
             logical_free = max(
                 self.capacity_bytes - used_bytes - self._reserved_bytes,
                 0,
@@ -492,6 +489,9 @@ class StorageEngine:
                     if not incoming:
                         continue
 
+                    self._reserve_capacity(len(incoming))
+                    reserved_bytes += len(incoming)
+
                     offset = 0
                     while offset < len(incoming):
                         remaining = self.chunk_size_bytes - len(chunk_buffer)
@@ -502,8 +502,6 @@ class StorageEngine:
                         offset += len(piece)
 
                         if len(chunk_buffer) == self.chunk_size_bytes:
-                            self._reserve_capacity(len(chunk_buffer))
-                            reserved_bytes += len(chunk_buffer)
                             data = bytes(chunk_buffer)
                             self._write_chunk(staging_dir, chunk_index, data)
                             chunk_digests.append(sha256_bytes(data))
@@ -511,8 +509,6 @@ class StorageEngine:
                             chunk_index += 1
 
                 if chunk_buffer:
-                    self._reserve_capacity(len(chunk_buffer))
-                    reserved_bytes += len(chunk_buffer)
                     data = bytes(chunk_buffer)
                     self._write_chunk(staging_dir, chunk_index, data)
                     chunk_digests.append(sha256_bytes(data))
@@ -530,6 +526,7 @@ class StorageEngine:
                 self._write_metadata(staging_dir, metadata)
                 self._publish_staging(object_id, version_id, staging_dir)
                 self._release_capacity(reserved_bytes)
+                self._used_bytes += size
                 self._inflight_objects.discard((object_id, version_id))
                 reserved_bytes = 0
                 return size
@@ -637,9 +634,8 @@ class StorageEngine:
             raise ValueError("required_bytes must not be negative")
 
         usage = shutil.disk_usage(self.data_dir)
-        used_bytes = self._used_payload_bytes()
         logical_free = max(
-            self.capacity_bytes - used_bytes - self._reserved_bytes,
+            self.capacity_bytes - self._used_bytes - self._reserved_bytes,
             0,
         )
         free_bytes = min(logical_free, usage.free)
@@ -656,7 +652,7 @@ class StorageEngine:
             raise ValueError("released_bytes must not be negative")
         self._reserved_bytes = max(self._reserved_bytes - released_bytes, 0)
 
-    def _used_payload_bytes(self) -> int:
+    def _scan_used_payload_bytes(self) -> int:
         return sum(
             path.stat().st_size
             for path in self.data_dir.rglob("*")
@@ -664,6 +660,15 @@ class StorageEngine:
             and not path.is_symlink()
             and path.name.startswith(self.CHUNK_PREFIX)
             and not path.parent.name.endswith(".upload")
+        )
+
+    def _payload_bytes(self, version_dir: Path) -> int:
+        return sum(
+            path.stat().st_size
+            for path in version_dir.rglob("*")
+            if path.is_file()
+            and not path.is_symlink()
+            and path.name.startswith(self.CHUNK_PREFIX)
         )
 
     def _cleanup_staging_directories(self) -> None:
