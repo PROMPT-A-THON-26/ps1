@@ -137,6 +137,16 @@ def test_no_render_blocking_inline_javascript():
     assert '<script ' in HTML
     assert 'eval(' not in JS
     assert 'new Function' not in JS
+    assert not re.search(r'\\bon(?:click|load|error|mouseover|keydown)\\s*=', HTML, re.I)
+
+
+def test_accessible_overlay_contract():
+    assert 'aria-modal="true"' in HTML
+    assert 'aria-describedby=' in HTML
+    assert 'let activeOverlay=null' in JS
+    assert 'shell.inert=true' in JS
+    assert 'shell.inert=false' in JS
+    assert 'FOCUSABLE_SELECTOR' in JS
 
 
 def test_api_input_validation_and_output_safety():
