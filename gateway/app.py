@@ -8,11 +8,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
 
 from common.constants import NodeState
 from common.settings import settings
+from common.ids import normalize_request_id
+from common.rate_limit import SlidingWindowRateLimiter
 from gateway.api import build_gateway_router
 from replication.node_client import StorageNodeClient, StorageNodeClientError
 from metadata.database import create_schema, session_scope
@@ -133,12 +135,43 @@ app.add_middleware(
     allow_headers=["Accept", "Content-Type", "X-Expected-Version", "X-Request-ID"],
 )
 
+rate_limiter = SlidingWindowRateLimiter(
+    limit=int(os.getenv("RATE_LIMIT_PER_MINUTE", "240")),
+    window_seconds=60.0,
+)
+
 app.include_router(
     build_gateway_router(
         session_scope,
         replication_policy=ReplicationPolicy.from_settings(),
     )
 )
+
+
+@app.middleware("http")
+async def rate_limit_requests(request: Request, call_next) -> Response:
+    if request.url.path.startswith("/api/v1/") and request.url.path != "/api/v1/health":
+        client_key = request.client.host if request.client is not None else "unknown"
+        allowed, retry_after = rate_limiter.allow(client_key)
+        if not allowed:
+            request_id = normalize_request_id(request.headers.get("X-Request-ID"))
+            response = JSONResponse(
+                status_code=429,
+                content={
+                    "error": {
+                        "code": "RATE_LIMITED",
+                        "message": "Request rate limit exceeded.",
+                        "request_id": request_id,
+                    }
+                },
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-Request-ID": request_id,
+                    "Cache-Control": "no-store",
+                },
+            )
+            return response
+    return await call_next(request)
 
 
 @app.middleware("http")
