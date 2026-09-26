@@ -24,5 +24,11 @@ jobs:
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Compile
         run: python -m compileall -q common metadata replication health placement gateway repair integrity recovery rebalance storage worker migrations tests
+      - name: Static quality checks
+        run: |
+          python -m pip install ruff bandit
+          ruff check common metadata replication health placement gateway repair integrity recovery rebalance storage worker migrations
+          bandit -q -r common metadata replication health placement gateway repair integrity recovery rebalance storage worker
+
       - name: Test
         run: pytest -q
