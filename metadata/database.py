@@ -5,15 +5,10 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Callable, TypeVar
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from common.settings import settings
-
-T = TypeVar("T")
-
 
 class Base(DeclarativeBase):
     """Base class for all control-plane SQLAlchemy models."""
