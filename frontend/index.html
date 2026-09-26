@@ -8,8 +8,8 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'none'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
   <title>VaultOps — Storage Reliability Center</title>
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="apple-touch-icon" href="./favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=2">
+  <link rel="apple-touch-icon" href="./favicon.svg?v=2">
   <link rel="stylesheet" href="./css/app.css">
 </head>
 <body>
@@ -125,8 +125,8 @@
       </section>
 
       <section class="view" id="view-objects">
-        <div class="page-head"><div><p class="eyebrow">OBJECT CATALOG</p><h1>Objects & versions</h1><p>Search placement, versions, checksums and replica health.</p></div><button class="btn primary" data-action="upload">＋ Upload object</button></div>
-        <div class="panel table-panel"><div class="toolbar"><input id="object-search" placeholder="Search object ID, checksum or status" aria-label="Search objects"><div id="object-filters" class="filters" role="group" aria-label="Object status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="degraded" aria-pressed="false">Degraded</button><button data-filter="corrupted" aria-pressed="false">Corrupted</button></div></div><div class="table-wrap"><table><caption class="sr-only">Object versions and replica health</caption><thead><tr><th scope="col">Object ID</th><th scope="col">Size</th><th scope="col">Version</th><th scope="col">Replicas</th><th scope="col">Checksum</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col"></th></tr></thead><tbody id="objects-body"></tbody></table></div></div>
+        <div class="page-head"><div><p class="eyebrow">OBJECT CATALOG</p><h1>Files & versions</h1><p>Browse uploaded files, versions, checksums and protected copies.</p></div><button class="btn primary" data-action="upload">＋ Upload object</button></div>
+        <div class="panel table-panel"><div class="toolbar"><input id="object-search" placeholder="Search file name, checksum or status" aria-label="Search files"><div id="object-filters" class="filters" role="group" aria-label="Object status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="degraded" aria-pressed="false">Degraded</button><button data-filter="corrupted" aria-pressed="false">Corrupted</button></div></div><div class="table-wrap"><table><caption class="sr-only">Uploaded files, versions and replica health</caption><thead><tr><th scope="col">File</th><th scope="col">Size</th><th scope="col">Version</th><th scope="col">Replicas</th><th scope="col">Checksum</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col"></th></tr></thead><tbody id="objects-body"></tbody></table></div></div>
         <div class="panel detail" id="object-detail" aria-live="polite"><div class="empty"><b>▦</b><h3>Select an object</h3><p>Replica placement and version details will appear here.</p></div></div>
       </section>
 
@@ -139,7 +139,7 @@
       <section class="view" id="view-integrity">
         <div class="page-head"><div><p class="eyebrow">TRUST LAYER</p><h1>Integrity center</h1><p>SHA-256 verification across committed replicas — corruption never becomes truth.</p></div><button class="btn primary" data-action="integrity">Run integrity scan</button></div>
         <div class="integrity-hero"><div><small>CHECKED</small><strong id="integrity-checked">0</strong><p>Replicas reported by Part B</p></div><div><b id="integrity-latest">No integrity job reported yet</b><p id="integrity-copy">Run a check to create a durable verification job.</p><div class="meter" role="progressbar" aria-label="Integrity completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="integrity-meter" style="width:0%"></i></div></div><div><small>CORRUPTED</small><strong id="integrity-corrupted" class="green-text">0</strong><p>reported by jobs</p></div></div>
-        <div class="panel table-panel"><div class="panel-head"><div><p class="eyebrow">VERIFICATION LOG</p><h2>Replica checks</h2></div><span class="chip green">CLEAN</span></div><div class="table-wrap"><table><caption class="sr-only">Replica integrity verification log</caption><thead><tr><th scope="col">Job</th><th scope="col">Node</th><th scope="col">Version</th><th scope="col">Checked</th><th scope="col">Corrupted</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="integrity-body"></tbody></table></div></div>
+        <div class="panel table-panel"><div class="panel-head"><div><p class="eyebrow">VERIFICATION LOG</p><h2>Replica checks</h2></div><span class="chip green" id="integrity-chip">WAITING</span></div><div class="table-wrap"><table><caption class="sr-only">Replica integrity verification log</caption><thead><tr><th scope="col">Job</th><th scope="col">Node</th><th scope="col">Version</th><th scope="col">Checked</th><th scope="col">Corrupted</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead><tbody id="integrity-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-rebalance">
@@ -229,6 +229,6 @@
 </div>
 
 <script src="./js/config.js" defer></script>
-<script src="./js/app.js?v=20260926-9" defer></script>
+<script src="./js/app.js?v=20260926-10" defer></script>
 </body>
 </html>
