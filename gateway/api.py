@@ -12,6 +12,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
+from common.constants import ErrorCode
 from common.errors import ObjectNotFound, VaultError
 from common.ids import normalize_request_id
 from replication.node_client import StorageNodeClient, StorageNodeClientError
@@ -24,6 +25,21 @@ from .service import GatewayService
 def _request_id(request: Request) -> str:
     """Return a bounded, log-safe request ID for the full request lifecycle."""
     return normalize_request_id(request.headers.get("X-Request-ID"))
+
+
+
+def _invalid_request_response(exc: ValueError, request_id: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": {
+                "code": ErrorCode.INVALID_REQUEST.value,
+                "message": str(exc),
+                "request_id": request_id,
+            }
+        },
+        headers={"X-Request-ID": request_id},
+    )
 
 
 def _error_response(exc: VaultError, request_id: str) -> JSONResponse:
@@ -78,6 +94,8 @@ def build_gateway_router(
             return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
         except VaultError as exc:
             return _error_response(exc, request_id)
+        except ValueError as exc:
+            return _invalid_request_response(exc, request_id)
 
     @router.get("/objects/{name}/versions")
     def object_versions(name: str, request: Request) -> JSONResponse:
@@ -88,6 +106,8 @@ def build_gateway_router(
             return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
         except VaultError as exc:
             return _error_response(exc, request_id)
+        except ValueError as exc:
+            return _invalid_request_response(exc, request_id)
 
     @router.get("/objects/{name}")
     async def get_object(name: str, request: Request) -> Response:
@@ -143,6 +163,8 @@ def build_gateway_router(
             )
         except VaultError as exc:
             return _error_response(exc, request_id)
+        except ValueError as exc:
+            return _invalid_request_response(exc, request_id)
         except (StorageNodeClientError, httpx.HTTPError) as exc:
             return JSONResponse(
                 status_code=503,
@@ -179,6 +201,8 @@ def build_gateway_router(
                 )
         except VaultError as exc:
             return _error_response(exc, request_id)
+        except ValueError as exc:
+            return _invalid_request_response(exc, request_id)
 
     @router.get("/nodes")
     def list_nodes(request: Request) -> JSONResponse:
@@ -216,6 +240,8 @@ def build_gateway_router(
             return JSONResponse(jsonable_encoder(payload), headers={"X-Request-ID": request_id})
         except VaultError as exc:
             return _error_response(exc, request_id)
+        except ValueError as exc:
+            return _invalid_request_response(exc, request_id)
 
     @router.get("/health")
     def health(request: Request) -> JSONResponse:
@@ -280,6 +306,8 @@ def build_gateway_router(
             )
         except VaultError as exc:
             return _error_response(exc, request_id)
+        except ValueError as exc:
+            return _invalid_request_response(exc, request_id)
 
 
     @router.post("/admin/repair", status_code=status.HTTP_202_ACCEPTED)
