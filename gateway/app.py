@@ -97,6 +97,9 @@ async def security_headers(request: Request, call_next) -> Response:
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("Cache-Control", "no-store")
+    response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+    response.headers.setdefault("Permissions-Policy", "accelerometer=(), camera=(), geolocation=(), microphone=(), payment=(), usb=()")
+    response.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
     return response
 
 
