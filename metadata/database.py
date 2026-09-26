@@ -45,9 +45,11 @@ def session_scope(
     with session_factory() as session:
         try:
             yield session
-        except Exception:
+        finally:
+            # Session.close() also rolls back any open transaction. Keeping an
+            # explicit rollback here makes the context manager safe for both
+            # success and exception exits without swallowing the original error.
             session.rollback()
-            raise
 
 
 def create_schema(db_engine=engine) -> None:
