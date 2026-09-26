@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterable, AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import logging
 import os
@@ -183,7 +183,7 @@ class StorageNodeClientConfig:
     retry_policy: RetryPolicy = RetryPolicy()
     max_connections: int = 100
     max_keepalive_connections: int = 20
-    internal_api_key: str | None = None
+    internal_api_key: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         address = self.address.strip().rstrip("/")
