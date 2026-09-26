@@ -142,7 +142,7 @@ def build_gateway_router(
                 ]
 
             async def body():
-                for index, (node_id, address) in enumerate(target_descriptors):
+                for index, (_node_id, address) in enumerate(target_descriptors):
                     client = client_factory(address)
                     emitted = False
                     try:
@@ -278,7 +278,7 @@ def build_gateway_router(
         if content_length is not None:
             try:
                 declared_length = int(content_length)
-            except ValueError as exc:
+            except ValueError:
                 return _invalid_request_response(ValueError("Content-Length must be an integer."), request_id)
             if declared_length < 0:
                 return _invalid_request_response(ValueError("Content-Length must be non-negative."), request_id)
