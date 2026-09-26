@@ -91,6 +91,25 @@ The same architecture will handle corruption, temporary node unreachability, and
 
 ---
 
+# Problem Statement Coverage
+
+| Requirement | Vault implementation |
+|---|---|
+| Large object storage | Streaming/chunked object transfer through storage nodes |
+| Replication | Configurable RF with write/read policy |
+| Node failures | Heartbeats, failure detector, SUSPECT/UNAVAILABLE states |
+| Corruption detection | SHA-256 integrity verification |
+| Replica repair | Durable repair jobs with copy/verify-before-healthy semantics |
+| Concurrent writes | Explicit expected-version conflict handling |
+| Network partitions | Conservative failure classification and recovery reconciliation |
+| Rebalancing | Verified replica migration with copy-before-delete ordering |
+| Metadata consistency | PostgreSQL transactions, foreign keys, and unique replica constraints |
+| Observability | Request IDs, health state, durable job state, and event reporting |
+
+The public frontend mirrors these reliability concepts through dedicated Nodes, Objects, Repairs, Integrity, Rebalance, Events, and Policies views. Hosted static builds default to a safe local simulation; live Part B connectivity remains available through explicit API mode configuration.
+
+---
+
 # 4. High-Level Architecture
 
 ```text
