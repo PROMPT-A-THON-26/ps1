@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import hmac
+import os
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Request, Response, status
@@ -33,6 +35,29 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Vault Storage Node", version="0.1.0", lifespan=lifespan)
+
+_INTERNAL_API_KEY = os.getenv("VAULT_INTERNAL_API_KEY", "").strip()
+if not _INTERNAL_API_KEY:
+    raise RuntimeError("VAULT_INTERNAL_API_KEY must be configured for storage-node access")
+
+
+@app.middleware("http")
+async def internal_api_auth(request: Request, call_next):
+    if request.url.path.startswith("/internal/v1/"):
+        supplied = request.headers.get("X-Internal-API-Key", "")
+        if not supplied or not hmac.compare_digest(supplied, _INTERNAL_API_KEY):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "UNAUTHORIZED",
+                        "message": "Valid internal API credentials are required.",
+                        "request_id": normalize_request_id(request.headers.get("X-Request-ID")),
+                    }
+                },
+                headers=_request_id_headers(request),
+            )
+    return await call_next(request)
 
 
 @app.middleware("http")
