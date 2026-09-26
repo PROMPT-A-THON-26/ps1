@@ -828,8 +828,8 @@ class StorageNodeClient:
             return new_request_id()
         return validate_request_id(request_id)
 
-    @staticmethod
     def _headers(
+        self,
         request_id: str,
         *,
         content_type: str | None = None,
