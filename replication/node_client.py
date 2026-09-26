@@ -811,7 +811,7 @@ class StorageNodeClient:
     def _request_id(request_id: str | None) -> str:
         if request_id is None:
             return new_request_id()
-        return validate_request_id(request_id.strip())
+        return validate_request_id(request_id)
 
     @staticmethod
     def _headers(
