@@ -328,8 +328,48 @@
       o.currentVersionId=metadata.current_version_id||current.version_id||o.currentVersionId;o.currentVersion=current;o.version=current.version_number?"v"+current.version_number:(o.currentVersionId||"current");o.size=Number.isFinite(Number(current.size_bytes))?formatBytes(Number(current.size_bytes)):"—";o.checksum=current.checksum||"—";o.replicas=Number.isFinite(replicas)?replicas+"/3":"—";o.status=String(current.state||metadata.state||"ACTIVE").toUpperCase()==="CORRUPTED"?"corrupted":(Number.isFinite(replicas)&&replicas<3?"degraded":"healthy");o.type=metadata.content_type||metadata.type||o.type||"object";o.created=formatTimestamp(metadata.created_at||o.created);o.updated=formatTimestamp(metadata.updated_at||o.updated);o.replicaRows=[];
     }catch(error){toast("Object details unavailable",error.message);}finally{state.detailLoading=false;renderAll();}
   }
-  function openModal(){const m=$("#modal");m.classList.add("open");m.setAttribute("aria-hidden","false");setTimeout(()=>$("#file-input").focus(),20);}
-  function closeModal(){const m=$("#modal");m.classList.remove("open");m.setAttribute("aria-hidden","true");$("#progress-wrap").hidden=true;$("#progress-bar").style.width="0%";$("#progress-value").textContent="0%";$("#file-name").textContent="No file selected";$("#upload-btn").disabled=true;$("#file-input").value="";}
+  let activeOverlay=null;
+  let restoreFocus=null;
+  const FOCUSABLE_SELECTOR='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  function focusables(container){return $(FOCUSABLE_SELECTOR,container).filter(el=>!el.hidden&&el.offsetParent!==null);}
+  function openOverlay(id,initialSelector){
+    const overlay=$("#"+id);
+    if(!overlay)return;
+    const shell=$(".app-shell");
+    restoreFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    activeOverlay=overlay;
+    overlay.classList.add("open");
+    overlay.setAttribute("aria-hidden","false");
+    if(shell)shell.inert=true;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const target=initialSelector?$(initialSelector,overlay):null;
+      (target||focusables(overlay)[0])?.focus();
+    }));
+  }
+  function closeOverlay(id){
+    const overlay=$("#"+id);
+    if(!overlay)return;
+    overlay.classList.remove("open");
+    overlay.setAttribute("aria-hidden","true");
+    const shell=$(".app-shell");
+    if(activeOverlay===overlay){
+      activeOverlay=null;
+      if(shell)shell.inert=false;
+      const target=restoreFocus;
+      restoreFocus=null;
+      if(target&&document.contains(target))requestAnimationFrame(()=>target.focus());
+    }
+  }
+  function trapOverlayFocus(event){
+    if(!activeOverlay||event.key!=="Tab")return;
+    const items=focusables(activeOverlay);
+    if(!items.length){event.preventDefault();return;}
+    const first=items[0],last=items[items.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  }
+  function openModal(){openOverlay("modal","#file-input");}
+  function closeModal(){closeOverlay("modal");$("#progress-wrap").hidden=true;$("#progress-bar").style.width="0%";$("#progress-value").textContent="0%";$("#file-name").textContent="No file selected";$("#upload-btn").disabled=true;$("#file-input").value="";}
   async function uploadFile(){
     const file=$("#file-input").files[0];if(!file)return;$("#upload-btn").disabled=true;$("#progress-wrap").hidden=false;
     if(CONFIG.mode==="mock"){
@@ -339,8 +379,8 @@
     try{await API.upload(file);$("#progress-value").textContent="100%";$("#progress-bar").style.width="100%";$("#progress-bar").setAttribute("aria-valuenow","100");$("#progress-text").textContent="Accepted · syncing catalog";await API.sync();setTimeout(()=>{closeModal();showView("objects");toast("Upload accepted",file.name+" is now in the live object catalog.");},350);}
     catch(error){closeModal();toast("Upload failed",error.message);}
   }
-  function openDrill(){if(CONFIG.mode==="api"){toast("Demo-only control","The resilience drill never changes Part B state.");return;}const m=$("#drill-modal");m.classList.add("open");m.setAttribute("aria-hidden","false");state.drillRunning=false;resetDrill();setTimeout(()=>$("#drill-run").focus(),20);}
-  function closeDrill(){const m=$("#drill-modal");m.classList.remove("open");m.setAttribute("aria-hidden","true");state.drillRunning=false;}
+  function openDrill(){if(CONFIG.mode==="api"){toast("Demo-only control","The resilience drill never changes Part B state.");return;}state.drillRunning=false;resetDrill();openOverlay("drill-modal","#drill-run");}
+  function closeDrill(){closeOverlay("drill-modal");state.drillRunning=false;}
   function resetDrill(){$$(".drill-step").forEach((el,i)=>el.classList.toggle("active",i===0));$("#drill-status-title").textContent="Ready to simulate a node failure";$("#drill-status-copy").textContent="Detect → isolate → repair → verify.";$("#drill-console").innerHTML="<code>&gt; awaiting start...</code>";$("#drill-run").disabled=false;$("#drill-run").textContent="Start drill";}
   async function runDrill(){
     if(state.drillRunning)return;state.drillRunning=true;$("#drill-run").disabled=true;$("#drill-run").textContent="Running…";
@@ -352,8 +392,8 @@
     {label:"Go to Overview",keys:"1",run:()=>showView("overview")},{label:"Go to Nodes",keys:"2",run:()=>showView("nodes")},{label:"Go to Objects",keys:"3",run:()=>showView("objects")},{label:"Go to Repairs",keys:"4",run:()=>showView("repairs")},{label:"Go to Integrity",keys:"5",run:()=>showView("integrity")},{label:"Go to Rebalance",keys:"6",run:()=>showView("rebalance")},{label:"Open Events",keys:"7",run:()=>showView("events")},{label:"Open Policies",keys:"8",run:()=>showView("policies")},{label:"Upload object",keys:"U",run:openModal},{label:"Run integrity scan",keys:"I",run:()=>runAction("integrity")},{label:"Run resilience drill",keys:"D",run:openDrill},{label:"Refresh telemetry",keys:"R",run:async()=>{try{await API.sync();renderAll();toast("Refreshed",CONFIG.mode==="api"?"Live Vault telemetry synchronized.":"Demo telemetry refreshed.");}catch(e){toast("Refresh failed",e.message);}}}
   ];
   function renderCommands(){const q=($("#command-input")?.value||"").toLowerCase(),list=commands.filter(c=>c.label.toLowerCase().includes(q));state.commandIndex=Math.min(state.commandIndex,Math.max(0,list.length-1));$("#command-list").innerHTML=list.map((c,i)=>"<button class='command-item "+(i===state.commandIndex?"active":"")+"' data-command-label='"+escapeHtml(c.label)+"'><span>"+escapeHtml(c.label)+"</span><kbd>"+escapeHtml(c.keys)+"</kbd></button>").join("")||"<div class='empty command-empty'><b>⌕</b><h3>No command found</h3><p>Try “upload”, “repair”, or a view name.</p></div>";}
-  function openCommand(){const m=$("#command-modal");m.classList.add("open");m.setAttribute("aria-hidden","false");state.commandIndex=0;renderCommands();setTimeout(()=>$("#command-input").focus(),20);}
-  function closeCommand(){const m=$("#command-modal");m.classList.remove("open");m.setAttribute("aria-hidden","true");}
+  function openCommand(){state.commandIndex=0;renderCommands();openOverlay("command-modal","#command-input");}
+  function closeCommand(){closeOverlay("command-modal");}
   function runCommand(label){const c=commands.find(item=>item.label===label);if(c){closeCommand();c.run();}}
   document.addEventListener("click",async e=>{
     const nav=e.target.closest("[data-view]");if(nav){showView(nav.dataset.view);return;}
@@ -385,7 +425,8 @@
   $("#command-modal").addEventListener("click",e=>{if(e.target.id==="command-modal")closeCommand();});
   document.addEventListener("keydown",e=>{
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openCommand();return;}
-    if(e.key==="Escape"){closeModal();closeDrill();closeCommand();}
+    if(e.key==="Tab"&&activeOverlay){trapOverlayFocus(e);return;}
+    if(e.key==="Escape"){if(activeOverlay){e.preventDefault();closeOverlay(activeOverlay.id);}else{closeModal();closeDrill();closeCommand();}}
     const tag=(e.target.tagName||"").toLowerCase();
     if(!["input","textarea","select"].includes(tag)){
       const key=e.key.toLowerCase();
