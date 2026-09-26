@@ -162,7 +162,7 @@
 <div class="modal-bg" id="modal" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-title" aria-describedby="upload-description">
     <div class="modal-head"><div><p class="eyebrow">OBJECT INGEST</p><h2 id="upload-title">Upload object</h2></div><button class="icon-btn" data-action="close-modal" aria-label="Close">×</button></div>
-    <label class="drop" for="file-input"><input id="file-input" type="file"><span>↑</span><b>Drop a file here</b><small id="upload-description">or click to browse · streamed through Vault</small><strong id="file-name">No file selected</strong></label>
+    <label class="drop" for="file-input"><input id="file-input" type="file" aria-label="Select object file"><span>↑</span><b>Drop a file here</b><small id="upload-description">or click to browse · streamed through Vault</small><strong id="file-name">No file selected</strong></label>
     <div class="upload-meta"><div><small>Replication</small><b>RF 3</b></div><div><small>Write quorum</small><b>W 2</b></div><div><small>Integrity</small><b>SHA-256</b></div></div>
     <div id="progress-wrap" hidden><div class="progress-label"><span id="progress-text">Uploading</span><b id="progress-value">0%</b></div><div class="meter" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="progress-bar" style="width:0%"></i></div></div>
     <div class="modal-actions"><button class="btn" data-action="close-modal">Cancel</button><button class="btn primary" id="upload-btn" data-action="upload-file" disabled>Start upload</button></div>
