@@ -168,6 +168,8 @@ class Replica(Base):
         Index("ix_replicas_version_id", "version_id"),
         Index("ix_replicas_node_id", "node_id"),
         Index("ix_replicas_status", "status"),
+        Index("ix_replicas_version_status", "version_id", "status"),
+        Index("ix_replicas_node_status", "node_id", "status"),
     )
 
     replica_id: Mapped[UUID] = mapped_column(
@@ -215,6 +217,7 @@ class RepairJob(Base):
     __table_args__ = (
         Index("ix_repair_jobs_version_id", "version_id"),
         Index("ix_repair_jobs_status", "status"),
+        Index("ix_repair_jobs_status_version", "status", "version_id"),
     )
 
     repair_id: Mapped[UUID] = mapped_column(
@@ -251,6 +254,7 @@ class IntegrityJob(Base):
         Index("ix_integrity_jobs_status", "status"),
         Index("ix_integrity_jobs_node_id", "node_id"),
         Index("ix_integrity_jobs_version_id", "version_id"),
+        Index("ix_integrity_jobs_status_node", "status", "node_id"),
     )
 
     integrity_id: Mapped[UUID] = mapped_column(
@@ -288,6 +292,7 @@ class RebalanceJob(Base):
     __table_args__ = (
         Index("ix_rebalance_jobs_version_id", "version_id"),
         Index("ix_rebalance_jobs_status", "status"),
+        Index("ix_rebalance_jobs_status_version", "status", "version_id"),
     )
 
     rebalance_id: Mapped[UUID] = mapped_column(
