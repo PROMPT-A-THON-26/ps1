@@ -8,7 +8,7 @@ from uuid import UUID
 
 from celery import Task
 from pydantic import ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 
 from common.constants import ErrorCode, NodeState, ReplicaState, VersionState
 from common.errors import VaultError
@@ -157,27 +157,31 @@ def check_under_replicated_objects(self: Task) -> dict[str, Any]:
         with session_scope() as session:
             versions = list(
                 session.scalars(
-                    select(Version).where(Version.state == VersionState.COMMITTED)
+                    select(Version)
+                    .outerjoin(
+                        Replica,
+                        and_(
+                            Replica.version_id == Version.version_id,
+                            Replica.status == ReplicaState.HEALTHY,
+                        ),
+                    )
+                    .where(Version.state == VersionState.COMMITTED)
+                    .group_by(Version.version_id)
+                    .having(func.count(Replica.replica_id) < settings.replication_factor)
+                    .order_by(Version.version_id)
                 ).all()
             )
-            version_ids = [version.version_id for version in versions]
-            healthy_counts = {}
-            if version_ids:
-                healthy_counts = dict(
-                    session.execute(
-                        select(Replica.version_id, func.count(Replica.replica_id))
-                        .where(
-                            Replica.version_id.in_(version_ids),
-                            Replica.status == ReplicaState.HEALTHY,
-                        )
-                        .group_by(Replica.version_id)
-                    ).all()
-                )
 
             for version in versions:
-                healthy_count = int(healthy_counts.get(version.version_id, 0))
-                if healthy_count >= settings.replication_factor:
-                    continue
+                healthy_count = int(
+                    session.scalar(
+                        select(func.count(Replica.replica_id)).where(
+                            Replica.version_id == version.version_id,
+                            Replica.status == ReplicaState.HEALTHY,
+                        )
+                    )
+                    or 0
+                )
                 try:
                     job = RepairManager(
                         session,
