@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from common.constants import ErrorCode
 from common.errors import Unauthorized, VaultError
 from common.ids import normalize_request_id
+from common.settings import settings
 from replication.node_client import StorageNodeClient, StorageNodeClientError
 
 from .admin_service import AdminService, IntegrityRequest, RebalanceRequest, RepairRequest
@@ -273,6 +274,17 @@ def build_gateway_router(
         ),
     ) -> JSONResponse:
         request_id = _request_id(request)
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                declared_length = int(content_length)
+            except ValueError as exc:
+                return _invalid_request_response(ValueError("Content-Length must be an integer."), request_id)
+            if declared_length < 0:
+                return _invalid_request_response(ValueError("Content-Length must be non-negative."), request_id)
+            if declared_length > settings.max_upload_bytes:
+                from common.errors import PayloadTooLarge
+                return _error_response(PayloadTooLarge(settings.max_upload_bytes), request_id)
         try:
             with session_factory() as session:
                 payload = await GatewayService(session).put_object(
