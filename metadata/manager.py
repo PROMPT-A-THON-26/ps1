@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Iterator, Optional
+from typing import Iterable, Iterator, Optional
 from uuid import UUID
 
 from sqlalchemy import func, select, update
