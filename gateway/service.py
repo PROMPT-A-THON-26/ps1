@@ -59,6 +59,59 @@ class GatewayService:
             ).all()
         )
 
+    def list_object_summaries(self) -> list[dict]:
+        rows = self.session.execute(
+            select(
+                Object.object_id,
+                Object.name,
+                Object.state,
+                Object.current_version_id,
+                Object.created_at,
+                Object.updated_at,
+                Version.version_number,
+                Version.size_bytes,
+                Version.checksum,
+                Version.state.label("version_state"),
+                func.count(Replica.replica_id).label("healthy_replicas"),
+            )
+            .outerjoin(Version, Version.version_id == Object.current_version_id)
+            .outerjoin(
+                Replica,
+                (Replica.version_id == Version.version_id)
+                & (Replica.status == ReplicaState.HEALTHY),
+            )
+            .where(Object.state != ObjectState.DELETED)
+            .group_by(
+                Object.object_id,
+                Object.name,
+                Object.state,
+                Object.current_version_id,
+                Object.created_at,
+                Object.updated_at,
+                Version.version_number,
+                Version.size_bytes,
+                Version.checksum,
+                Version.state,
+            )
+            .order_by(Object.name)
+        ).all()
+        return [
+            {
+                "object_id": str(row.object_id),
+                "name": row.name,
+                "state": row.state.value,
+                "current_version_id": None if row.current_version_id is None else str(row.current_version_id),
+                "current_version": row.version_number,
+                "size_bytes": row.size_bytes,
+                "checksum": row.checksum,
+                "version_state": None if row.version_state is None else row.version_state.value,
+                "healthy_replicas": int(row.healthy_replicas),
+                "created_at": row.created_at,
+                "updated_at": row.updated_at,
+            }
+            for row in rows
+        ]
+
     def get_object(self, name: str) -> Object:
         normalized_name = normalize_object_name(name)
         obj = self.session.scalar(select(Object).where(Object.name == normalized_name))
