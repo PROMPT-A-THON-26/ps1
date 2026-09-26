@@ -45,15 +45,38 @@ class NodeRegistry:
             stmt = stmt.where(StorageNode.status == status)
         return list(self.session.scalars(stmt).all())
 
-    def healthy_nodes(self, *, min_free_bytes: int = 0, exclude_node_ids: Iterable[str] = ()) -> list[StorageNode]:
-        if not isinstance(min_free_bytes, int) or isinstance(min_free_bytes, bool) or min_free_bytes < 0:
+    def healthy_nodes(
+        self,
+        *,
+        min_free_bytes: int = 0,
+        exclude_node_ids: Iterable[str] = (),
+    ) -> list[StorageNode]:
+        if (
+            not isinstance(min_free_bytes, int)
+            or isinstance(min_free_bytes, bool)
+            or min_free_bytes < 0
+        ):
             raise ValueError("min_free_bytes must be a non-negative integer")
-        excluded = {value.strip() for value in exclude_node_ids if isinstance(value, str)}
-        return [
-            node
-            for node in self.list_nodes(NodeState.HEALTHY)
-            if node.node_id not in excluded and node.free_bytes >= min_free_bytes
-        ]
+
+        excluded = {
+            value.strip()
+            for value in exclude_node_ids
+            if isinstance(value, str) and value.strip()
+        }
+        statement = (
+            select(StorageNode)
+            .where(
+                StorageNode.status == NodeState.HEALTHY,
+                StorageNode.capacity_bytes - StorageNode.used_bytes >= min_free_bytes,
+            )
+            .order_by(
+                (StorageNode.capacity_bytes - StorageNode.used_bytes).desc(),
+                StorageNode.node_id.asc(),
+            )
+        )
+        if excluded:
+            statement = statement.where(StorageNode.node_id.not_in(excluded))
+        return list(self.session.scalars(statement).all())
 
     def transition(self, node_id: str, state: NodeState) -> StorageNode:
         return self.manager.transition_node_state(node_id, state)
