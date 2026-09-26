@@ -63,6 +63,7 @@ jobs:
               ("gateway", "http://127.0.0.1:8000/healthz"),
               ("frontend", "http://127.0.0.1:5173/"),
           ]
+          api = "http://127.0.0.1:8000/api/v1/health"
 
           deadline = time.time() + 180
           while time.time() < deadline:
@@ -77,7 +78,15 @@ jobs:
                       good = False
                       break
               if good:
-                  print("gateway and frontend are ready")
+                  try:
+                      with urllib.request.urlopen(api, timeout=3) as response:
+                          payload = json.loads(response.read().decode())
+                          if payload.get("status") != "ok" or payload.get("nodes") != 4:
+                              good = False
+                  except Exception:
+                      good = False
+              if good:
+                  print("gateway, frontend, and all storage nodes are healthy")
                   break
               time.sleep(3)
           else:
