@@ -156,7 +156,8 @@ class GatewayService:
             counts[node_state.value] = int(count)
 
         total_nodes = sum(counts.values())
-        overall = "ok" if counts[NodeState.HEALTHY.value] else "degraded"
+        healthy_nodes = counts[NodeState.HEALTHY.value]
+        overall = "ok" if total_nodes > 0 and healthy_nodes == total_nodes else "degraded"
         return {"status": overall, "nodes": total_nodes, "node_states": counts}
 
     def head(self, name: str) -> tuple[Object, Version | None]:
