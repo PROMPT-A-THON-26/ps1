@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterable, Callable
 from dataclasses import dataclass
 from uuid import UUID
@@ -224,18 +225,31 @@ class ReplicationManager:
             replication_factor=factor,
         )
 
-        results: list[ReplicaWriteResult] = []
-        for node in nodes:
-            replica = self.metadata.create_replica(version_id, node.node_id)
-            results.append(
-                await self._write_one(
+        replicas = [
+            self.metadata.create_replica(version_id, node.node_id)
+            for node in nodes
+        ]
+        pending_results = await asyncio.gather(
+            *(
+                self._write_one(
                     version=version,
                     node=node,
                     payload_factory=payload_factory,
                     replica=replica,
                 )
-            )
+                for node, replica in zip(nodes, replicas, strict=True)
+            ),
+            return_exceptions=True,
+        )
+        for result in pending_results:
+            if isinstance(result, BaseException):
+                raise result
 
+        results = [
+            result
+            for result in pending_results
+            if isinstance(result, ReplicaWriteResult)
+        ]
         healthy = tuple(item.node_id for item in results if item.verified)
         failed = tuple(item.node_id for item in results if not item.verified)
         if len(healthy) < quorum:
