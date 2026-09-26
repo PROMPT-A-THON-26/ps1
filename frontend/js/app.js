@@ -90,6 +90,7 @@
     if(Number.isNaN(d.getTime()))return String(value);
     return Math.max(0,Math.round((Date.now()-d.getTime())/1000))+"s ago";
   };
+  const debounce=(fn,wait=150)=>{let timer=0;return (...args)=>{clearTimeout(timer);timer=window.setTimeout(()=>fn(...args),wait);};};
   const bytesFromDisplay=value=>{
     const m=String(value||"").trim().match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/i);
     if(!m)return 0;
@@ -200,14 +201,14 @@
     const totalUsed=nodes.reduce((s,n)=>s+(n.usedBytes||bytesFromDisplay(n.used)),0);
     const usedPct=totalCapacity?Math.round(totalUsed/totalCapacity*100):72,headroom=Math.max(0,100-usedPct),liveBad=CONFIG.mode==="api"&&DATA.liveHealth?.status==="degraded";
     const score=Math.max(0,Math.min(100,CONFIG.mode==="mock"?98.7:Math.round((healthy/Math.max(nodes.length,1))*1000)/10-(liveBad?4:0)));
-    $("#resilience-score").innerHTML=score.toFixed(1)+"<small>/100</small>";$("#score-meter").style.width=score+"%";$("#score-delta").textContent=attention?("−"+Math.min(3,attention*0.9).toFixed(1)+"%"):"+1.8%";
-    $("#storage-used").innerHTML=(totalUsed?formatBytes(totalUsed):"1.44 TB").replace(" ","<small> ")+"</small>";$("#storage-chip").textContent=usedPct+"%";$("#storage-meter").style.width=Math.min(100,usedPct)+"%";$("#storage-caption").textContent=totalCapacity?formatBytes(totalCapacity)+" total logical capacity":"2.0 TB logical capacity";
+    $("#resilience-score").innerHTML=score.toFixed(1)+"<small>/100</small>";$("#score-meter").style.width=score+"%";$("#score-meter").parentElement.setAttribute("aria-valuenow",String(score));$("#score-delta").textContent=attention?("−"+Math.min(3,attention*0.9).toFixed(1)+"%"):"+1.8%";
+    $("#storage-used").innerHTML=(totalUsed?formatBytes(totalUsed):"1.44 TB").replace(" ","<small> ")+"</small>";$("#storage-chip").textContent=usedPct+"%";$("#storage-meter").style.width=Math.min(100,usedPct)+"%";$("#storage-meter").parentElement.setAttribute("aria-valuenow",String(Math.min(100,usedPct)));$("#storage-caption").textContent=totalCapacity?formatBytes(totalCapacity)+" total logical capacity":"2.0 TB logical capacity";
     $("#signal-headroom").textContent=headroom+"% remaining";$("#healthy-replicas").innerHTML=(attention?Math.max(0,100-attention*4):99.4).toFixed(1)+"<small>%</small>";
     $("#nodes-count").textContent=nodes.length;$("#nodes-summary").textContent=healthy+" healthy · "+attention+" attention";
     const free=totalCapacity-totalUsed;$("#available-capacity").innerHTML=(free?formatBytes(free):"560 GB").replace(" ","<small> ")+"</small>";$("#capacity-summary").textContent=headroom+"% cluster headroom";
     $("#write-acceptance").innerHTML=(attention?Math.round((healthy/Math.max(nodes.length,1))*100):100)+"<small>%</small>";$("#write-summary").textContent=attention?"Some nodes need attention":"All nodes accepting writes";
     const heartbeatSeconds=nodes.map(n=>parseFloat(String(n.heartbeat).replace("s",""))).filter(Number.isFinite);const median=heartbeatSeconds.length?heartbeatSeconds.sort((a,b)=>a-b)[Math.floor(heartbeatSeconds.length/2)]:2.1;$("#median-heartbeat").innerHTML=median.toFixed(1)+"<small>s</small>";
-    $("#health-ring-score").textContent=score.toFixed(1);$("#health-ring").style.background="conic-gradient(var(--green) 0 "+score+"%,#193042 "+score+"% 100%)";
+    $("#health-ring-score").textContent=score.toFixed(1);$("#health-ring").setAttribute("aria-valuenow",String(score));$("#health-ring").style.background="conic-gradient(var(--green) 0 "+score+"%,#193042 "+score+"% 100%)";
     $("#cluster-badge").textContent=attention||liveBad?"ATTENTION":"HEALTHY";$("#cluster-badge").className="badge "+(attention||liveBad?"amber":"green");$("#cluster-summary").textContent=attention||liveBad?"Cluster requires attention":"All core services operational";
     const attentionNode=nodes.find(n=>n.status==="attention");$("#cluster-copy").textContent=attentionNode?(attentionNode.id+" needs attention. Reads remain available."): "No current loss of read availability.";
     const hot=nodes.find(n=>n.percent>=80);$("#ops-banner").classList.toggle("good-news",!hot);$("#ops-banner-title").textContent=hot?hot.id+" is above the 80% watermark":"Cluster operating inside the configured watermark";$("#ops-banner-copy").textContent=hot?"Rebalance is eligible before capacity pressure becomes a failure mode.":"No capacity watermark is currently breached.";
@@ -329,7 +330,8 @@
     if(node){const n=DATA.nodes.find(x=>x.id===node.dataset.node);if(!n)return;if(CONFIG.mode==="api"){toast("Demo-only control","Part B exposes no public drain/resume endpoint in the documented contract.");return;}n.lifecycle=node.dataset.nodeAction==="drain"?"DRAINING":"HEALTHY";n.status=n.lifecycle==="DRAINING"?"attention":"healthy";renderAll();toast(n.id,n.lifecycle==="DRAINING"?"Node is now draining in the local simulation.":"Node resumed in the local simulation.");}
     const cmd=e.target.closest("[data-command-label]");if(cmd)runCommand(cmd.dataset.commandLabel);
   });
-  document.addEventListener("input",e=>{if(e.target.id==="node-search")renderNodes();if(e.target.id==="object-search")renderObjects();if(e.target.id==="command-input"){state.commandIndex=0;renderCommands();}});
+  const handleSearchInput=debounce(e=>{if(e.target.id==="node-search")renderNodes();if(e.target.id==="object-search")renderObjects();if(e.target.id==="command-input"){state.commandIndex=0;renderCommands();}});
+  document.addEventListener("input",handleSearchInput);
   $("#node-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("nodeFilter",b.dataset.filter);});
   $("#object-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("objectFilter",b.dataset.filter);});
   $("#event-filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter]");if(b)setFilter("eventFilter",b.dataset.filter);});
