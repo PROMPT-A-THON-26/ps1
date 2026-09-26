@@ -44,3 +44,7 @@ td{font-size:max(10px,1em)}
   th,td{padding:10px}
   .hero p,.page-head p{font-size:11px}
 }
+
+/* WCAG-oriented touch/keyboard target sizing for primary interactive controls. */
+button,.nav-btn,.icon-btn,.filter-btn,.action-btn,.toolbar input,.command-palette>input{min-height:44px}
+.icon-btn{min-width:44px}
