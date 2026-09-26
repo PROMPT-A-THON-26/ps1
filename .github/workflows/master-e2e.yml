@@ -47,6 +47,7 @@ jobs:
           echo "POSTGRES_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
           echo "REDIS_PASSWORD=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
           echo "VAULT_ADMIN_API_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
+          echo "VAULT_INTERNAL_API_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" >> "$GITHUB_ENV"
 
       - name: Validate compose
         run: docker compose config --quiet
@@ -76,7 +77,7 @@ jobs:
                           if response.status != 200:
                               good = False
                               break
-                  except Exception:
+                  except (OSError, ValueError):
                       good = False
                       break
               if good:
@@ -85,7 +86,7 @@ jobs:
                           payload = json.loads(response.read().decode())
                           if payload.get("status") != "ok" or payload.get("nodes") != 4:
                               good = False
-                  except Exception:
+                  except (OSError, ValueError):
                       good = False
               if good:
                   print("gateway, frontend, and all storage nodes are healthy")
