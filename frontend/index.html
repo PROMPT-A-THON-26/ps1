@@ -64,8 +64,8 @@
     <div class="content">
       <section class="view visible" id="view-overview">
         <div class="hero">
-          <div><p class="eyebrow">DISTRIBUTED OBJECT STORAGE</p><h1>Resilience, at a glance.</h1><p>One operations cockpit for storage health, placement, self-healing and data integrity. Designed to show the engineering behind Vault, not hide it behind decorative charts.</p></div>
-          <div class="actions"><button class="btn primary" data-action="upload">＋ Upload object</button><button class="btn" data-action="integrity">✓ Run integrity scan</button></div>
+          <div><p class="eyebrow">VAULTOPS CONTROL CENTER</p><h1>Your storage, clearly under control.</h1><p>See what is healthy, what needs attention, and where every protected file lives — using live data from the Vault control plane.</p></div>
+          <div class="actions"><button class="btn primary" data-action="upload">＋ Upload file</button><button class="btn" data-action="integrity">✓ Run integrity scan</button></div>
         </div>
 
         <section class="signal-strip" aria-label="Cluster signals">
@@ -104,7 +104,7 @@
             <div class="health-summary"><div class="ring" role="progressbar" aria-label="Healthy node ratio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="health-ring"><div><strong id="health-ring-score">—</strong><small> healthy</small></div></div><div><b id="cluster-summary">Waiting for Part B telemetry</b><p id="cluster-copy">The live control plane has not returned node health yet.</p></div></div>
             <div class="service-list" id="service-status-list">
               <div><span>Control plane</span><b>Loading…</b></div>
-              <div><span>Storage nodes</span><b>Loading…</b></div>
+              <div><span>Storage infrastructure</span><b>Loading…</b></div>
               <div><span>Repair jobs</span><b>Loading…</b></div>
               <div><span>Integrity jobs</span><b>Loading…</b></div>
               <div><span>Rebalance jobs</span><b>Loading…</b></div>
@@ -119,13 +119,13 @@
       </section>
 
       <section class="view" id="view-nodes">
-        <div class="page-head"><div><p class="eyebrow">DATA PLANE</p><h1>Storage nodes</h1><p>Capacity, lifecycle and heartbeat state across the cluster.</p></div><button class="btn primary" data-action="refresh">Refresh telemetry</button></div>
+        <div class="page-head"><div><p class="eyebrow">DATA PLANE</p><h1>Storage infrastructure</h1><p>Capacity, availability and heartbeat state across the cluster.</p></div><button class="btn primary" data-action="refresh">Refresh telemetry</button></div>
         <div class="grid kpis compact"><article class="metric"><span>Nodes</span><strong id="nodes-count">0</strong><p id="nodes-summary">Waiting for Part B telemetry</p></article><article class="metric"><span>Available capacity</span><strong id="available-capacity">—</strong><p id="capacity-summary">Waiting for live capacity telemetry</p></article><article class="metric"><span>Write quorum</span><strong id="write-acceptance">—</strong><p id="write-summary">Waiting for node health and policy</p></article><article class="metric"><span>Median heartbeat</span><strong id="median-heartbeat">—</strong><p>Control-plane pulse</p></article></div>
         <div class="panel table-panel"><div class="toolbar"><input id="node-search" placeholder="Search node ID or lifecycle state" aria-label="Search nodes"><div id="node-filters" class="filters" role="group" aria-label="Node status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="attention" aria-pressed="false">Attention</button></div></div><div class="table-wrap"><table><caption class="sr-only">Storage node health and lifecycle</caption><thead><tr><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Capacity</th><th scope="col">Used</th><th scope="col">Objects</th><th scope="col">Heartbeat</th><th scope="col">Lifecycle</th></tr></thead><tbody id="nodes-body"></tbody></table></div></div>
       </section>
 
       <section class="view" id="view-objects">
-        <div class="page-head"><div><p class="eyebrow">OBJECT CATALOG</p><h1>Files & versions</h1><p>Browse uploaded files, versions, checksums and protected copies.</p></div><button class="btn primary" data-action="upload">＋ Upload object</button></div>
+        <div class="page-head"><div><p class="eyebrow">FILE CATALOG</p><h1>Files & versions</h1><p>Browse files, versions, checksums and protected copies.</p></div><button class="btn primary" data-action="upload">＋ Upload file</button></div>
         <div class="panel table-panel"><div class="toolbar"><input id="object-search" placeholder="Search file name, checksum or status" aria-label="Search files"><div id="object-filters" class="filters" role="group" aria-label="Object status filters"><button class="active" data-filter="all" aria-pressed="true">All</button><button data-filter="healthy" aria-pressed="false">Healthy</button><button data-filter="degraded" aria-pressed="false">Degraded</button><button data-filter="corrupted" aria-pressed="false">Corrupted</button></div></div><div class="table-wrap"><table><caption class="sr-only">Uploaded files, versions and replica health</caption><thead><tr><th scope="col">File</th><th scope="col">Size</th><th scope="col">Version</th><th scope="col">Replicas</th><th scope="col">Checksum</th><th scope="col">Status</th><th scope="col">Updated</th><th scope="col"></th></tr></thead><tbody id="objects-body"></tbody></table></div></div>
         <div class="panel detail" id="object-detail" aria-live="polite"><div class="empty"><b>▦</b><h3>Select an object</h3><p>Replica placement and version details will appear here.</p></div></div>
       </section>
