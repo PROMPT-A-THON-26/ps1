@@ -155,33 +155,26 @@ def check_under_replicated_objects(self: Task) -> dict[str, Any]:
         queued = []
         blocked = []
         with session_scope() as session:
-            versions = list(
-                session.scalars(
-                    select(Version)
-                    .outerjoin(
-                        Replica,
-                        and_(
-                            Replica.version_id == Version.version_id,
-                            Replica.status == ReplicaState.HEALTHY,
-                        ),
-                    )
-                    .where(Version.state == VersionState.COMMITTED)
-                    .group_by(Version.version_id)
-                    .having(func.count(Replica.replica_id) < settings.replication_factor)
-                    .order_by(Version.version_id)
-                ).all()
-            )
-
-            for version in versions:
-                healthy_count = int(
-                    session.scalar(
-                        select(func.count(Replica.replica_id)).where(
-                            Replica.version_id == version.version_id,
-                            Replica.status == ReplicaState.HEALTHY,
-                        )
-                    )
-                    or 0
+            under_replicated = session.execute(
+                select(
+                    Version,
+                    func.count(Replica.replica_id).label("healthy_count"),
                 )
+                .outerjoin(
+                    Replica,
+                    and_(
+                        Replica.version_id == Version.version_id,
+                        Replica.status == ReplicaState.HEALTHY,
+                    ),
+                )
+                .where(Version.state == VersionState.COMMITTED)
+                .group_by(Version.version_id)
+                .having(func.count(Replica.replica_id) < settings.replication_factor)
+                .order_by(Version.version_id)
+            ).all()
+
+            for version, healthy_count in under_replicated:
+                healthy_count = int(healthy_count)
                 try:
                     job = RepairManager(
                         session,
