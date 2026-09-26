@@ -100,11 +100,16 @@ class RebalanceManager:
         *,
         excluded_node_ids: set[str],
     ) -> StorageNode:
+        replica_exists = select(Replica.replica_id).where(
+            Replica.version_id == version.version_id,
+            Replica.node_id == StorageNode.node_id,
+        ).exists()
         statement = (
             select(StorageNode)
             .where(
                 StorageNode.status == NodeState.HEALTHY,
                 StorageNode.capacity_bytes - StorageNode.used_bytes >= version.size_bytes,
+                ~replica_exists,
             )
             .order_by(
                 (StorageNode.capacity_bytes - StorageNode.used_bytes).desc(),
@@ -498,16 +503,9 @@ class RebalanceManager:
                     f"is {replica.status}; repair it before migration."
                 )
             version = self._version(replica.version_id)
-            existing_nodes = set(
-                self.session.scalars(
-                    select(Replica.node_id).where(
-                        Replica.version_id == version.version_id
-                    )
-                ).all()
-            )
             target = self._eligible_target(
                 version,
-                excluded_node_ids=existing_nodes | {node_id},
+                excluded_node_ids={node_id},
             )
             results.append(
                 await self.migrate_replica(
