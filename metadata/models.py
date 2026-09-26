@@ -120,6 +120,7 @@ class StorageNode(Base):
             "capacity_bytes >= 0", name="ck_storage_nodes_capacity_nonnegative"
         ),
         CheckConstraint("used_bytes >= 0", name="ck_storage_nodes_used_nonnegative"),
+        CheckConstraint("used_bytes <= capacity_bytes", name="ck_storage_nodes_used_within_capacity"),
         Index("ix_storage_nodes_status", "status"),
         Index("ix_storage_nodes_last_heartbeat", "last_heartbeat_at"),
     )
