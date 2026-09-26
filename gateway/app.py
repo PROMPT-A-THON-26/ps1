@@ -5,8 +5,9 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from common.constants import NodeState
 from common.settings import settings
@@ -77,8 +78,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "HEAD", "PUT", "DELETE", "POST", "OPTIONS"],
+    allow_headers=["Accept", "Content-Type", "X-Expected-Version", "X-Request-ID"],
 )
 
 app.include_router(
@@ -87,6 +88,16 @@ app.include_router(
         replication_policy=ReplicationPolicy.from_settings(),
     )
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next) -> Response:
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Cache-Control", "no-store")
+    return response
 
 
 @app.get("/healthz")
