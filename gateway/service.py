@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from common.constants import (
     DEFAULT_CHUNK_SIZE_MB,
+    ErrorCode,
     NodeState,
     ObjectState,
     ReplicaState,
@@ -194,7 +195,7 @@ class GatewayService:
         )
         if not targets:
             raise VaultError(
-                code=__import__("common.constants", fromlist=["ErrorCode"]).ErrorCode.NODE_UNAVAILABLE,
+                code=ErrorCode.NODE_UNAVAILABLE,
                 message=f"No healthy replica is available for object '{name.strip()}'.",
                 status_code=503,
             )
@@ -285,7 +286,7 @@ class GatewayService:
             committed = version
             if committed is None or committed.state is not VersionState.COMMITTED:
                 raise VaultError(
-                    code=__import__("common.constants", fromlist=["ErrorCode"]).ErrorCode.INTERNAL_ERROR,
+                    code=ErrorCode.INTERNAL_ERROR,
                     message="Replication completed without a committed version.",
                     status_code=500,
                 )
