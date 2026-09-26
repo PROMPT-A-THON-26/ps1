@@ -26,6 +26,7 @@ from common.validation import normalize_object_name
 from common.errors import (
     ObjectAlreadyExists,
     ObjectNotFound,
+    PayloadTooLarge,
     VaultError,
 )
 from metadata.manager import MetadataManager
@@ -203,7 +204,13 @@ class GatewayService:
         return obj, version, targets
 
     @staticmethod
-    async def stage_upload(chunks: AsyncIterable[bytes]) -> StagedUpload:
+    async def stage_upload(
+        chunks: AsyncIterable[bytes],
+        *,
+        max_bytes: int,
+    ) -> StagedUpload:
+        if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 1:
+            raise ValueError("max_bytes must be a positive integer")
         fd, temp_name = tempfile.mkstemp(prefix="vault-upload-", suffix=".bin")
         path = Path(temp_name)
         size = 0
@@ -217,6 +224,8 @@ class GatewayService:
                     data = bytes(chunk)
                     if not data:
                         continue
+                    if size + len(data) > max_bytes:
+                        raise PayloadTooLarge(max_bytes)
                     digest.update(data)
                     size += len(data)
                     await asyncio.to_thread(handle.write, data)
@@ -254,7 +263,7 @@ class GatewayService:
     ) -> dict:
         normalized_name = normalize_object_name(name)
 
-        staged = await self.stage_upload(chunks)
+        staged = await self.stage_upload(chunks, max_bytes=settings.max_upload_bytes)
         created_object = False
         version = None
         succeeded = False
