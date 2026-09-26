@@ -2,6 +2,27 @@
   "use strict";
 
   const CONFIG = window.VAULT_CONFIG || { mode: "mock", baseUrl: "/api/v1" };
+
+  const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+  const SAFE_FILENAME = /^[^\\x00-\\x1f\\x7f]+$/;
+
+  function resolveApiBaseUrl(raw) {
+    const candidate = new URL(String(raw || "/api/v1"), window.location.origin);
+    if (!["http:", "https:"].includes(candidate.protocol)) {
+      throw new Error("Unsupported API protocol.");
+    }
+    candidate.hash = "";
+    candidate.username = "";
+    candidate.password = "";
+    return candidate.href.replace(/\\/$/, "");
+  }
+
+  function validateUploadFile(file) {
+    if (!(file instanceof File)) throw new Error("Please select a valid file.");
+    if (!Number.isFinite(file.size) || file.size < 0) throw new Error("Invalid file size.");
+    if (file.size > MAX_UPLOAD_BYTES) throw new Error("File exceeds the 100 MB demo upload limit.");
+    if (!SAFE_FILENAME.test(file.name)) throw new Error("File name contains invalid control characters.");
+  }
   const ROUTES = ["overview","nodes","objects","repairs","integrity","rebalance","events","policies"];
   const DATA = {
     dashboard:{objects:12842},
@@ -78,11 +99,12 @@
 
   const API={
     mode:CONFIG.mode,
-    baseUrl:CONFIG.baseUrl,
+    baseUrl:resolveApiBaseUrl(CONFIG.baseUrl),
     async request(path,options={}){
       const headers=new Headers(options.headers||{});
       const requestId=options.requestId||"req_"+Math.random().toString(16).slice(2,10);
       headers.set("Accept","application/json");
+      headers.set("Cache-Control","no-cache");
       headers.set("X-Request-ID",requestId);
       const base=this.baseUrl.replace(/\/$/,"");
       const url=base+(path.startsWith("/")?path:"/"+path);
@@ -105,6 +127,7 @@
       return this.get(paths[name]+encodeURIComponent(id));
     },
     async upload(file){
+      validateUploadFile(file);
       if(this.mode==="mock")return {object_id:"obj_"+Math.random().toString(16).slice(2,8),version_id:"v1"};
       const objectName=file.name.replace(/\\/g,"/").split("/").pop()||"upload";
       return this.request("/objects/"+encodeURIComponent(objectName),{method:"PUT",body:file,headers:{"Content-Type":file.type||"application/octet-stream"}});
@@ -272,10 +295,10 @@
   async function uploadFile(){
     const file=$("#file-input").files[0];if(!file)return;$("#upload-btn").disabled=true;$("#progress-wrap").hidden=false;
     if(CONFIG.mode==="mock"){
-      let p=0;const timer=setInterval(async()=>{p=Math.min(100,p+Math.max(8,Math.floor(Math.random()*14)));$("#progress-value").textContent=p+"%";$("#progress-bar").style.width=p+"%";$("#progress-text").textContent=p<70?"Streaming object":"Verifying replicas";if(p<100)return;clearInterval(timer);const r=await API.upload(file),mb=(file.size/1048576).toFixed(1);DATA.dashboard.objects+=1;DATA.objects.unshift({id:r.object_id,size:mb+" MB",version:r.version_id,replicas:"3/3",checksum:"pending…",status:"healthy",updated:"just now",type:file.type||"application/octet-stream",created:new Date().toLocaleString(),currentVersionId:r.version_id,replicaRows:[["node-01","HEALTHY",mb+" MB"],["node-02","HEALTHY",mb+" MB"],["node-03","HEALTHY",mb+" MB"]]});DATA.events.unshift({type:"success",icon:"↑",title:"Object committed",body:file.name+" uploaded in demo mode with RF 3.",relative:"just now"});$("#progress-text").textContent="Committed · replicas verified";setTimeout(()=>{closeModal();showView("objects");toast("Upload committed",file.name+" is protected with three replicas.");},450);},120);return;
+      let p=0;const timer=setInterval(async()=>{p=Math.min(100,p+Math.max(8,Math.floor(Math.random()*14)));$("#progress-value").textContent=p+"%";$("#progress-bar").style.width=p+"%";$("#progress-bar").setAttribute("aria-valuenow",String(p));$("#progress-text").textContent=p<70?"Streaming object":"Verifying replicas";if(p<100)return;clearInterval(timer);const r=await API.upload(file),mb=(file.size/1048576).toFixed(1);DATA.dashboard.objects+=1;DATA.objects.unshift({id:r.object_id,size:mb+" MB",version:r.version_id,replicas:"3/3",checksum:"pending…",status:"healthy",updated:"just now",type:file.type||"application/octet-stream",created:new Date().toLocaleString(),currentVersionId:r.version_id,replicaRows:[["node-01","HEALTHY",mb+" MB"],["node-02","HEALTHY",mb+" MB"],["node-03","HEALTHY",mb+" MB"]]});DATA.events.unshift({type:"success",icon:"↑",title:"Object committed",body:file.name+" uploaded in demo mode with RF 3.",relative:"just now"});$("#progress-text").textContent="Committed · replicas verified";setTimeout(()=>{closeModal();showView("objects");toast("Upload committed",file.name+" is protected with three replicas.");},450);},120);return;
     }
-    $("#progress-value").textContent="25%";$("#progress-bar").style.width="25%";$("#progress-text").textContent="Uploading through Part B…";
-    try{await API.upload(file);$("#progress-value").textContent="100%";$("#progress-bar").style.width="100%";$("#progress-text").textContent="Accepted · syncing catalog";await API.sync();setTimeout(()=>{closeModal();showView("objects");toast("Upload accepted",file.name+" is now in the live object catalog.");},350);}
+    $("#progress-value").textContent="25%";$("#progress-bar").style.width="25%";$("#progress-bar").setAttribute("aria-valuenow","25");$("#progress-text").textContent="Uploading through Part B…";
+    try{await API.upload(file);$("#progress-value").textContent="100%";$("#progress-bar").style.width="100%";$("#progress-bar").setAttribute("aria-valuenow","100");$("#progress-text").textContent="Accepted · syncing catalog";await API.sync();setTimeout(()=>{closeModal();showView("objects");toast("Upload accepted",file.name+" is now in the live object catalog.");},350);}
     catch(error){closeModal();toast("Upload failed",error.message);}
   }
   function openDrill(){if(CONFIG.mode==="api"){toast("Demo-only control","The resilience drill never changes Part B state.");return;}const m=$("#drill-modal");m.classList.add("open");m.setAttribute("aria-hidden","false");state.drillRunning=false;resetDrill();setTimeout(()=>$("#drill-run").focus(),20);}
@@ -314,10 +337,10 @@
   $("#command-open").addEventListener("click",openCommand);
   $("#command-input").addEventListener("keydown",e=>{const items=$$("#command-list .command-item");if(e.key==="ArrowDown"){e.preventDefault();state.commandIndex=Math.min(state.commandIndex+1,Math.max(0,items.length-1));renderCommands();}if(e.key==="ArrowUp"){e.preventDefault();state.commandIndex=Math.max(0,state.commandIndex-1);renderCommands();}if(e.key==="Enter"){e.preventDefault();items[state.commandIndex]?.click();}});
   const drop=document.querySelector(".drop");
-  $("#file-input").addEventListener("change",()=>{const f=$("#file-input").files[0];$("#file-name").textContent=f?f.name+" · "+(f.size/1048576).toFixed(2)+" MB":"No file selected";$("#upload-btn").disabled=!f;});
+  $("#file-input").addEventListener("change",()=>{const f=$("#file-input").files[0];if(f){try{validateUploadFile(f);}catch(error){$("#file-input").value="";$("#file-name").textContent="No file selected";$("#upload-btn").disabled=true;toast("Invalid file",error.message);return;}}$("#file-name").textContent=f?f.name+" · "+(f.size/1048576).toFixed(2)+" MB":"No file selected";$("#upload-btn").disabled=!f;});
   ["dragenter","dragover"].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.add("dragging");}));
   ["dragleave","drop"].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.remove("dragging");}));
-  drop.addEventListener("drop",e=>{const file=e.dataTransfer.files[0];if(!file)return;const input=$("#file-input");if(typeof DataTransfer!=="undefined"){const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;}$("#file-name").textContent=file.name+" · "+(file.size/1048576).toFixed(2)+" MB";$("#upload-btn").disabled=false;});
+  drop.addEventListener("drop",e=>{const file=e.dataTransfer.files[0];if(!file)return;try{validateUploadFile(file);}catch(error){toast("Invalid file",error.message);return;}const input=$("#file-input");if(typeof DataTransfer!=="undefined"){const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;}$("#file-name").textContent=file.name+" · "+(file.size/1048576).toFixed(2)+" MB";$("#upload-btn").disabled=false;});
   $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal();});
   $("#drill-modal").addEventListener("click",e=>{if(e.target.id==="drill-modal")closeDrill();});
   $("#command-modal").addEventListener("click",e=>{if(e.target.id==="command-modal")closeCommand();});
