@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const CONFIG = window.VAULT_CONFIG || { mode: "mock", baseUrl: "/api/v1" };
+  const CONFIG = window.VAULT_CONFIG || { mode: "api", baseUrl: "/api/v1" };
 
   const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
   const SAFE_FILENAME = /^[^\x00-\x1f\x7f]+$/;
@@ -20,7 +20,7 @@
   function validateUploadFile(file) {
     if (!(file instanceof File)) throw new Error("Please select a valid file.");
     if (!Number.isFinite(file.size) || file.size < 0) throw new Error("Invalid file size.");
-    if (file.size > MAX_UPLOAD_BYTES) throw new Error("File exceeds the 100 MB demo upload limit.");
+    if (file.size > MAX_UPLOAD_BYTES) throw new Error("File exceeds the 100 MB upload limit.");
     if (!SAFE_FILENAME.test(file.name)) throw new Error("File name contains invalid control characters.");
   }
   const ROUTES = ["overview","nodes","objects","repairs","integrity","rebalance","events","policies","guide","about"];
@@ -38,7 +38,7 @@
     detailLoading:false
   };
 
-  const state = {view:"overview",nodeFilter:"all",objectFilter:"all",eventFilter:"all",selectedObject:null,commandIndex:0,drillRunning:false};
+  const state = {view:"overview",nodeFilter:"all",objectFilter:"all",eventFilter:"all",selectedObject:null,commandIndex:0};
   const STATUS_META=Object.freeze({
     healthy:["green","HEALTHY"],
     attention:["amber","ATTENTION"],
@@ -111,7 +111,6 @@
     },
     get(path){return this.request(path);},
     async action(name,payload){
-      if(this.mode==="mock")return {job_id:name+"-"+Date.now(),status:"RUNNING"};
       if(!ADMIN_PATHS[name])throw new Error("Unsupported admin action.");
       return this.request(ADMIN_PATHS[name],{method:"POST",body:JSON.stringify(payload||{}),headers:{"Content-Type":"application/json"}});
     },
@@ -121,7 +120,6 @@
     },
     async upload(file){
       validateUploadFile(file);
-      if(this.mode==="mock")return {object_id:"obj_"+Math.random().toString(16).slice(2,8),version_id:"v1"};
       const objectName=file.name.replace(/\\/g,"/").split("/").pop()||"upload";
       return this.request("/objects/"+encodeURIComponent(objectName),{method:"PUT",body:file,headers:{"Content-Type":file.type||"application/octet-stream"}});
     },
@@ -304,9 +302,8 @@
       return filterOk&&searchOk;
     });
     $("#nodes-body").innerHTML=rows.length?rows.map(n=>{
-      const actionLabel=n.lifecycle==="DRAINING"?"Resume":"Drain";
-      return "<tr><td class='objid'>"+escapeHtml(n.id)+"</td><td>"+status(n.status)+"</td><td>"+n.capacity+"</td><td><b>"+n.used+"</b> <small>"+n.percent+"%</small></td><td>"+(typeof n.objects==="number"?n.objects.toLocaleString():"—")+"</td><td>"+escapeHtml(n.heartbeat)+"</td><td><span class='chip "+(n.lifecycle==="HEALTHY"?"green":"amber")+"'>"+escapeHtml(n.lifecycle)+"</span></td><td><button class='table-action' data-node='"+escapeHtml(n.id)+"' data-node-action='"+actionLabel.toLowerCase()+"' aria-label='"+actionLabel+" "+escapeHtml(n.id)+"'>"+actionLabel+"</button></td></tr>";
-    }).join(""):"<tr><td colspan='8' class='empty-row'>No nodes match this filter.</td></tr>";
+      return "<tr><td class='objid'>"+escapeHtml(n.id)+"</td><td>"+status(n.status)+"</td><td>"+n.capacity+"</td><td><b>"+n.used+"</b> <small>"+n.percent+"%</small></td><td>"+(typeof n.objects==="number"?n.objects.toLocaleString():"—")+"</td><td>"+escapeHtml(n.heartbeat)+"</td><td><span class='chip "+(n.lifecycle==="HEALTHY"?"green":"amber")+"'>"+escapeHtml(n.lifecycle)+"</span></td></tr>";
+    }).join(""):"<tr><td colspan='7' class='empty-row'>No nodes match this filter.</td></tr>";
   }
   function renderObjects(){
     const q=($("#object-search")?.value||"").toLowerCase();
@@ -414,24 +411,35 @@
   }
   async function runAction(name){
     try{
-      const selected=DATA.objects.find(o=>o.id===state.selectedObject),versionId=selected?.currentVersionId;
-      if(CONFIG.mode==="api"){
-        if((name==="repair"||name==="rebalance")&&!versionId){
-          showView("objects");
-          throw new Error("Open Objects, inspect an object with a current version, then start this operation.");
-        }
-        if(name==="integrity")showView("integrity");
-        if(name==="repair")showView("repairs");
-        if(name==="rebalance")showView("rebalance");
-        let payload={};
-        if(name==="repair")payload={version_id:versionId,reason:"admin-request"};
-        if(name==="integrity"&&versionId)payload={version_id:versionId};
-        if(name==="rebalance"){const source=DATA.nodes.find(n=>n.percent>=80)||DATA.nodes.find(n=>n.status==="attention"),target=DATA.nodes.find(n=>n.id!==source?.id&&n.percent<60);if(!source||!target)throw new Error("No safe high-pressure source and low-pressure target node pair is available.");payload={version_id:versionId,source_node_id:source.id,target_node_id:target.id};}
-        const result=await API.action(name,payload),id=jobIdFromResponse(name,result);
-        toast(name.charAt(0).toUpperCase()+name.slice(1)+" accepted",id?"Tracking "+id:"Part B accepted the request.");if(id)pollJob(name,id);return;
+      const selected=DATA.objects.find(o=>o.id===state.selectedObject);
+      const versionId=selected?.currentVersionId;
+      if(!versionId){
+        showView("objects");
+        throw new Error("Select and inspect an object version before starting this operation.");
       }
-      toast(name.charAt(0).toUpperCase()+name.slice(1)+" started","Safe demo control-plane simulation is running.");await runDemoAction(name);
-    }catch(error){toast("Operation failed",error.message||"Unexpected frontend error");}
+      if(!sessionStorage.getItem("vault_admin_key")){
+        showView("policies");
+        throw new Error("Admin key required. Save the Part B key in Settings first.");
+      }
+      if(name==="integrity")showView("integrity");
+      if(name==="repair")showView("repairs");
+      if(name==="rebalance")showView("rebalance");
+      let payload={};
+      if(name==="repair")payload={version_id:versionId,reason:"admin-request"};
+      if(name==="integrity")payload={version_id:versionId};
+      if(name==="rebalance"){
+        const source=DATA.nodes.find(n=>n.percent>=80)||DATA.nodes.find(n=>n.status==="attention");
+        const target=DATA.nodes.find(n=>n.id!==source?.id&&n.percent<60);
+        if(!source||!target)throw new Error("No safe source and target node pair is available from current Part B telemetry.");
+        payload={version_id:versionId,source_node_id:source.id,target_node_id:target.id};
+      }
+      const result=await API.action(name,payload);
+      const id=jobIdFromResponse(name,result);
+      toast(name.charAt(0).toUpperCase()+name.slice(1)+" accepted",id?"Tracking "+id:"Part B accepted the request.");
+      if(id)pollJob(name,id);
+    }catch(error){
+      toast("Operation failed",error.message||"Unexpected frontend error");
+    }
   }
   async function selectObject(id){
     state.selectedObject=id;state.detailLoading=CONFIG.mode==="api";renderAll();if(CONFIG.mode!=="api")return;
@@ -484,22 +492,30 @@
   function openModal(){openOverlay("modal","#file-input");}
   function closeModal(){closeOverlay("modal");$("#progress-wrap").hidden=true;$("#progress-bar").style.width="0%";$("#progress-value").textContent="0%";$("#file-name").textContent="No file selected";$("#upload-btn").disabled=true;$("#file-input").value="";}
   async function uploadFile(){
-    const file=$("#file-input").files[0];if(!file)return;$("#upload-btn").disabled=true;$("#progress-wrap").hidden=false;
-    if(CONFIG.mode==="mock"){
-      let p=0;const timer=setInterval(async()=>{p=Math.min(100,p+Math.max(8,Math.floor(Math.random()*14)));$("#progress-value").textContent=p+"%";$("#progress-bar").style.width=p+"%";$("#progress-bar").setAttribute("aria-valuenow",String(p));$("#progress-text").textContent=p<70?"Streaming object":"Verifying replicas";if(p<100)return;clearInterval(timer);const r=await API.upload(file),mb=(file.size/1048576).toFixed(1);DATA.dashboard.objects+=1;DATA.objects.unshift({id:r.object_id,name:file.name,size:mb+" MB",version:r.version_id,replicas:"3/3",checksum:"pending…",status:"healthy",updated:"just now",type:file.type||"application/octet-stream",created:new Date().toLocaleString(),currentVersionId:r.version_id,replicaRows:[["node-01","HEALTHY",mb+" MB"],["node-02","HEALTHY",mb+" MB"],["node-03","HEALTHY",mb+" MB"]]});DATA.events.unshift({type:"success",icon:"↑",title:"Object committed",body:file.name+" uploaded in demo mode with RF 3.",relative:"just now"});$("#progress-text").textContent="Committed · replicas verified";setTimeout(()=>{closeModal();showView("objects");toast("Upload committed",file.name+" is protected with three replicas.");},450);},120);return;
+    const file=$("#file-input").files[0];
+    if(!file)return;
+    $("#upload-btn").disabled=true;
+    $("#progress-wrap").hidden=false;
+    $("#progress-value").textContent="25%";
+    $("#progress-bar").style.width="25%";
+    $("#progress-bar").setAttribute("aria-valuenow","25");
+    $("#progress-text").textContent="Uploading through Part B…";
+    try{
+      await API.upload(file);
+      $("#progress-value").textContent="100%";
+      $("#progress-bar").style.width="100%";
+      $("#progress-bar").setAttribute("aria-valuenow","100");
+      $("#progress-text").textContent="Accepted · syncing catalog";
+      await API.sync();
+      setTimeout(()=>{
+        closeModal();
+        showView("objects");
+        toast("Upload accepted",file.name+" is now in the live object catalog.");
+      },350);
+    }catch(error){
+      closeModal();
+      toast("Upload failed",error.message);
     }
-    $("#progress-value").textContent="25%";$("#progress-bar").style.width="25%";$("#progress-bar").setAttribute("aria-valuenow","25");$("#progress-text").textContent="Uploading through Part B…";
-    try{await API.upload(file);$("#progress-value").textContent="100%";$("#progress-bar").style.width="100%";$("#progress-bar").setAttribute("aria-valuenow","100");$("#progress-text").textContent="Accepted · syncing catalog";await API.sync();setTimeout(()=>{closeModal();showView("objects");toast("Upload accepted",file.name+" is now in the live object catalog.");},350);}
-    catch(error){closeModal();toast("Upload failed",error.message);}
-  }
-  function openDrill(){if(CONFIG.mode==="api"){toast("Demo-only control","The resilience drill never changes Part B state.");return;}state.drillRunning=false;resetDrill();openOverlay("drill-modal","#drill-run");}
-  function closeDrill(){closeOverlay("drill-modal");state.drillRunning=false;}
-  function resetDrill(){$$(".drill-step").forEach((el,i)=>el.classList.toggle("active",i===0));$("#drill-status-title").textContent="Ready to simulate a node failure";$("#drill-status-copy").textContent="Detect → isolate → repair → verify.";$("#drill-console").innerHTML="<code>&gt; awaiting start...</code>";$("#drill-run").disabled=false;$("#drill-run").textContent="Start drill";}
-  async function runDrill(){
-    if(state.drillRunning)return;state.drillRunning=true;$("#drill-run").disabled=true;$("#drill-run").textContent="Running…";
-    const steps=[["Detect","node-04 misses its heartbeat window.","failure detector → SUSPECTED"],["Isolate","Reads are pinned to healthy replicas.","read path → node-01 / node-02 / node-03"],["Repair","A verified copy restores the missing replica.","repair worker → RF 3 restored"],["Verify","Checksum matches the committed version.","integrity scanner → PASS"]];
-    for(let i=0;i<steps.length;i++){$$(".drill-step").forEach((el,j)=>el.classList.toggle("active",j<=i));$("#drill-status-title").textContent=steps[i][0];$("#drill-status-copy").textContent=steps[i][1];$("#drill-console").innerHTML="<code>&gt; "+escapeHtml(steps[i][2])+"</code>";await new Promise(r=>setTimeout(r,700));}
-    DATA.events.unshift({type:"success",icon:"⚡",title:"Resilience drill completed",body:"A simulated node failure was detected, isolated, repaired and checksum-verified without data loss.",relative:"just now"});state.drillRunning=false;$("#drill-run").disabled=false;$("#drill-run").textContent="Run again";toast("Resilience drill complete","Zero-data-loss recovery path demonstrated locally.");renderAll();
   }
   const commands=[
     {label:"Go to Overview",keys:"1",run:()=>showView("overview")},{label:"Go to Nodes",keys:"2",run:()=>showView("nodes")},{label:"Go to Objects",keys:"3",run:()=>showView("objects")},{label:"Go to Repairs",keys:"4",run:()=>showView("repairs")},{label:"Go to Integrity",keys:"5",run:()=>showView("integrity")},{label:"Go to Rebalance",keys:"6",run:()=>showView("rebalance")},{label:"Open Activity",keys:"7",run:()=>showView("events")},{label:"Open Settings",keys:"8",run:()=>showView("policies")},{label:"Open User Guide",keys:"9",run:()=>showView("guide")},{label:"Open About",keys:"0",run:()=>showView("about")},{label:"Upload object",keys:"U",run:openModal},{label:"Run integrity scan",keys:"I",run:()=>runAction("integrity")},{label:"Refresh telemetry",keys:"R",run:async()=>{try{await API.sync();renderAll();toast("Refreshed","Live Part B telemetry synchronized.");}catch(e){toast("Refresh failed",e.message);}}}
@@ -513,11 +529,11 @@
     const action=e.target.closest("[data-action]");
     if(action){
       const a=action.dataset.action;
-      if(a==="upload")openModal();else if(a==="close-modal")closeModal();else if(a==="upload-file")await uploadFile();else if(a==="integrity")await runAction("integrity");else if(a==="repair")await runAction("repair");else if(a==="rebalance")await runAction("rebalance");else if(a==="refresh"){try{await API.sync();renderAll();toast("Refreshed",CONFIG.mode==="api"?"Live Vault telemetry synchronized.":"Demo telemetry refreshed.");}catch(error){toast("Refresh failed",error.message);}}else if(a==="save-admin-key"){const input=$("#admin-key-input"),key=input?.value.trim();if(!key){toast("Admin key not saved","Enter the VAULT_ADMIN_API_KEY supplied for this environment.");return;}sessionStorage.setItem("vault_admin_key",key);input.value="";toast("Admin access ready","Key stored only in this browser session.");try{await API.sync();}catch(error){toast("Telemetry refresh failed",error.message);}}
+      if(a==="upload")openModal();else if(a==="close-modal")closeModal();else if(a==="upload-file")await uploadFile();else if(a==="integrity")await runAction("integrity");else if(a==="repair")await runAction("repair");else if(a==="rebalance")await runAction("rebalance");else if(a==="refresh"){try{await API.sync();renderAll();toast("Refreshed","Live Part B telemetry synchronized.");}catch(error){toast("Refresh failed",error.message);}}else if(a==="save-admin-key"){const input=$("#admin-key-input"),key=input?.value.trim();if(!key){toast("Admin key not saved","Enter the VAULT_ADMIN_API_KEY supplied for this environment.");return;}sessionStorage.setItem("vault_admin_key",key);input.value="";toast("Admin access ready","Key stored only in this browser session.");try{await API.sync();}catch(error){toast("Telemetry refresh failed",error.message);}}
     }
     const obj=e.target.closest("[data-object]");if(obj){await selectObject(obj.dataset.object);return;}
     const node=e.target.closest("[data-node]");
-    if(node){const n=DATA.nodes.find(x=>x.id===node.dataset.node);if(!n)return;if(CONFIG.mode==="api"){toast("Demo-only control","Part B exposes no public drain/resume endpoint in the documented contract.");return;}n.lifecycle=node.dataset.nodeAction==="drain"?"DRAINING":"HEALTHY";n.status=n.lifecycle==="DRAINING"?"attention":"healthy";renderAll();toast(n.id,n.lifecycle==="DRAINING"?"Node is now draining in the local simulation.":"Node resumed in the local simulation.");}
+    if(node){return;}
     const cmd=e.target.closest("[data-command-label]");if(cmd)runCommand(cmd.dataset.commandLabel);
   });
   const handleSearchInput=debounce(e=>{if(e.target.id==="node-search")renderNodes();if(e.target.id==="object-search")renderObjects();if(e.target.id==="command-input"){state.commandIndex=0;renderCommands();}});
@@ -534,7 +550,6 @@
   ["dragleave","drop"].forEach(type=>drop.addEventListener(type,e=>{e.preventDefault();drop.classList.remove("dragging");}));
   drop.addEventListener("drop",e=>{const file=e.dataTransfer.files[0];if(!file)return;try{validateUploadFile(file);}catch(error){toast("Invalid file",error.message);return;}const input=$("#file-input");if(typeof DataTransfer!=="undefined"){const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;}$("#file-name").textContent=file.name+" · "+(file.size/1048576).toFixed(2)+" MB";$("#upload-btn").disabled=false;});
   $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal();});
-  $("#drill-modal").addEventListener("click",e=>{if(e.target.id==="drill-modal")closeDrill();});
   $("#command-modal").addEventListener("click",e=>{if(e.target.id==="command-modal")closeCommand();});
   document.addEventListener("keydown",e=>{
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openCommand();return;}
@@ -558,5 +573,5 @@
   renderAll();
   const hash=location.hash.slice(1);showView(ROUTES.includes(hash)?hash:"overview");
   API.sync().then(()=>renderAll()).catch(error=>{if(CONFIG.mode==="api")toast("API unavailable",error.message);renderAll();});
-  window.VaultFrontend={API,DATA,state,showView,openDrill,runDrill};
+  window.VaultFrontend={API,DATA,state,showView};
 })();
