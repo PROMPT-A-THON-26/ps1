@@ -12,6 +12,7 @@ from collections.abc import AsyncIterable, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 import json
+import logging
 from secrets import SystemRandom
 from typing import Any
 from urllib.parse import quote, urlparse
@@ -21,6 +22,7 @@ import httpx
 from common.ids import new_request_id, validate_request_id
 from common.settings import settings
 
+_LOGGER = logging.getLogger(__name__)
 _SYSTEM_RANDOM = SystemRandom()
 
 
@@ -840,9 +842,7 @@ class StorageNodeClient:
 
     @staticmethod
     def _log_cleanup_failure(error: Exception, request_id: str) -> None:
-        import logging
-
-        logging.getLogger(__name__).debug(
+        _LOGGER.debug(
             "storage-node response cleanup failed",
             exc_info=(type(error), error, error.__traceback__),
             extra={"request_id": request_id},
