@@ -16,3 +16,12 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.setuptools]
 packages = ["common", "metadata", "replication", "health", "placement", "gateway", "repair", "integrity", "recovery", "rebalance", "storage", "worker"]
+
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# CI enforces the critical correctness rules; broader style rules can be enabled incrementally.
+select = ["E9", "F63", "F7", "F82"]
